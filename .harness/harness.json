@@ -1,0 +1,19 @@
+{
+  "$schema": "./schema.json",
+  "version": 1,
+  "requiredFiles": [
+    "AGENTS.md",
+    "README.md",
+    "harness.cmd",
+    "docs/architecture.md",
+    "docs/quality.md",
+    ".harness/harness.json",
+    "scripts/harness.ps1"
+  ],
+  "steps": {
+    "bootstrap": [],
+    "format": [],
+    "lint": [],
+    "test": []
+  }
+}

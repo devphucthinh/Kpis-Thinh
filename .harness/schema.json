@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/agent-harness.schema.json",
+  "title": "Repository harness configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "requiredFiles", "steps"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "version": { "const": 1 },
+    "requiredFiles": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "steps": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bootstrap", "format", "lint", "test"],
+      "properties": {
+        "bootstrap": { "$ref": "#/$defs/steps" },
+        "format": { "$ref": "#/$defs/steps" },
+        "lint": { "$ref": "#/$defs/steps" },
+        "test": { "$ref": "#/$defs/steps" }
+      }
+    }
+  },
+  "$defs": {
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "command", "args"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "command": { "type": "string", "minLength": 1 },
+          "args": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "workingDirectory": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

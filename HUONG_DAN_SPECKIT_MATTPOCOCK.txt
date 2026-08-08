@@ -1,0 +1,371 @@
+HƯỚNG DẪN KẾT HỢP SPEC KIT + MATT POCOCK SKILLS TRONG CODEX
+================================================================
+
+Mục tiêu
+--------
+
+Sử dụng Spec Kit để quản lý ý định và artefact phát triển:
+
+  Constitution -> Specification -> Clarification -> Plan -> Tasks -> Analysis
+
+Sử dụng Matt Pocock skills để quản lý vòng phản hồi kỹ thuật:
+
+  Interview -> Domain model -> TDD implementation -> Debug -> Code review
+
+Sử dụng harness của repo làm cổng kiểm tra cuối:
+
+  .\harness.cmd check
+
+
+0. PHẠM VI VÀ CÁCH GỌI SKILL
+-----------------------------
+
+Hai bộ đã được cài riêng cho repo này tại:
+
+  D:\IDEA\.agents\skills
+
+Không có skill nào được cài global. Trong Codex, gọi skill bằng ký tự "$":
+
+  $ten-skill nội dung yêu cầu
+
+Sau khi mới cài hoặc cập nhật skill, hãy bắt đầu một task Codex mới. Nếu skill
+chưa xuất hiện, đóng và mở lại Codex rồi kiểm tra lại.
+
+Kiểm tra nhanh trong PowerShell:
+
+  Get-ChildItem .agents\skills -Directory | Sort-Object Name
+  Get-ChildItem .agents\skills -Recurse -Filter SKILL.md
+  .\harness.cmd check
+
+
+1. THIẾT LẬP MỘT LẦN CHO REPO
+------------------------------
+
+Bước 1.1 - Cấu hình Matt Pocock skills
+
+Mở một task Codex mới tại D:\IDEA và gửi:
+
+  $setup-matt-pocock-skills Configure this repository for the installed
+  engineering skills. Inspect the repo first and show me the proposed files
+  before writing them.
+
+Skill sẽ hỏi lần lượt:
+
+  A. Issue tracker
+     Repo hiện chưa có remote, nên lựa chọn khuyến nghị là "Local markdown".
+     Ticket sẽ nằm dưới .scratch/<feature>/.
+
+  B. Triage labels
+     Chọn "Yes" để giữ bộ mặc định:
+     needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix.
+
+  C. Domain docs
+     Repo hiện là single-context. Dùng CONTEXT.md ở root và ADR trong docs/adr/.
+
+Trước khi skill ghi file, đọc bản nháp của:
+
+  - phần "Agent skills" sẽ thêm vào AGENTS.md;
+  - docs/agents/issue-tracker.md;
+  - docs/agents/triage-labels.md;
+  - docs/agents/domain.md.
+
+Chỉ xác nhận khi các đường dẫn và lựa chọn đúng nhu cầu của dự án.
+
+
+Bước 1.2 - Tạo constitution của Spec Kit
+
+Gửi trong task Codex mới:
+
+  $speckit-constitution Create the project constitution from AGENTS.md,
+  docs/architecture.md, and docs/quality.md. Preserve ./harness.cmd as the
+  canonical setup and verification interface. Require behavior-first tests,
+  small vertical slices, documented architecture decisions, no committed
+  credentials, and human approval before implementation and completion.
+
+Đọc và duyệt file:
+
+  .specify\memory\constitution.md
+
+Constitution là luật cấp cao. Khi constitution mâu thuẫn với spec hoặc plan,
+phải sửa spec/plan; không được bỏ qua constitution.
+
+
+Bước 1.3 - Kiểm tra nền
+
+Chạy:
+
+  .\harness.cmd check
+
+Chỉ bắt đầu feature khi kết quả có dòng:
+
+  All harness checks passed.
+
+
+2. LOOP CHUẨN CHO MỖI FEATURE
+------------------------------
+
+BƯỚC A - LÀM RÕ Ý TƯỞNG VÀ DOMAIN
+
+Nếu chưa biết nên bắt đầu bằng skill nào:
+
+  $ask-matt I want to build <mô tả feature>. Route me through the smallest
+  workflow that reaches an approved spec and tested implementation.
+
+Để được hỏi sâu và đồng thời cập nhật domain language/ADR:
+
+  $grill-with-docs Grill me about <mô tả feature>. Resolve user outcomes,
+  boundaries, edge cases, domain terms, failure modes, and acceptance criteria.
+  Do not implement anything yet.
+
+Kết thúc bước này khi:
+
+  - mục tiêu người dùng rõ ràng;
+  - phạm vi trong/ngoài feature rõ ràng;
+  - thuật ngữ domain thống nhất;
+  - các quyết định khó đã có ADR hoặc ghi chú;
+  - không còn nhánh quan trọng chưa được quyết định.
+
+
+BƯỚC B - TẠO FEATURE SPEC
+
+Gửi:
+
+  $speckit-specify Build <mô tả WHAT và WHY của feature>. Include user
+  journeys, acceptance criteria, edge cases, and measurable success criteria.
+  Do not choose implementation technology in the specification.
+
+Spec Kit sẽ tạo feature directory và spec.md. Đọc spec, đặc biệt là:
+
+  - user scenarios;
+  - functional requirements;
+  - acceptance criteria;
+  - edge cases;
+  - success criteria.
+
+
+BƯỚC C - LOẠI BỎ ĐIỂM MƠ HỒ
+
+Gửi:
+
+  $speckit-clarify Review the active feature specification. Ask only questions
+  whose answers materially change scope, data, UX, security, or acceptance
+  criteria. Update the specification with every approved answer.
+
+Lặp lại nếu vẫn còn quyết định quan trọng chưa chốt. Không dùng clarify để hỏi
+chi tiết triển khai đáng lẽ thuộc plan.
+
+Tùy chọn, tạo checklist chất lượng requirement:
+
+  $speckit-checklist Create a requirements-quality checklist for the active
+  feature, focused on completeness, clarity, consistency, and testability.
+
+
+BƯỚC D - LẬP TECHNICAL PLAN
+
+Gửi:
+
+  $speckit-plan Use the repository architecture and constitution. Propose the
+  smallest technical design that satisfies the active specification. Define
+  module boundaries, public interfaces, data flow, error handling, migrations,
+  observability, and verification commands.
+
+Checkpoint bắt buộc: đọc plan và xác nhận:
+
+  - plan đáp ứng spec;
+  - không vi phạm constitution;
+  - dependency direction đúng docs/architecture.md;
+  - mọi hành vi quan trọng có seam có thể kiểm thử;
+  - không thêm framework hoặc dependency không cần thiết.
+
+
+BƯỚC E - CHIA TASK
+
+Gửi:
+
+  $speckit-tasks Generate ordered, dependency-aware tasks for the active plan.
+  Prefer vertical tracer-bullet slices. Every task must include exact files,
+  verification, and an independently reviewable outcome.
+
+Sau đó kiểm tra chéo toàn bộ artefact:
+
+  $speckit-analyze Analyze the constitution, specification, plan, and tasks for
+  contradictions, missing coverage, ambiguous requirements, and ordering
+  problems. Report findings before editing anything.
+
+Sửa các finding quan trọng rồi chạy analyze lại.
+
+CHECKPOINT NGƯỜI DÙNG #1:
+
+  Dừng lại và duyệt spec + plan + tasks trước khi viết code.
+
+
+BƯỚC F - TRIỂN KHAI BẰNG MATT + TDD
+
+Trước khi dùng $implement, Git phải có author identity vì skill sẽ commit:
+
+  git config user.name "Tên của bạn"
+  git config user.email "email-của-bạn@example.com"
+
+Chỉ cấu hình --global khi bạn thực sự muốn áp dụng cho mọi repo.
+
+Gửi:
+
+  $implement Implement the approved active Spec Kit plan and tasks. Treat the
+  Spec Kit spec as the behavior contract. Work one vertical slice at a time.
+  Before each slice, agree the public test seam with me. Use $tdd with red
+  before green, run focused checks frequently, then run the full harness.
+
+Quy tắc TDD bắt buộc:
+
+  1. Chốt public interface và test seam với người dùng.
+  2. Viết một test hành vi và chạy để thấy RED đúng lý do.
+  3. Viết lượng code nhỏ nhất để test GREEN.
+  4. Chạy focused test/typecheck.
+  5. Chuyển sang vertical slice tiếp theo.
+  6. Không viết hàng loạt test trước rồi mới implement hàng loạt.
+  7. Không test private method hoặc implementation detail.
+
+QUY TẮC TRÁNH XUNG ĐỘT:
+
+  Trong loop kết hợp này, dùng $implement của Matt Pocock để thực thi tasks.
+  Không chạy thêm $speckit-implement trên cùng feature, vì cả hai đều là
+  implementation orchestrator và có thể làm trùng việc hoặc tạo commit lệch.
+
+  $speckit-implement chỉ là phương án thay thế khi bạn quyết định KHÔNG dùng
+  Matt Pocock implementation workflow cho feature đó.
+
+
+BƯỚC G - REVIEW VÀ VERIFY
+
+$implement sẽ gọi code review khi hoàn tất. Có thể yêu cầu rõ thêm:
+
+  $code-review Review the diff against both repository standards and the active
+  Spec Kit specification. Separate standards findings from spec-compliance
+  findings. Do not modify code until findings are reviewed.
+
+Sau khi xử lý finding đã duyệt, chạy:
+
+  .\harness.cmd check
+
+Tùy chọn, tìm phần việc còn sót và bổ sung vào tasks:
+
+  $speckit-converge Assess the implementation against the active specification
+  and append concrete remaining work to the active tasks file. Do not implement
+  the new tasks in this step.
+
+CHECKPOINT NGƯỜI DÙNG #2:
+
+  Chỉ đóng feature khi code review không còn finding quan trọng, harness pass,
+  acceptance criteria đạt và Spec Kit artefacts phản ánh đúng trạng thái cuối.
+
+
+3. LOOP XỬ LÝ BUG
+-----------------
+
+Khi test, harness hoặc hành vi thực tế bị lỗi, không sửa đoán mò. Gửi:
+
+  $diagnosing-bugs Diagnose <mô tả lỗi>. First reproduce it with the smallest
+  feedback loop that goes red. Minimize the case, form one hypothesis at a
+  time, instrument the boundary, identify the root cause, then fix it and add
+  a regression test. Update the active spec/tasks if behavior changed.
+
+Flow bug:
+
+  Reproduce RED
+      -> Minimize
+      -> Hypothesis
+      -> Instrument
+      -> Root cause
+      -> Regression test
+      -> Minimal fix
+      -> Focused test
+      -> .\harness.cmd check
+      -> $code-review
+
+Nếu bug làm thay đổi yêu cầu, quay lại bước sớm nhất bị vô hiệu:
+
+  Requirement sai  -> sửa spec -> clarify -> plan -> tasks -> analyze
+  Design sai       -> sửa plan -> tasks -> analyze
+  Task thiếu       -> sửa tasks -> analyze
+  Code sai         -> diagnosing-bugs -> TDD -> review -> harness
+
+
+4. LOOP HẰNG NGÀY RÚT GỌN
+--------------------------
+
+  [ ] $ask-matt hoặc $grill-with-docs
+  [ ] $speckit-specify
+  [ ] $speckit-clarify
+  [ ] $speckit-plan
+  [ ] $speckit-tasks
+  [ ] $speckit-analyze
+  [ ] Người dùng duyệt spec/plan/tasks
+  [ ] $implement (dùng $tdd theo vertical slice)
+  [ ] $code-review
+  [ ] .\harness.cmd check
+  [ ] $speckit-converge nếu cần
+  [ ] Người dùng duyệt hoàn tất
+
+
+5. KHI NÀO DÙNG SKILL NÀO
+--------------------------
+
+  Không biết bắt đầu đâu          -> $ask-matt
+  Ý tưởng còn mơ hồ               -> $grill-with-docs
+  Viết yêu cầu WHAT/WHY           -> $speckit-specify
+  Spec có điểm chưa quyết định    -> $speckit-clarify
+  Kiểm tra chất lượng requirement -> $speckit-checklist
+  Chọn kiến trúc/công nghệ        -> $speckit-plan
+  Chia vertical task              -> $speckit-tasks
+  Kiểm tra chéo artefact          -> $speckit-analyze
+  Triển khai task đã duyệt        -> $implement
+  Red-green theo public seam      -> $tdd
+  Điều tra bug                    -> $diagnosing-bugs
+  Review standards + spec         -> $code-review
+  Tìm phần việc còn thiếu         -> $speckit-converge
+  Quality gate cuối               -> .\harness.cmd check
+
+
+6. CẬP NHẬT HAI BỘ SKILL
+-------------------------
+
+Luôn cập nhật trên một branch riêng và đọc diff trước khi merge.
+
+Spec Kit:
+
+  .\.tools\uv\uvx.exe --from git+https://github.com/github/spec-kit.git `
+    specify init --here --force --integration codex `
+    --integration-options="--skills" --script ps --ignore-agent-tools
+
+Matt Pocock skills:
+
+  Cách an toàn là yêu cầu Codex dùng $skill-installer tải phiên bản mới từ
+  mattpocock/skills vào thư mục tạm, so sánh với .agents/skills, rồi chỉ thay
+  các skill Matt Pocock sau khi bạn duyệt diff. Không xóa toàn bộ
+  .agents/skills vì thư mục này còn chứa Spec Kit.
+
+Sau mọi lần cập nhật:
+
+  1. Bắt đầu task Codex mới hoặc khởi động lại Codex.
+  2. Kiểm tra tên skill trong từng SKILL.md.
+  3. Chạy .\harness.cmd check.
+  4. Đọc git diff để phát hiện thay đổi workflow hoặc tên invocation.
+
+
+7. NGUYÊN TẮC AN TOÀN
+---------------------
+
+  - Không commit .env, API key, token hoặc credential.
+  - Không cho hai implementation orchestrator chạy cùng một feature.
+  - Không implement khi spec/plan/tasks chưa được duyệt.
+  - Không đánh dấu hoàn tất khi harness chưa pass.
+  - Không sửa bug trước khi tái hiện được lỗi.
+  - Không bỏ qua constitution để làm cho plan "dễ hơn".
+  - Mọi thay đổi kiến trúc lâu dài phải có ADR.
+  - Giữ AGENTS.md ngắn; đặt kiến thức chi tiết trong docs và artefact Spec Kit.
+
+Nguồn cài đặt:
+
+  https://github.com/github/spec-kit
+  https://github.com/mattpocock/skills
+
