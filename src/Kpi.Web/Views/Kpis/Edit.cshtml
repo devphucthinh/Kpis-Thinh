@@ -1,47 +1,93 @@
-@model Kpi.Web.Controllers.EditKpiModel
-@{ Layout = "_Layout"; }
+@using System.Text.Json
+@using System.Text.Json.Serialization
+@model Kpi.Web.ViewModels.KpiEditPageVm
+@{ Layout = "_Layout"; ViewData["Title"] = $"KPI {Model.Workbench.Code}"; ViewData["ActiveNav"] = "kpis"; var draft = Model.Workbench.Draft; var form = Model.Form; var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web) { Converters = { new JsonStringEnumConverter() } }; }
 
-<h1>Soạn KPI: @Model.Definition?.Code</h1>
-<div asp-validation-summary="All"></div>
+<div class="page-title">
+    <div><div class="muted">KPI DEFINITION / @Model.Workbench.Code</div><h1>@Model.Workbench.Name</h1><p class="subtitle">@Model.Workbench.Description</p></div>
+    <a class="button secondary" href="/Kpis">Danh sách KPI</a>
+</div>
 
-<form method="post" action="@(Model.VersionId == Guid.Empty ? "/Kpis/AddVersion" : "/Kpis/UpdateDraft")">
-    @Html.AntiForgeryToken()
-    <input type="hidden" asp-for="DefinitionId" />
-    <input type="hidden" asp-for="VersionId" />
-    <input type="hidden" asp-for="ConcurrencyToken" />
-    <label>Tên phiên bản <input asp-for="VersionName" /></label>
-    <label>Mô tả <textarea asp-for="VersionDescription"></textarea></label>
-    <label>Biến (mỗi dòng một mã) <textarea asp-for="Variables" id="formula-variables" placeholder="revenue&#10;target"></textarea></label>
-    <label>Công thức <textarea asp-for="Source" id="formula-source" placeholder="revenue / target * 100"></textarea></label>
-    <label>Ghi chú thay đổi <input asp-for="ChangeSummary" /></label>
-    <button class="button" type="submit">@(Model.VersionId == Guid.Empty ? "Lưu phiên bản Draft" : "Cập nhật phiên bản Draft")</button>
-</form>
+@if (Model.Workbench.Archived)
+{
+    <div class="flash-message" role="status">KPI này đã archive. Nội dung hiển thị ở chế độ chỉ đọc.</div>
+}
 
-<section id="formula-test-run">
-    <h2>Test Run công thức</h2>
-    <p>Chạy thử để xem kết quả; không lưu Evaluation hoặc Audit.</p>
-    <div id="formula-test-inputs"></div>
+@if (draft is not null)
+{
+    <div class="card" data-version-stepper style="margin-bottom:18px;">
+        <div class="muted">VERSION LIFECYCLE</div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;">
+            @foreach (var status in new[] { Kpi.Domain.Kpis.KpiVersionStatus.Draft, Kpi.Domain.Kpis.KpiVersionStatus.InReview, Kpi.Domain.Kpis.KpiVersionStatus.Approved, Kpi.Domain.Kpis.KpiVersionStatus.Published, Kpi.Domain.Kpis.KpiVersionStatus.Retired })
+            {
+                var reached = (int)status <= (int)draft.Status || (draft.Status == Kpi.Domain.Kpis.KpiVersionStatus.Rejected && status == Kpi.Domain.Kpis.KpiVersionStatus.InReview);
+                <span style="display:inline-flex;align-items:center;gap:5px;opacity:@(reached ? "1" : ".45")"><span class="status-badge status-@status.ToString().ToLowerInvariant()">@((int)status + 1)</span> @status</span>
+                @if (status != Kpi.Domain.Kpis.KpiVersionStatus.Retired) { <span class="muted" aria-hidden="true">→</span> }
+            }
+        </div>
+    </div>
+}
+
+<div class="card">
+    <form method="post" action="@(form.VersionId == Guid.Empty ? "/Kpis/AddVersion" : "/Kpis/UpdateDraft")">
+        @Html.AntiForgeryToken()
+        <div asp-validation-summary="All" class="validation-summary" role="alert"></div>
+        <input type="hidden" asp-for="Form.DefinitionId" name="DefinitionId" />
+        <input type="hidden" asp-for="Form.VersionId" name="VersionId" />
+        <input type="hidden" asp-for="Form.ConcurrencyToken" name="ConcurrencyToken" />
+        <input type="hidden" asp-for="Form.VariablesJson" name="VariablesJson" id="formula-variables-json" />
+        <textarea asp-for="Form.Variables" name="Variables" id="formula-variables" hidden></textarea>
+        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;">
+            <div>
+                <div class="muted">VERSION CONTENT</div>
+                <label>Tên phiên bản <input asp-for="Form.VersionName" name="VersionName" /></label>
+                <label>Mô tả phiên bản <textarea asp-for="Form.VersionDescription" name="VersionDescription"></textarea></label>
+                <label>Ghi chú thay đổi <input asp-for="Form.ChangeSummary" name="ChangeSummary" placeholder="Vì sao phiên bản này thay đổi?" /></label>
+            </div>
+            <div>
+                <div class="muted">FORMULA VARIABLES</div>
+                <div id="formula-variable-rows" data-variable-rows="@Html.Raw(JsonSerializer.Serialize(form.VariableRows, jsonOptions))">
+                    @foreach (var variable in form.VariableRows)
+                    {
+                        <span data-variable-contract data-variable-type="@variable.Type" data-variable-code="@variable.Code" hidden>@variable.DisplayName</span>
+                    }
+                </div>
+                <button class="button secondary" type="button" id="formula-add-variable">+ Thêm biến</button>
+            </div>
+        </div>
+        <label>Công thức KPI
+            <textarea asp-for="Form.Source" name="Source" id="formula-source" list="formula-suggestions" placeholder="gross_revenue - discount" spellcheck="false"></textarea>
+            <datalist id="formula-suggestions"><option value="AND()"></option><option value="OR()"></option><option value="NOT()"></option><option value="IF()"></option><option value="ROUND()"></option><option value="ABS()"></option><option value="MOD()"></option></datalist>
+        </label>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="button" type="submit">@(form.VersionId == Guid.Empty ? "Lưu phiên bản Draft" : "Cập nhật Draft")</button><span class="muted">Lưu không tự động Submit; bạn sẽ kiểm tra công thức trước.</span></div>
+    </form>
+</div>
+
+<div class="card" id="formula-test-run" style="margin-top:18px;">
+    <div class="muted">FORMULA TEST RUN</div><h2>Chạy thử công thức</h2><p class="subtitle">Test Run chỉ hiển thị kết quả, không lưu KPI Evaluation hoặc Audit Record.</p>
+    <div id="formula-test-inputs" class="card" style="background:var(--surface-muted);"></div>
     <button class="button" id="formula-test-button" type="button">Chạy Test Run</button>
-    <pre id="formula-test-result" role="status"></pre>
-</section>
+    <pre id="formula-test-result" role="status" aria-live="polite"></pre>
+</div>
 
-<section>
-    <h2>Phiên bản hiện có</h2>
-    <ul>
-    @foreach (var version in Model.Definition?.Versions ?? [])
+<div class="card" style="margin-top:18px;">
+    <div class="muted">VERSION TIMELINE</div><h2>Phiên bản hiện có</h2>
+    <div style="display:grid;gap:8px;">
+    @foreach (var version in Model.Workbench.Versions)
     {
-        <li>v@(version.VersionNumber) — @version.Status — <code>@version.Formula.Source</code></li>
+        <div class="panel" style="display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px;">
+            <div><strong>v@version.VersionNumber · @version.Name</strong><div class="muted">@version.EffectiveFrom?.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div></div>
+            <div>@await Html.PartialAsync("_StatusBadge", version.Status.ToString())</div>
+        </div>
     }
-    </ul>
-</section>
+    </div>
+</div>
 
-<section>
-    <h2>Kiểm tra cú pháp</h2>
-    <pre id="formula-diagnostics" role="alert"></pre>
-    <h3>AST xem trước</h3>
-    <pre id="formula-ast"></pre>
-</section>
+<div class="card" style="margin-top:18px;">
+    <div class="muted">FORMULA DIAGNOSTICS</div><h2>Kiểm tra cú pháp</h2><pre id="formula-diagnostics" role="alert" aria-live="polite"></pre><h3>AST xem trước</h3><pre id="formula-ast">@if (draft is not null) { @draft.AstJson }</pre>
+</div>
 
+@section Scripts {
 <script type="module">
 import { attachFormulaEditor } from '/js/formula-editor.js';
 attachFormulaEditor(
@@ -51,5 +97,8 @@ attachFormulaEditor(
     document.getElementById('formula-ast'),
     document.getElementById('formula-test-inputs'),
     document.getElementById('formula-test-button'),
-    document.getElementById('formula-test-result'));
+    document.getElementById('formula-test-result'),
+    document.getElementById('formula-variable-rows'),
+    document.getElementById('formula-variables-json'));
 </script>
+}

@@ -1,4 +1,14 @@
-@model Kpi.Web.Controllers.CreateKpiModel
-@{ Layout = "_Layout"; }
-<h1>Tạo KPI Definition</h1>
-<form method="post">@Html.AntiForgeryToken()<div asp-validation-summary="All"></div><label>Mã KPI <input asp-for="Code" placeholder="REVENUE_ACHIEVEMENT" /></label><label>Tên <input asp-for="Name" /></label><label>Mô tả <textarea asp-for="Description"></textarea></label><button class="button" type="submit">Tạo Draft</button></form>
+@model Kpi.Web.ViewModels.CreateKpiModel
+@{ Layout = "_Layout"; ViewData["Title"] = "Tạo KPI"; ViewData["ActiveNav"] = "kpis"; }
+
+<div class="page-title"><div><div class="muted">KPI DEFINITION</div><h1>Tạo KPI mới</h1><p class="subtitle">Bắt đầu bằng một định danh ổn định và mô tả dễ hiểu.</p></div><a class="button secondary" href="/Kpis">Quay lại</a></div>
+<div class="card" style="max-width:820px;">
+    <form method="post">
+        @Html.AntiForgeryToken()
+        <div asp-validation-summary="All" class="validation-summary" role="alert"></div>
+        <label>Code KPI <input asp-for="Code" placeholder="NET_REVENUE" autocomplete="off" /></label>
+        <label>Tên hiển thị <input asp-for="Name" placeholder="Doanh thu thuần" /></label>
+        <label>Mô tả <textarea asp-for="Description" placeholder="KPI đo lường điều gì?"></textarea></label>
+        <button class="button" type="submit">Tạo Draft</button>
+    </form>
+</div>

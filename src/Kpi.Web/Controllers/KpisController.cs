@@ -1,54 +1,55 @@
+using System.Globalization;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Kpi.Application;
 using Kpi.Application.Common;
 using Kpi.Domain.Formula;
 using Kpi.Domain.Kpis;
+using Kpi.Web.Queries;
+using Kpi.Web.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Kpi.Web.Controllers;
 
 /// <summary>Vietnamese-first server-rendered KPI authoring and governance screens.</summary>
-public sealed class KpisController(KpiOperations operations, ICurrentActor actor) : Controller
+public sealed class KpisController(KpiOperations operations, KpiWebReadModelService readModels, ICurrentActor actor) : Controller
 {
     [HttpGet]
-    public IActionResult Index() => View(operations.List(actor.Current.OrganizationId));
+    public IActionResult Index(string? query = null, KpiVersionStatus? status = null)
+    {
+        ViewData["ActiveNav"] = "kpis";
+        return View(readModels.GetKpiIndex(actor.Current, query, status));
+    }
 
     [HttpGet]
-    public IActionResult Create() => View(new CreateKpiModel());
+    public IActionResult Create()
+    {
+        ViewData["ActiveNav"] = "kpis";
+        return View(new CreateKpiModel());
+    }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     public IActionResult Create(CreateKpiModel model)
     {
         var result = operations.CreateDefinition(actor.Current, model.Code, model.Name, model.Description);
-        if (!result.IsSuccess) { ModelState.AddModelError(string.Empty, result.Error!.Message); return View(model); }
+        if (!result.IsSuccess)
+        {
+            ModelState.AddModelError(string.Empty, result.Error!.Message);
+            ViewData["ActiveNav"] = "kpis";
+            return View(model);
+        }
+
         return RedirectToAction(nameof(Edit), new { id = result.Value!.Id });
     }
 
     [HttpGet]
-    public IActionResult Edit(Guid id)
+    public IActionResult Edit(Guid id, string? notice = null)
     {
-        var definition = operations.List(actor.Current.OrganizationId).FirstOrDefault(x => x.Id == id);
-        if (definition is null) return NotFound();
-
-        var draft = definition.Versions
-            .Where(x => x.Status == KpiVersionStatus.Draft)
-            .OrderByDescending(x => x.VersionNumber)
-            .FirstOrDefault();
-
-        if (draft is null) return View(new EditKpiModel { DefinitionId = id, Definition = definition });
-
-        return View(new EditKpiModel
-        {
-            DefinitionId = id,
-            VersionId = draft.Id,
-            ConcurrencyToken = operations.ConcurrencyToken(draft).Value,
-            Definition = definition,
-            VersionName = draft.Name,
-            VersionDescription = draft.Description,
-            Variables = string.Join(Environment.NewLine, draft.Variables.OrderBy(x => x.DisplayOrder).Select(x => x.Code)),
-            Source = draft.Formula.Source,
-            ChangeSummary = draft.ChangeSummary
-        });
+        var workbench = readModels.GetWorkbench(actor.Current, id, notice);
+        if (workbench is null) return NotFound();
+        ViewData["ActiveNav"] = "kpis";
+        return View(new KpiEditPageVm(workbench, FormFrom(workbench)));
     }
 
     [HttpPost]
@@ -58,21 +59,19 @@ public sealed class KpisController(KpiOperations operations, ICurrentActor actor
         IReadOnlyList<FormulaVariableDefinition> variables;
         try
         {
-            variables = ParseVariables(model.Variables);
+            variables = ParseVariables(model);
         }
-        catch (ArgumentException ex)
+        catch (Exception ex) when (ex is ArgumentException or JsonException or FormatException)
         {
-            ModelState.AddModelError(nameof(model.Variables), ex.Message);
-            model.Definition = operations.List(actor.Current.OrganizationId).FirstOrDefault(x => x.Id == model.DefinitionId);
-            return View(nameof(Edit), model);
+            ModelState.AddModelError(nameof(model.VariablesJson), ex.Message);
+            return ReturnEdit(model.DefinitionId, model);
         }
 
         var result = operations.CreateVersion(actor.Current, model.DefinitionId, model.VersionName, model.VersionDescription, model.Source, variables, FormulaResultType.Decimal, model.ChangeSummary);
         if (!result.IsSuccess)
         {
             ModelState.AddModelError(string.Empty, result.Error!.Message);
-            model.Definition = operations.List(actor.Current.OrganizationId).FirstOrDefault(x => x.Id == model.DefinitionId);
-            return View(nameof(Edit), model);
+            return ReturnEdit(model.DefinitionId, model);
         }
 
         return RedirectToAction(nameof(Edit), new { id = model.DefinitionId });
@@ -82,28 +81,82 @@ public sealed class KpisController(KpiOperations operations, ICurrentActor actor
     [ValidateAntiForgeryToken]
     public IActionResult UpdateDraft(EditKpiModel model)
     {
-        var result = operations.UpdateDraft(actor.Current, model.DefinitionId, model.VersionId, model.VersionName, model.VersionDescription, model.Source, ParseVariables(model.Variables), new ConcurrencyToken(model.ConcurrencyToken));
-        return RedirectToAction(nameof(Edit), new { id = model.DefinitionId, notice = result.Error?.Message });
+        try
+        {
+            var result = operations.UpdateDraft(actor.Current, model.DefinitionId, model.VersionId, model.VersionName, model.VersionDescription, model.Source, ParseVariables(model), new ConcurrencyToken(model.ConcurrencyToken));
+            if (!result.IsSuccess) ModelState.AddModelError(string.Empty, result.Error!.Message);
+            else return RedirectToAction(nameof(Edit), new { id = model.DefinitionId });
+        }
+        catch (Exception ex) when (ex is ArgumentException or JsonException or FormatException)
+        {
+            ModelState.AddModelError(nameof(model.VariablesJson), ex.Message);
+        }
+
+        return ReturnEdit(model.DefinitionId, model);
     }
 
     [HttpPost, ValidateAntiForgeryToken]
     public IActionResult Submit(Guid definitionId, Guid versionId) => RedirectToEdit(definitionId, operations.SubmitVersion(actor.Current, definitionId, versionId));
+
     [HttpPost, ValidateAntiForgeryToken]
     public IActionResult Review(Guid definitionId, Guid versionId, bool approve, string comment) => RedirectToEdit(definitionId, operations.ReviewVersion(actor.Current, definitionId, versionId, approve, comment));
+
     [HttpPost, ValidateAntiForgeryToken]
     public IActionResult Publish(Guid definitionId, Guid versionId, DateTimeOffset effectiveFrom) => RedirectToEdit(definitionId, operations.PublishVersion(actor.Current, definitionId, versionId, effectiveFrom));
+
     [HttpPost, ValidateAntiForgeryToken]
     public IActionResult ReturnToDraft(Guid definitionId, Guid versionId) => RedirectToEdit(definitionId, operations.ReturnVersionToDraft(actor.Current, definitionId, versionId));
+
     [HttpPost, ValidateAntiForgeryToken]
     public IActionResult Clone(Guid definitionId, Guid versionId, string changeSummary) => RedirectToEdit(definitionId, operations.CloneVersion(actor.Current, definitionId, versionId, changeSummary));
+
     [HttpPost, ValidateAntiForgeryToken]
     public IActionResult Archive(Guid id) => RedirectToAction(nameof(Index), new { notice = operations.Archive(actor.Current, id).Error?.Message });
+
     [HttpPost, ValidateAntiForgeryToken]
     public IActionResult Restore(Guid id) => RedirectToAction(nameof(Index), new { notice = operations.Restore(actor.Current, id).Error?.Message });
 
-    private IActionResult RedirectToEdit<T>(Guid definitionId, ApplicationResult<T> result) => RedirectToAction(nameof(Edit), new { id = definitionId, notice = result.Error?.Message });
-    private static IReadOnlyList<FormulaVariableDefinition> ParseVariables(string text) => text.Split(['\r', '\n', ','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select((x, i) => FormulaVariableDefinition.Create(x, x, FormulaValueType.Decimal, true, null, i)).ToArray();
-}
+    private IActionResult ReturnEdit(Guid definitionId, EditKpiModel form)
+    {
+        var workbench = readModels.GetWorkbench(actor.Current, definitionId);
+        if (workbench is null) return NotFound();
+        ViewData["ActiveNav"] = "kpis";
+        return View(nameof(Edit), new KpiEditPageVm(workbench, form));
+    }
 
-public sealed class CreateKpiModel { public string Code { get; set; } = string.Empty; public string Name { get; set; } = string.Empty; public string Description { get; set; } = string.Empty; }
-public sealed class EditKpiModel { public Guid DefinitionId { get; set; } public Guid VersionId { get; set; } public string ConcurrencyToken { get; set; } = "0"; public Kpi.Domain.Kpis.KpiDefinition? Definition { get; set; } public string VersionName { get; set; } = string.Empty; public string VersionDescription { get; set; } = string.Empty; public string Variables { get; set; } = string.Empty; public string Source { get; set; } = string.Empty; public string ChangeSummary { get; set; } = string.Empty; }
+    private IActionResult RedirectToEdit<T>(Guid definitionId, ApplicationResult<T> result) => RedirectToAction(nameof(Edit), new { id = definitionId, notice = result.Error?.Message });
+
+    private static EditKpiModel FormFrom(KpiWorkbenchVm workbench)
+    {
+        var draft = workbench.Draft;
+        var rows = draft?.Variables ?? [];
+        return new EditKpiModel
+        {
+            DefinitionId = workbench.DefinitionId,
+            VersionId = draft?.VersionId ?? Guid.Empty,
+            ConcurrencyToken = draft?.ConcurrencyToken ?? "0",
+            VersionName = draft?.Name ?? string.Empty,
+            VersionDescription = draft?.Description ?? string.Empty,
+            VariablesJson = FormulaVariableFormSerializer.Serialize(rows),
+            Variables = string.Join(Environment.NewLine, rows.Select(x => x.Code)),
+            Source = draft?.Source ?? string.Empty,
+            ChangeSummary = draft?.ChangeSummary ?? string.Empty
+        };
+    }
+
+    private static IReadOnlyList<FormulaVariableDefinition> ParseVariables(EditKpiModel model)
+    {
+        var rows = FormulaVariableFormSerializer.Deserialize(model.VariablesJson, model.Variables);
+        return rows
+            .Select(row => FormulaVariableDefinition.Create(row.Code, row.DisplayName, row.Type, row.Required, ParseDefault(row), row.DisplayOrder, row.Description))
+            .ToArray();
+    }
+
+    private static FormulaValue? ParseDefault(FormulaVariableInputVm row)
+    {
+        if (string.IsNullOrWhiteSpace(row.DefaultValue)) return null;
+        if (row.Type == FormulaValueType.Decimal && decimal.TryParse(row.DefaultValue, NumberStyles.Number, CultureInfo.InvariantCulture, out var decimalValue)) return FormulaValue.Decimal(decimalValue);
+        if (row.Type == FormulaValueType.Boolean && bool.TryParse(row.DefaultValue, out var booleanValue)) return FormulaValue.Boolean(booleanValue);
+        throw new FormatException($"Default value for '{row.Code}' is not a valid {row.Type} value.");
+    }
+}

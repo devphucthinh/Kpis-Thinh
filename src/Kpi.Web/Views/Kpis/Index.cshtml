@@ -1,6 +1,52 @@
-@model IReadOnlyList<Kpi.Domain.Kpis.KpiDefinition>
-@{ Layout = "_Layout"; }
-<div class="page-title"><h1>Danh sách KPI</h1><a class="button" href="/Kpis/Create">Thêm KPI</a></div>
-<table><thead><tr><th>Mã</th><th>Tên</th><th>Phiên bản</th><th>Trạng thái</th></tr></thead><tbody>
-@foreach (var kpi in Model) { var latest = kpi.Versions.LastOrDefault(); <tr><td><a href="/Kpis/Edit/@kpi.Id">@kpi.Code</a></td><td>@kpi.Name</td><td>@(latest?.VersionNumber.ToString() ?? "-")</td><td>@(latest?.Status.ToString() ?? "Draft")</td></tr> }
-</tbody></table>
+@model Kpi.Web.ViewModels.KpiIndexPageVm
+@{ Layout = "_Layout"; ViewData["Title"] = "KPIs"; ViewData["ActiveNav"] = "kpis"; }
+
+<div class="page-title">
+    <div>
+        <div class="muted">KPI DEFINITION</div>
+        <h1>KPIs</h1>
+        <p class="subtitle">Quản lý công thức, phiên bản và trạng thái phát hành.</p>
+    </div>
+    <a class="button" href="/Kpis/Create">+ Tạo KPI</a>
+</div>
+
+<form class="card" method="get" action="/Kpis" style="display:flex;align-items:end;gap:12px;margin-bottom:18px;">
+    <label style="flex:1;margin:0;">Tìm kiếm
+        <input name="query" value="@Model.Query" placeholder="Code hoặc tên KPI" />
+    </label>
+    <label style="width:180px;margin:0;">Trạng thái
+        <select name="status">
+            <option value="">Tất cả</option>
+            @foreach (var status in Enum.GetValues<Kpi.Domain.Kpis.KpiVersionStatus>())
+            {
+                <option value="@status" selected="@(Model.Status == status)">@status</option>
+            }
+        </select>
+    </label>
+    <button class="button secondary" type="submit">Lọc</button>
+</form>
+
+@if (Model.Items.Count == 0)
+{
+    <div class="empty-state">Chưa có KPI phù hợp với bộ lọc hiện tại.</div>
+}
+else
+{
+    <div class="card" style="padding:0;overflow:auto;">
+        <table>
+            <thead><tr><th>Code</th><th>Tên KPI</th><th>Version hiện hành</th><th>Trạng thái</th><th>Owner</th></tr></thead>
+            <tbody>
+            @foreach (var kpi in Model.Items)
+            {
+                <tr>
+                    <td><a href="/Kpis/Edit/@kpi.Id"><strong>@kpi.Code</strong></a><div class="muted">@kpi.Description</div></td>
+                    <td>@kpi.Name</td>
+                    <td>@(kpi.CurrentVersionNumber?.ToString() ?? "—")</td>
+                    <td>@await Html.PartialAsync("_StatusBadge", kpi.Status)</td>
+                    <td><code>@kpi.OwnerId</code></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
