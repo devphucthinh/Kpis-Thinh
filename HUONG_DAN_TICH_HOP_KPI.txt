@@ -535,3 +535,78 @@ Lệnh postgres yêu cầu ConnectionStrings__KpiRuntime tồn tại trong proce
 schema đã được migrate. Trong Development + Postgres, EnableDevelopmentSeed
 chỉ tạo organization/actor reference rows; nó không tạo KPI demo và không chạy
 ngoài Development.
+
+17. FINAL UI HANDOFF (2026-08-09)
+----------------------------------
+
+The final Control Center UI is server-rendered MVC and can be copied into an
+existing Bootstrap-compatible .cshtml project. Merge the following files rather
+than replacing the host application's Program.cs or layout wholesale:
+
+    src/Kpi.Web/Views/Shared/_Layout.cshtml
+    src/Kpi.Web/Views/Shared/_Sidebar.cshtml
+    src/Kpi.Web/Views/Shared/_FlashMessage.cshtml
+    src/Kpi.Web/Views/Shared/_StatusBadge.cshtml
+    src/Kpi.Web/wwwroot/css/site.css
+    src/Kpi.Web/wwwroot/js/theme.js
+    src/Kpi.Web/wwwroot/js/formula-editor.js
+    src/Kpi.Web/Views/Home/Index.cshtml
+    src/Kpi.Web/Views/Kpis/*.cshtml
+    src/Kpi.Web/Views/KpiPeriods/*.cshtml
+    src/Kpi.Web/Views/KpiEvaluations/*.cshtml
+    src/Kpi.Web/Views/Audit/Index.cshtml
+
+Read-model and form seams belong in:
+
+    src/Kpi.Web/Queries/KpiWebReadModelService.cs
+    src/Kpi.Web/Queries/FormulaInputParser.cs
+    src/Kpi.Web/Queries/FormulaVariableFormSerializer.cs
+    src/Kpi.Web/ViewModels/*.cs
+
+Route map:
+
+    /                         overview metrics, next actions, recent evaluations
+    /Kpis                     KPI Definition list and status filter
+    /Kpis/Create              create Definition and first Draft Version
+    /Kpis/Edit/{id}           Workbench editor, validation, AST and Test Run
+    /KpiPeriods               Period Plan list
+    /KpiPeriods/Create        cadence and date-range draft
+    /KpiPeriods/Details/{id}  selections, submit/review/activate/close
+    /KpiEvaluations/History   Current Evaluation and latest 25 immutable attempts
+    /KpiEvaluations/Create    official Evaluation input form and transient Test Run
+    /KpiEvaluations/Correct   closed-period correction and diff explanation
+    /Audit                    filtered Audit timeline
+
+Development personas are query-string simulations only: creator, approver,
+planner, evaluator, admin, observer. The UI must never be treated as an
+authorization boundary. Production integration maps a real identity/tenant
+adapter to ActorContext and removes persona query switching.
+
+The supported flow is:
+
+    creator -> Draft -> submit
+    approver (different actor) -> approve/reject -> publish with effective_from
+    planner -> create Period -> select exact published Versions -> submit
+    period approver -> approve -> Scheduled -> activate at start time
+    evaluator -> official Evaluation -> Current KPI Evaluation/history
+    closed period -> correction -> Superseding Evaluation with predecessor/diff
+    admin/observer -> filtered Audit timeline
+
+Test Run is deliberately transient. It may render a result and AST in the
+browser but must never create a kpi_evaluations row. Official Evaluation and
+Superseding Evaluation are the only persisted result paths.
+
+Verification after a merge:
+
+    .\harness.cmd bootstrap
+    .\harness.cmd test
+    .\harness.cmd check
+
+The browser smoke suite is in tests/Kpi.Web.EndToEndTests/KpiFullFlowTests.cs.
+It verifies the real rendered HTML, theme toggle, keyboard target, and 390px
+viewport. It complements (and does not replace) a human localhost check. For a
+durable local run, configure ConnectionStrings__KpiMigration and
+ConnectionStrings__KpiRuntime, execute .\harness.cmd migrate, then start
+cmd /c run-kpi.bat postgres and refresh pgAdmin 4.
+The shared layout exposes the stable browser selector data-theme-toggle for
+automated theme checks and manual QA.

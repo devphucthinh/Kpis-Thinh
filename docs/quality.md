@@ -32,3 +32,7 @@ The KPI feature extends the harness with locked .NET restore, formatting,
 analyzer build, all test projects, the explicit migration command, and the
 repository branch-policy test. Manual usability and guide-following evidence
 remain explicit gates; automated checks do not fabricate human results.
+The Playwright smoke layer in `tests/Kpi.Web.EndToEndTests/KpiFullFlowTests.cs`
+verifies rendered Control Center HTML, theme switching, keyboard focus, and a
+390px viewport. It is complementary evidence; it does not mark the separately
+tracked browser/human acceptance tasks complete by itself.
