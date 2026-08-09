@@ -16,6 +16,8 @@ The repository does not assume an application stack yet. When a runtime is selec
 
 The KPI Management prototype is available under `src/`; its human/agent integration workflow is documented in [`HUONG_DAN_TICH_HOP_KPI.txt`](HUONG_DAN_TICH_HOP_KPI.txt).
 
+On Windows, double-click [`run-kpi.bat`](run-kpi.bat) after setup to bootstrap the repository, start the local web host, and open `http://localhost:5080`.
+
 ## Repository map
 
 - [`AGENTS.md`](AGENTS.md): durable instructions for coding agents.
