@@ -1,96 +1,529 @@
-# Hướng dẫn tích hợp KPI Management vào project khác
+HƯỚNG DẪN TÍCH HỢP KPI MANAGEMENT VÀO PROJECT LỚN
+====================================================================
 
-## 1. Mục đích
+Phiên bản tài liệu: 2026-08-09
+Repository nguồn: Kpis-Thinh, nhánh main
+Solution prototype: KpiManagement.slnx
 
-Feature này cung cấp module KPI với công thức an toàn, version bất biến, quy trình duyệt, KPI Period, Evaluation history và Audit Record. Công thức được biên dịch thành AST ở server; không dùng `eval`.
+Tài liệu này hướng dẫn đưa feature KPI Management từ prototype vào solution
+ASP.NET Core MVC dùng C#, Razor .cshtml và PostgreSQL. Đọc theo đúng thứ tự.
+Không copy toàn bộ Program.cs của prototype vào project lớn; hãy ghép phần
+đăng ký dịch vụ vào composition root hiện có.
 
-## 2. Điều kiện môi trường
+1. KẾT QUẢ SAU KHI TÍCH HỢP
+--------------------------------
 
-- .NET SDK `10.0.302` (đã pin trong `global.json`).
-- Solution là `KpiManagement.slnx`.
-- PostgreSQL 18.x; database local mặc định `kpi_lab`, database test chính xác `kpi_lab_test`.
-- Chạy mọi setup/restore/test bằng `harness.cmd`; schema chỉ được ghi bởi
-  `harness.cmd migrate`.
-- Không commit password, `.env`, token, database dump hoặc browser binary.
+Feature cung cấp:
 
-## 3. Chạy prototype
+- KPI Definition có code, name và description.
+- KPI Version Draft; Version đã submit/approved/published là immutable.
+- Formula Variable có code, display name, type Decimal/Boolean, required,
+  default, description và display order.
+- Formula source được server biên dịch thành AST có version; không dùng eval.
+- Phép tính toán học, so sánh, AND, OR, NOT, IF, ROUND, ABS, %, MOD.
+- Submit, approve/reject, publish, effective_from, retire, archive/restore,
+  transfer ownership và Audit Record.
+- KPI Period: draft, chọn đúng Definition + Version, submit, approve, activate,
+  close và amendment/review.
+- Official KPI Evaluation bất biến và Superseding Evaluation khi correction.
+- Test Run chỉ hiển thị kết quả; không lưu Evaluation.
+- Khi mở một KPI có Draft đã lưu, editor tự nạp variables + formula source.
+  AST tự validate và hiển thị sau khi trang mở.
 
-```powershell
-.\harness.cmd bootstrap
-.\harness.cmd migrate
-.\harness.cmd status
-.\harness.cmd check
-```
+Phân biệt dữ liệu:
 
-`bootstrap` không migrate database. Trước khi chạy `migrate`, cấu hình
-`ConnectionStrings__KpiMigration` bằng user-secrets hoặc environment; target
-được phép chỉ là `kpi_lab` hoặc `kpi_lab_test`. Web dùng
-`ConnectionStrings__KpiRuntime` khi `Kpi:PersistenceProfile=Postgres`. Bản
-Development đã chọn profile `InMemoryTest` một cách tường minh để có thể chạy
-UI không cần database; đây không phải fallback cho Production. Đặt
-`KPI_POSTGRES_TESTS=1` khi muốn bật PostgreSQL integration profile; nếu không,
-test profile mặc định không cần credentials và không ghi schema.
+- Test Run gọi POST /api/v1/formulas/test-run và trả persisted=false.
+- Definition, Version, Period, Evaluation và Audit đi qua PostgreSQL khi runtime
+  profile là Postgres.
+- InMemoryTest chỉ dành cho test/demo; restart process sẽ mất dữ liệu.
 
-Web host:
+2. KIỂM TRA TRƯỚC KHI COPY
+--------------------------------
 
-```powershell
-dotnet run --project src/Kpi.Web/Kpi.Web.csproj --urls http://localhost:5080
-```
+Project lớn nên dùng .NET SDK 10.0.302, ASP.NET Core MVC, PostgreSQL,
+Npgsql/EF Core và identity/SSO thật. Source hiện target net10.0. Nếu project
+lớn đang net8.0/net9.0, phải port hoặc nâng framework trước; không tham chiếu
+trực tiếp net10.0 từ runtime cũ.
 
-Mở `http://localhost:5080/Kpis`. Development seed tạo mẫu `REVENUE_ACHIEVEMENT`; Production không seed demo và không cho phép persona switcher.
+Tại repository nguồn:
 
-## 4. Luồng UI
+    git switch main
+    git pull --ff-only origin main
+    .\harness.cmd bootstrap
+    .\harness.cmd check
 
-1. Vào **Tạo KPI**, nhập mã uppercase snake case, tên và mô tả.
-2. Mở KPI, nhập biến và công thức. Tên hàm luôn tiếng Anh: `IF`, `AND`, `OR`, `NOT`, `ROUND`, `ABS`, `MOD`.
-3. Editor gọi `/api/v1/formulas/validate`, hiển thị diagnostics và AST preview.
-4. Creator submit Version; persona Approver duyệt/reject với comment rồi publish với `effectiveFrom`.
-5. Tạo Period, chọn đúng Version, submit và duyệt bằng người khác. Rejected chỉ Planner được đưa về Draft. Amendment chỉ áp dụng cho Scheduled Period và tạo effective revision bất biến.
-6. Official Evaluation lưu input/result/error; Test Run không lưu Evaluation. Correction tạo Superseding Evaluation và chỉ thành công mới thay Current.
-7. Persona Administrator xem Audit timeline ở `/Audit`.
+Đọc các tài liệu nguồn trước khi tích hợp:
 
-## 5. API mẫu
+    AGENTS.md
+    CONTEXT.md
+    docs/architecture.md
+    docs/quality.md
+    docs/database/postgres-runtime-and-migration-roles.md
+    docs/decisions/0002-kpi-application-stack.md
+    HUONG_DAN_TICH_HOP_KPI.txt
 
-```http
-POST /api/v1/formulas/validate
-Content-Type: application/json
+Repository policy: làm việc trên main; không tạo branch có chữ codex.
 
-{"source":"IF(revenue > target AND active, ROUND(revenue / target * 100, 2), 0)","declaredResultType":"Decimal","variables":[{"code":"revenue","displayName":"Revenue","type":"Decimal","required":true},{"code":"target","displayName":"Target","type":"Decimal","required":true},{"code":"active","displayName":"Active","type":"Boolean","required":true}]}
-```
+3. BẢN ĐỒ SOURCE PATH -> TARGET PATH
+-------------------------------------
 
-Response có `valid`, `diagnostics`, `formula.source`, `formula.ast`, `formulaLanguageVersion`, `astSchemaVersion`. Decimal trong snapshot là chuỗi invariant khi đi qua JSON.
+Copy nguyên các project sau và giữ dependency direction:
 
-Tạo Definition: `POST /api/v1/kpis?persona=creator`.
-Tạo Version: `POST /api/v1/kpis/{definitionId}/versions?persona=creator`.
-Submit/review/publish dùng các action trong `src/Kpi.Web/Api/V1/KpiDefinitionsController.cs`.
+Nguồn: src/Kpi.Domain
+Đích khuyến nghị: src/Company.Kpi.Domain
+Trách nhiệm: Formula/AST/evaluator, KPI, Period, Evaluation, Audit invariants.
 
-## 6. Tích hợp vào solution lớn
+Nguồn: src/Kpi.Application
+Đích khuyến nghị: src/Company.Kpi.Application
+Trách nhiệm: commands, queries, capability checks, ActorContext, persistence
+ports.
 
-Giữ dependency direction: `Web -> Application -> Domain`, còn `Infrastructure.Postgres -> Application + Domain`.
+Nguồn: src/Kpi.Infrastructure.Postgres
+Đích khuyến nghị: src/Company.Kpi.Infrastructure.Postgres
+Trách nhiệm: EF mappings, JSONB, PostgreSQL stores, migration manifest/runner.
 
-- Copy `src/Kpi.Domain` trước; Domain không tham chiếu ASP.NET/EF/Npgsql.
-- Đưa `Kpi.Application` vào composition root và thay `InMemoryKpiStore` bằng persistence adapter.
-- Đưa `Kpi.Infrastructure.Postgres` vào project PostgreSQL, chạy migration bằng role migration riêng; runtime role không được UPDATE/DELETE Audit.
-- Thay `CurrentActorAccessor` bằng adapter identity của MS365, Azure, AWS hoặc Gmail. Adapter chỉ cấp `ActorContext`; command capability và separation-of-duty vẫn bắt buộc.
-- Thay Development persona/seed bằng identity và data provisioning thật trước Production.
+Nguồn: src/Kpi.Migrator
+Đích khuyến nghị: tools/Company.Kpi.Migrator
+Trách nhiệm: composition root duy nhất được phép ghi schema.
 
-## 7. Quy tắc domain
+Dependency bắt buộc:
 
-- Formula source là authoring source; AST do server tạo và version hóa.
-- Không dùng `eval`, Roslyn scripting, reflection hoặc binary floating point.
-- Chỉ Decimal, Boolean và Error/Null theo contract; chia 0 trả Failure.
-- Version đã submit/publish không sửa tại chỗ; tạo successor.
-- Period approve đóng băng ngày/selections; Scheduled Amendment tạo revision.
-- Evaluation và Audit append-only; Failure không thay Current thành công.
-- UI persona không cấp quyền; mọi command phải kiểm tra ActorContext.
+    Web -> Application -> Domain
+    Infrastructure.Postgres -> Application + Domain
+    Migrator -> Infrastructure.Postgres
 
-## 8. Tiếp tục bằng AI khác
+Domain không tham chiếu ASP.NET Core, EF Core, Npgsql, MVC, Razor hoặc harness.
 
-Yêu cầu AI tiếp theo đọc `AGENTS.md`, `CONTEXT.md`, `.specify/memory/constitution.md`, `docs/architecture.md`, `docs/quality.md`, `specs/001-kpi-management/spec.md`, `plan.md`, `tasks.md`, `docs/superpowers/specs/2026-08-09-kpi-management-design.md` và file này. AI phải chạy `harness.cmd status`, xem `git diff`, tìm task đầu tiên còn `[ ]`, viết RED trước GREEN, cập nhật checkbox và chạy `harness.cmd check`. Không tạo branch có chữ `codex`; làm việc trên `main`.
+Các file Web cần merge, không copy mù:
 
-## 9. Sự cố thường gặp
+Nguồn                                              Đích thường dùng
+src/Kpi.Web/Controllers/KpisController.cs          Areas/Kpi/Controllers
+src/Kpi.Web/Controllers/KpiEvaluationsController.cs Areas/Kpi/Controllers
+src/Kpi.Web/Controllers/KpiPeriodsController.cs   Areas/Kpi/Controllers
+src/Kpi.Web/Controllers/AuditController.cs         Areas/Kpi/Controllers
+src/Kpi.Web/Api/V1/*.cs                             Api/V1 hoặc route tương ứng
+src/Kpi.Web/Views/Kpis/*.cshtml                    Areas/Kpi/Views/Kpis
+src/Kpi.Web/Views/KpiEvaluations/*                 Areas/Kpi/Views/KpiEvaluations
+src/Kpi.Web/Views/KpiPeriods/*                     Areas/Kpi/Views/KpiPeriods
+src/Kpi.Web/wwwroot/js/formula-editor.js           wwwroot/js/formula-editor.js
 
-- SDK không nhận: kiểm tra `global.json` và `harness.cmd status`.
-- Locked restore fail: không chạy `--use-lock-file` thường xuyên; kiểm tra `packages.lock.json`.
-- Formula invalid: đọc `diagnostics[].code`, `message`, `span`; không bypass bằng AST client.
-- PostgreSQL test: đặt `KPI_POSTGRES_TESTS=1`; destructive setup chỉ được phép trên `kpi_lab_test`; credentials lấy từ user-secrets/environment.
+Phần hydrate editor bắt buộc phải giữ:
+
+- KpisController.Edit gọi operations.List(organizationId).
+- Chọn Draft mới nhất theo VersionNumber.
+- Nạp VersionId, ConcurrencyToken, name, description, change summary.
+- Nạp Variables theo DisplayOrder, nối bằng newline.
+- Nạp draft.Formula.Source vào textarea.
+- Edit.cshtml dùng UpdateDraft khi có VersionId.
+- formula-editor.js gọi scheduleValidation ngay khi khởi tạo.
+
+Version đã submit/approved/published/retired không sửa trực tiếp. Muốn sửa,
+gọi clone để tạo Draft successor.
+
+4. THÊM PROJECT VÀO SOLUTION LỚN
+---------------------------------
+
+Ví dụ solution lớn là Company.slnx:
+
+    dotnet sln Company.slnx add src/Company.Kpi.Domain/Company.Kpi.Domain.csproj
+    dotnet sln Company.slnx add src/Company.Kpi.Application/Company.Kpi.Application.csproj
+    dotnet sln Company.slnx add src/Company.Kpi.Infrastructure.Postgres/Company.Kpi.Infrastructure.Postgres.csproj
+    dotnet sln Company.slnx add tools/Company.Kpi.Migrator/Company.Kpi.Migrator.csproj
+
+Project reference:
+
+    dotnet add src/Company.Kpi.Application/Company.Kpi.Application.csproj reference src/Company.Kpi.Domain/Company.Kpi.Domain.csproj
+
+    dotnet add src/Company.Kpi.Infrastructure.Postgres/Company.Kpi.Infrastructure.Postgres.csproj reference src/Company.Kpi.Application/Company.Kpi.Application.csproj
+
+    dotnet add src/Company.Kpi.Infrastructure.Postgres/Company.Kpi.Infrastructure.Postgres.csproj reference src/Company.Kpi.Domain/Company.Kpi.Domain.csproj
+
+    dotnet add tools/Company.Kpi.Migrator/Company.Kpi.Migrator.csproj reference src/Company.Kpi.Infrastructure.Postgres/Company.Kpi.Infrastructure.Postgres.csproj
+
+Nếu solution lớn đã có project cùng vai trò, merge namespace và source thay vì
+tạo implementation thứ hai.
+
+5. PACKAGE VÀ BUILD CONFIGURATION
+----------------------------------
+
+Các package chính của source:
+
+    Microsoft.EntityFrameworkCore 10.0.2
+    Npgsql.EntityFrameworkCore.PostgreSQL 10.0.0
+    Microsoft.Extensions.Configuration 10.0.2
+    Microsoft.Extensions.Configuration.EnvironmentVariables 10.0.2
+    Microsoft.Extensions.Configuration.Json 10.0.2
+
+Infrastructure.csproj cần:
+
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+
+Migrator.csproj cần ba package Microsoft.Extensions.Configuration ở trên.
+
+Nếu solution lớn dùng central package management, đưa version vào
+Directory.Packages.props của solution lớn. Không rải version trong từng csproj.
+Sau lần tạo lock file đầu tiên:
+
+    dotnet restore Company.slnx --use-lock-file
+    dotnet build Company.slnx --configuration Release --no-restore
+
+Các lần sau dùng locked restore. Không chạy use-lock-file thường xuyên vì có
+thể âm thầm cập nhật dependency. Commit packages.lock.json theo policy repo.
+
+6. ĐĂNG KÝ APPLICATION + POSTGRESQL
+------------------------------------
+
+Trong Program.cs/Startup của project lớn, gọi AddKpiPostgres và đăng ký các
+operation với cùng KpiRuntimeState:
+
+    builder.Services.AddKpiPostgres(builder.Configuration);
+    builder.Services.AddSingleton<KpiRuntimeState>();
+
+    builder.Services.AddScoped<KpiOperations>(sp => new KpiOperations(
+        sp.GetRequiredService<KpiRuntimeState>().Store,
+        sp.GetRequiredService<IClock>(),
+        sp.GetRequiredService<IKpiDefinitionPersistence>(),
+        sp.GetRequiredService<IKpiGovernedPersistence>()));
+
+    builder.Services.AddScoped<PeriodOperations>(sp => new PeriodOperations(
+        sp.GetRequiredService<KpiRuntimeState>().Store,
+        sp.GetRequiredService<IClock>(),
+        sp.GetRequiredService<IKpiGovernedPersistence>()));
+
+    builder.Services.AddScoped<EvaluationOperations>(sp => new EvaluationOperations(
+        sp.GetRequiredService<KpiRuntimeState>().Store,
+        sp.GetRequiredService<IClock>(),
+        sp.GetRequiredService<IKpiGovernedPersistence>()));
+
+Đổi namespace theo solution lớn. Không đăng ký InMemoryKpiStore làm persistence
+chính trong production.
+
+7. THAY IDENTITY DEMO BẰNG ACTOR THẬT
+--------------------------------------
+
+Application nhận ActorContext thay vì nhận trực tiếp ClaimsPrincipal:
+
+    ActorContext(
+        Guid ActorId,
+        Guid OrganizationId,
+        KpiCapability Capabilities,
+        string CorrelationId)
+
+Tạo adapter ICurrentActor trong project lớn:
+
+1. Đọc user ID ổn định từ claims của Entra/Azure AD, AWS Cognito,
+   Google Workspace hoặc provider công ty.
+2. Đọc organization/company ID từ tenant mapping.
+3. Map role/claim sang KpiCapability.
+4. Dùng request trace ID làm CorrelationId.
+5. Trả ActorContext cho controller/API.
+
+Không đưa CurrentActorAccessor, DevelopmentPersonaCatalog hoặc query-string
+persona vào production. UI không cấp quyền; Application command mới kiểm tra
+capability, organization scope và separation of duty (separation-of-duty).
+
+8. POSTGRESQL, ROLE VÀ MIGRATION
+---------------------------------
+
+Tên configuration phải thống nhất:
+
+    ConnectionStrings:KpiMigration = role kpi_migrator
+    ConnectionStrings:KpiRuntime   = role kpi_runtime
+    Kpi:PersistenceProfile         = Postgres
+
+PowerShell local (thay secret thật ngoài Git):
+
+    $env:ConnectionStrings__KpiMigration = "Host=localhost;Port=5432;Database=kpi_lab;Username=kpi_migrator;Password=<local-secret>"
+    $env:ConnectionStrings__KpiRuntime = "Host=localhost;Port=5432;Database=kpi_lab;Username=kpi_runtime;Password=<local-secret>"
+    $env:Kpi__PersistenceProfile = "Postgres"
+
+Quyền:
+
+- kpi_migrator tạo schema, index, constraint và ghi kpi_schema_migrations.
+- kpi_runtime chỉ đọc/ghi dữ liệu nghiệp vụ cần thiết.
+- kpi_runtime không ALTER, DROP, TRUNCATE hoặc sửa/xóa audit_records.
+- Web startup không chạy migration.
+
+Prototype:
+
+    .\harness.cmd bootstrap
+    .\harness.cmd migrate
+
+Solution lớn:
+
+    dotnet run --project tools/Company.Kpi.Migrator/Company.Kpi.Migrator.csproj --configuration Release --no-restore
+
+Lệnh Migrator in MIGRATION_TARGET, MIGRATION_APPLIED và MIGRATION_SKIPPED.
+Migration runner chỉ cho database đã được allow-list (mặc định kpi_lab và
+kpi_lab_test). Nếu project lớn dùng tên DB khác, lập ADR và cập nhật allow-list
+trước khi chạy; không bỏ allow-list.
+
+Trong pgAdmin 4, refresh database/schema và kiểm tra:
+
+    kpi_schema_migrations
+    kpi_definitions
+    kpi_versions
+    kpi_periods
+    kpi_period_activations
+    kpi_period_amendments
+    kpi_evaluations
+    audit_records
+
+SQL kiểm tra:
+
+    SELECT id, code, name, organization_id
+    FROM kpi_definitions ORDER BY code;
+
+    SELECT id, definition_id, version_number, status,
+           formula_json, variables_json
+    FROM kpi_versions ORDER BY version_number;
+
+formula_json là object source + AST; variables_json giữ code, thứ tự, type,
+required, default và description.
+
+9. GẮN MVC UI + API + EDITOR
+-----------------------------
+
+Route MVC chính:
+
+    GET  /Kpis
+    GET  /Kpis/Create
+    POST /Kpis/Create
+    GET  /Kpis/Edit/{id}
+    POST /Kpis/AddVersion
+    POST /Kpis/UpdateDraft
+
+Route API chính:
+
+    POST /api/v1/formulas/validate
+    POST /api/v1/formulas/test-run
+    GET  /api/v1/kpis
+    POST /api/v1/kpis
+    POST /api/v1/kpis/{id}/versions
+    PUT  /api/v1/kpis/{id}/versions/{versionId}/draft
+    POST /api/v1/kpis/{id}/versions/{versionId}/submit
+    POST /api/v1/kpis/{id}/versions/{versionId}/review
+    POST /api/v1/kpis/{id}/versions/{versionId}/publish
+    GET  /api/v1/kpi-evaluations/{definitionId}
+    POST /api/v1/kpi-periods
+    GET  /api/v1/audit
+
+Trong Edit.cshtml phải giữ các ID:
+
+    formula-source
+    formula-variables
+    formula-diagnostics
+    formula-ast
+    formula-test-inputs
+    formula-test-button
+    formula-test-result
+
+Khi có Draft, form phải có action /Kpis/UpdateDraft và hidden
+VersionId + ConcurrencyToken. Khi chưa có Draft, dùng /Kpis/AddVersion.
+
+formula-editor.js phải:
+
+- parse variables theo newline hoặc comma;
+- tạo input Test Run;
+- gọi validate sau mỗi thay đổi và ngay lúc khởi tạo;
+- hiển thị diagnostics và formula.ast;
+- gọi Test Run, hiển thị persisted=false.
+
+Bật UseStaticFiles() trong Web host. Không dùng parser/evaluator riêng ở
+browser để quyết định kết quả chính thức; Formula Engine server là nguồn sự thật.
+
+10. KIỂM THỬ UI TỪNG BƯỚC
+-------------------------
+
+1. Chạy Web với profile Postgres.
+2. Mở /Kpis/Create, tạo code REVENUE_ACHIEVEMENT.
+3. Nhập Variables:
+
+       revenue
+       target
+
+4. Nhập Formula:
+
+       ROUND(revenue / target * 100, 2)
+
+5. Diagnostics không có lỗi; AST xuất hiện.
+6. Bấm Lưu phiên bản Draft.
+7. Reload hoặc quay lại /Kpis rồi bấm lại KPI.
+8. Xác nhận textarea vẫn có revenue, target và source nguyên thứ tự.
+9. Xác nhận form có action /Kpis/UpdateDraft.
+10. Nhập revenue=130, target=100 rồi bấm Chạy Test Run.
+11. Xác nhận kết quả theo formula và thông báo không lưu Evaluation.
+12. Kiểm tra PostgreSQL: Test Run không tạo row kpi_evaluations.
+
+Governance journey:
+
+1. Creator submit Version.
+2. Approver khác Creator approve/reject kèm comment.
+3. Chỉ Approved mới publish; effective_from không được overlap.
+4. Tạo Period, chọn đúng Version, submit và approve.
+5. Activate khi tới thời điểm hiệu lực.
+6. Tạo Official Evaluation; kiểm tra history và Current.
+7. Correction thành công tạo Superseding Evaluation; correction lỗi không thay
+   Current.
+8. Mở Audit timeline và kiểm tra actor, event, reason, timestamp.
+
+11. API SMOKE TEST
+------------------
+
+POST /api/v1/formulas/validate với body:
+
+    {
+      "source": "IF(revenue > target AND active, ROUND(revenue / target * 100, 2), 0)",
+      "declaredResultType": "Decimal",
+      "variables": [
+        {"code":"revenue","displayName":"Revenue","type":"Decimal","required":true},
+        {"code":"target","displayName":"Target","type":"Decimal","required":true},
+        {"code":"active","displayName":"Active","type":"Boolean","required":true}
+      ]
+    }
+
+Response hợp lệ phải có valid=true, formula.source, formula.ast,
+formulaLanguageVersion và astSchemaVersion.
+
+POST /api/v1/formulas/test-run với body:
+
+    {
+      "source": "ROUND(revenue / target * 100, 2)",
+      "declaredResultType": "Decimal",
+      "variables": [
+        {"code":"revenue","displayName":"Revenue","type":"Decimal","required":true},
+        {"code":"target","displayName":"Target","type":"Decimal","required":true}
+      ],
+      "inputs": {"revenue":"130","target":"100"}
+    }
+
+Response thành công:
+
+    {"persisted":false,"outcome":{"kind":"Success","value":"130"}}
+
+Decimal trong JSON là chuỗi invariant, không binary floating point.
+
+12. TEST, HARNESS VÀ ACCEPTANCE CHECKLIST
+------------------------------------------
+
+Test nên copy/adapt:
+
+    tests/Kpi.Domain.Tests
+    tests/Kpi.Application.Tests
+    tests/Kpi.IntegrationTests/Web/DraftAuthoringPageTests.cs
+    tests/Kpi.IntegrationTests/Web/KpiApiSmokeTests.cs
+    tests/Kpi.IntegrationTests/Web/KpiWorkflowApiTests.cs
+    tests/Kpi.IntegrationTests/Acceptance/FormulaAndHistoryAcceptanceTests.cs
+    tests/Kpi.IntegrationTests/Database/PersistenceModelTests.cs
+    tests/Kpi.Web.EndToEndTests
+
+Đổi WebApplicationFactory<Program> theo entry point của project lớn và dùng
+database test riêng. Không dùng database runtime cho destructive test.
+
+Lệnh verification:
+
+    dotnet restore Company.slnx --locked-mode
+    dotnet build Company.slnx --configuration Release --no-restore
+    dotnet test Company.slnx --configuration Release --no-build
+
+Acceptance:
+
+[ ] Domain không tham chiếu Web/EF/Npgsql.
+[ ] Formula không dùng eval/Roslyn scripting.
+[ ] AST server tạo và round-trip qua PostgreSQL JSONB.
+[ ] Decimal không chuyển binary floating point.
+[ ] Draft mở lại thấy source + variables đúng thứ tự.
+[ ] AST tự xuất hiện khi mở editor.
+[ ] Test Run không ghi kpi_evaluations.
+[ ] Version đã phát hành không sửa trực tiếp.
+[ ] Creator không tự approve Version/Period.
+[ ] Evaluation và Audit append-only.
+[ ] Migration dùng role riêng; Web không migrate startup.
+[ ] Không commit secret/connection password.
+[ ] Full check và test pass.
+[ ] Có bằng chứng thao tác UI localhost.
+
+13. TROUBLESHOOTING
+-------------------
+
+Editor rỗng:
+- Kiểm tra KpisController.Edit có operations.List(organizationId).
+- Kiểm tra có Draft và status đúng không.
+- Kiểm tra textarea asp-for Variables/Source.
+- Kiểm tra hidden VersionId/ConcurrencyToken.
+- Kiểm tra runtime là Postgres hay InMemoryTest.
+
+AST không xuất hiện:
+- Kiểm tra Network POST /api/v1/formulas/validate.
+- Kiểm tra formula-editor.js có scheduleValidation lúc init.
+- Kiểm tra đúng các element ID.
+- Đọc diagnostics code/message/span; không bypass lỗi bằng client AST.
+
+pgAdmin không thấy bảng:
+- Refresh đúng database/schema.
+- Kiểm tra ConnectionStrings__KpiMigration.
+- Chạy Migrator, không chỉ chạy Web.
+- Đọc MIGRATION_TARGET/APPLIED.
+- Kiểm tra allow-list database.
+
+Dữ liệu mất sau restart:
+- Đang dùng InMemoryTest.
+- Đặt ConnectionStrings__KpiRuntime và Kpi__PersistenceProfile=Postgres.
+- Chạy migration rồi restart Web.
+
+HTTP 400/403:
+- Kiểm tra antiforgery, ActorContext, organization scope, capability và
+  separation of duty.
+
+Locked restore lỗi:
+- Không chạy use-lock-file thường xuyên.
+- Kiểm tra global.json, packages.lock.json và dependency graph.
+
+14. BÀN GIAO CHO AI KHÁC
+------------------------
+
+Yêu cầu AI đọc theo thứ tự:
+
+    AGENTS.md
+    CONTEXT.md
+    docs/architecture.md
+    docs/quality.md
+    docs/database/postgres-runtime-and-migration-roles.md
+    specs/001-kpi-management/spec.md
+    specs/001-kpi-management/plan.md
+    specs/001-kpi-management/tasks.md
+    HUONG_DAN_TICH_HOP_KPI.txt
+
+Sau đó AI phải:
+
+1. Xác nhận target framework và solution path.
+2. Lập bảng source path -> target path.
+3. Không ghi đè Program.cs, identity hoặc migration hiện có khi chưa có merge
+   plan.
+4. Viết RED test trước khi sửa behavior.
+5. Chạy full verification và đưa output.
+6. Cập nhật docs/task sau khi behavior đã kiểm chứng.
+
+15. KHÔNG COPY VÀO PRODUCTION
+-----------------------------
+
+Không copy DevelopmentSeedData, DevelopmentPersonaCatalog, persona switcher,
+InMemoryKpiStore làm persistence chính, secret trong appsettings, migration
+lúc Web startup, eval/Roslyn scripting hoặc test trỏ production database.
+
+Prototype đã có domain/persistence boundary, nhưng project lớn vẫn phải bổ sung
+identity thật, policy mapping, observability, transaction boundary,
+backup/restore và deployment secret management.
+
+16. QUICK START PROTOTYPE
+-------------------------
+
+Tại D:\IDEA:
+
+    .\harness.cmd check
+    cmd /c run-kpi.bat
+
+Mở http://localhost:5080/Kpis, bấm KPI có Draft để kiểm tra source, variables,
+AST và Test Run. Muốn kiểm tra dữ liệu bền vững, chuyển sang PostgreSQL profile
+theo mục 8 trước khi tạo KPI.
