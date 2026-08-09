@@ -15,13 +15,132 @@ public sealed class KpiDbContext(DbContextOptions<KpiDbContext> options) : DbCon
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<KpiDefinitionRow>(b => { b.ToTable("kpi_definitions"); b.HasKey(x => x.Id); b.HasIndex(x => new { x.OrganizationId, x.Code }).IsUnique(); b.Property(x => x.RowVersion).IsRowVersion(); });
-        modelBuilder.Entity<KpiVersionRow>(b => { b.ToTable("kpi_versions"); b.HasKey(x => x.Id); b.HasIndex(x => new { x.DefinitionId, x.VersionNumber }).IsUnique(); b.Property(x => x.FormulaJson).HasColumnType("jsonb"); b.Property(x => x.VariablesJson).HasColumnType("jsonb"); b.HasOne<KpiDefinitionRow>().WithMany().HasForeignKey(x => x.DefinitionId); });
-        modelBuilder.Entity<KpiPeriodRow>(b => { b.ToTable("kpi_periods"); b.HasKey(x => x.Id); b.Property(x => x.SelectionsJson).HasColumnType("jsonb"); b.Property(x => x.RevisionsJson).HasColumnType("jsonb"); b.HasIndex(x => new { x.OrganizationId, x.Code }).IsUnique(); });
-        modelBuilder.Entity<KpiPeriodActivationRow>(b => { b.ToTable("kpi_period_activations"); b.HasKey(x => x.Id); b.HasIndex(x => new { x.PeriodId, x.DefinitionId }).IsUnique(); });
-        modelBuilder.Entity<KpiPeriodAmendmentRow>(b => { b.ToTable("kpi_period_amendments"); b.HasKey(x => x.Id); b.Property(x => x.ProposedSelectionsJson).HasColumnType("jsonb"); b.HasIndex(x => new { x.PeriodId, x.RevisionNumber }).IsUnique(); });
-        modelBuilder.Entity<KpiEvaluationRow>(b => { b.ToTable("kpi_evaluations"); b.HasKey(x => x.Id); b.Property(x => x.FormulaJson).HasColumnType("jsonb"); b.Property(x => x.InputsJson).HasColumnType("jsonb"); b.Property(x => x.OutcomeJson).HasColumnType("jsonb"); b.Property(x => x.CorrectionDiffJson).HasColumnType("jsonb"); b.HasIndex(x => new { x.ActivationId, x.IsCurrent }).HasFilter("\"IsCurrent\" = true").IsUnique(); });
-        modelBuilder.Entity<AuditRecordRow>(b => { b.ToTable("audit_records"); b.HasKey(x => x.Id); b.Property(x => x.SummaryJson).HasColumnType("jsonb"); b.HasIndex(x => new { x.OrganizationId, x.OccurredAt }); });
+        modelBuilder.Entity<KpiDefinitionRow>(b =>
+        {
+            b.ToTable("kpi_definitions");
+            b.HasKey(x => x.Id);
+            b.HasIndex(x => new { x.OrganizationId, x.Code }).IsUnique();
+            b.Property(x => x.Id).HasColumnName("id");
+            b.Property(x => x.OrganizationId).HasColumnName("organization_id");
+            b.Property(x => x.Code).HasColumnName("code");
+            b.Property(x => x.Name).HasColumnName("name");
+            b.Property(x => x.Description).HasColumnName("description");
+            b.Property(x => x.OwnerId).HasColumnName("owner_id");
+            b.Property(x => x.Archived).HasColumnName("archived");
+            b.Property(x => x.Revision).HasColumnName("revision");
+            b.Property(x => x.RowVersion).HasColumnName("xmin").IsRowVersion();
+        });
+        modelBuilder.Entity<KpiVersionRow>(b =>
+        {
+            b.ToTable("kpi_versions");
+            b.HasKey(x => x.Id);
+            b.HasIndex(x => new { x.DefinitionId, x.VersionNumber }).IsUnique();
+            b.Property(x => x.Id).HasColumnName("id");
+            b.Property(x => x.DefinitionId).HasColumnName("definition_id");
+            b.Property(x => x.VersionNumber).HasColumnName("version_number");
+            b.Property(x => x.Name).HasColumnName("name");
+            b.Property(x => x.Description).HasColumnName("description");
+            b.Property(x => x.ChangeSummary).HasColumnName("change_summary");
+            b.Property(x => x.PredecessorVersionId).HasColumnName("predecessor_version_id");
+            b.Property(x => x.Status).HasColumnName("status");
+            b.Property(x => x.FormulaJson).HasColumnName("formula_json").HasColumnType("jsonb");
+            b.Property(x => x.VariablesJson).HasColumnName("variables_json").HasColumnType("jsonb");
+            b.Property(x => x.DeclaredResultType).HasColumnName("declared_result_type");
+            b.Property(x => x.Cadence).HasColumnName("cadence");
+            b.Property(x => x.ReviewComment).HasColumnName("review_comment");
+            b.Property(x => x.EffectiveFrom).HasColumnName("effective_from");
+            b.Property(x => x.EffectiveTo).HasColumnName("effective_to");
+            b.Property(x => x.Revision).HasColumnName("revision");
+            b.HasOne<KpiDefinitionRow>().WithMany().HasForeignKey(x => x.DefinitionId);
+        });
+        modelBuilder.Entity<KpiPeriodRow>(b =>
+        {
+            b.ToTable("kpi_periods");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id");
+            b.Property(x => x.OrganizationId).HasColumnName("organization_id");
+            b.Property(x => x.Code).HasColumnName("code");
+            b.Property(x => x.Name).HasColumnName("name");
+            b.Property(x => x.Description).HasColumnName("description");
+            b.Property(x => x.Cadence).HasColumnName("cadence");
+            b.Property(x => x.StartsAt).HasColumnName("starts_at");
+            b.Property(x => x.EndsAt).HasColumnName("ends_at");
+            b.Property(x => x.PlannerId).HasColumnName("planner_id");
+            b.Property(x => x.ApproverId).HasColumnName("approver_id");
+            b.Property(x => x.Status).HasColumnName("status");
+            b.Property(x => x.LatestEffectiveRevision).HasColumnName("latest_effective_revision");
+            b.Property(x => x.Revision).HasColumnName("revision");
+            b.Property(x => x.SelectionsJson).HasColumnName("selections_json").HasColumnType("jsonb");
+            b.Property(x => x.RevisionsJson).HasColumnName("revisions_json").HasColumnType("jsonb");
+            b.HasIndex(x => new { x.OrganizationId, x.Code }).IsUnique();
+        });
+        modelBuilder.Entity<KpiPeriodActivationRow>(b =>
+        {
+            b.ToTable("kpi_period_activations");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id");
+            b.Property(x => x.PeriodId).HasColumnName("period_id");
+            b.Property(x => x.DefinitionId).HasColumnName("definition_id");
+            b.Property(x => x.VersionId).HasColumnName("version_id");
+            b.Property(x => x.EffectiveRevisionNumber).HasColumnName("effective_revision_number");
+            b.Property(x => x.ActivatedAt).HasColumnName("activated_at");
+            b.Property(x => x.ClosedAt).HasColumnName("closed_at");
+            b.HasIndex(x => new { x.PeriodId, x.DefinitionId }).IsUnique();
+        });
+        modelBuilder.Entity<KpiPeriodAmendmentRow>(b =>
+        {
+            b.ToTable("kpi_period_amendments");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id");
+            b.Property(x => x.PeriodId).HasColumnName("period_id");
+            b.Property(x => x.RevisionNumber).HasColumnName("revision_number");
+            b.Property(x => x.BaseRevisionNumber).HasColumnName("base_revision_number");
+            b.Property(x => x.ProposedStartsAt).HasColumnName("proposed_starts_at");
+            b.Property(x => x.ProposedEndsAt).HasColumnName("proposed_ends_at");
+            b.Property(x => x.ProposedSelectionsJson).HasColumnName("proposed_selections_json").HasColumnType("jsonb");
+            b.Property(x => x.Reason).HasColumnName("reason");
+            b.Property(x => x.ProposedBy).HasColumnName("proposed_by");
+            b.Property(x => x.ProposedAt).HasColumnName("proposed_at");
+            b.Property(x => x.Status).HasColumnName("status");
+            b.Property(x => x.ReviewedBy).HasColumnName("reviewed_by");
+            b.Property(x => x.ReviewedAt).HasColumnName("reviewed_at");
+            b.Property(x => x.ReviewComment).HasColumnName("review_comment");
+            b.HasIndex(x => new { x.PeriodId, x.RevisionNumber }).IsUnique();
+        });
+        modelBuilder.Entity<KpiEvaluationRow>(b =>
+        {
+            b.ToTable("kpi_evaluations");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id");
+            b.Property(x => x.ActivationId).HasColumnName("activation_id");
+            b.Property(x => x.VersionId).HasColumnName("version_id");
+            b.Property(x => x.FormulaJson).HasColumnName("formula_snapshot_json").HasColumnType("jsonb");
+            b.Property(x => x.InputsJson).HasColumnName("inputs_json").HasColumnType("jsonb");
+            b.Property(x => x.OutcomeJson).HasColumnName("outcome_json").HasColumnType("jsonb");
+            b.Property(x => x.EvaluatorActorId).HasColumnName("evaluator_actor_id");
+            b.Property(x => x.IsCurrent).HasColumnName("is_current_success");
+            b.Property(x => x.SupersedesId).HasColumnName("supersedes_id");
+            b.Property(x => x.CorrectionReason).HasColumnName("correction_reason");
+            b.Property(x => x.CorrectionDiffJson).HasColumnName("correction_diff_json").HasColumnType("jsonb");
+            b.Property(x => x.EvaluatedAt).HasColumnName("evaluated_at");
+            b.HasIndex(x => new { x.ActivationId, x.IsCurrent }).HasFilter("is_current_success").IsUnique();
+        });
+        modelBuilder.Entity<AuditRecordRow>(b =>
+        {
+            b.ToTable("audit_records");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id");
+            b.Property(x => x.OrganizationId).HasColumnName("organization_id");
+            b.Property(x => x.ActorId).HasColumnName("actor_id");
+            b.Property(x => x.EntityType).HasColumnName("entity_type");
+            b.Property(x => x.EntityId).HasColumnName("entity_id");
+            b.Property(x => x.EventType).HasColumnName("event_type");
+            b.Property(x => x.OccurredAt).HasColumnName("occurred_at");
+            b.Property(x => x.CorrelationId).HasColumnName("correlation_id");
+            b.Property(x => x.Reason).HasColumnName("reason");
+            b.Property(x => x.SummaryJson).HasColumnName("summary_json").HasColumnType("jsonb");
+            b.HasIndex(x => new { x.OrganizationId, x.OccurredAt });
+        });
     }
 }
 

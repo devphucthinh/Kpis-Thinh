@@ -26,7 +26,7 @@ Development may use the explicit `InMemoryTest` profile in
 
 The KPI Management prototype is available under `src/`; its human/agent integration workflow is documented in [`HUONG_DAN_TICH_HOP_KPI.txt`](HUONG_DAN_TICH_HOP_KPI.txt).
 
-On Windows, double-click [`run-kpi.bat`](run-kpi.bat) after setup to bootstrap the repository, start the local web host, and open `http://localhost:5080`.
+On Windows, double-click [`run-kpi.bat`](run-kpi.bat) after setup to bootstrap the repository, start the local InMemory demo, and open `http://localhost:5080`. For durable PostgreSQL runtime persistence, open a new terminal after configuring `ConnectionStrings__KpiRuntime` and run `run-kpi.bat postgres`.
 
 ## Repository map
 

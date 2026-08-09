@@ -237,6 +237,7 @@ PowerShell local (thay secret thật ngoài Git):
     $env:ConnectionStrings__KpiMigration = "Host=localhost;Port=5432;Database=kpi_lab;Username=kpi_migrator;Password=<local-secret>"
     $env:ConnectionStrings__KpiRuntime = "Host=localhost;Port=5432;Database=kpi_lab;Username=kpi_runtime;Password=<local-secret>"
     $env:Kpi__PersistenceProfile = "Postgres"
+    $env:Kpi__EnableDevelopmentSeed = "true"
 
 Quyền:
 
@@ -525,5 +526,12 @@ Tại D:\IDEA:
     cmd /c run-kpi.bat
 
 Mở http://localhost:5080/Kpis, bấm KPI có Draft để kiểm tra source, variables,
-AST và Test Run. Muốn kiểm tra dữ liệu bền vững, chuyển sang PostgreSQL profile
-theo mục 8 trước khi tạo KPI.
+AST và Test Run. Mặc định run-kpi.bat dùng InMemoryTest. Muốn ghi bền vững,
+mở terminal mới sau khi cấu hình user environment rồi chạy:
+
+    cmd /c run-kpi.bat postgres
+
+Lệnh postgres yêu cầu ConnectionStrings__KpiRuntime tồn tại trong process và
+schema đã được migrate. Trong Development + Postgres, EnableDevelopmentSeed
+chỉ tạo organization/actor reference rows; nó không tạo KPI demo và không chạy
+ngoài Development.

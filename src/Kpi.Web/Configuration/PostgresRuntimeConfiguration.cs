@@ -56,5 +56,6 @@ public static class PostgresRuntimeConfiguration
             sp.GetRequiredService<KpiRuntimeState>().Store,
             sp.GetRequiredService<Kpi.Application.Common.IClock>(),
             sp.GetService<Kpi.Application.Persistence.IKpiGovernedPersistence>()));
+        services.AddHostedService<Kpi.Web.Development.DevelopmentPostgresSeedData>();
     }
 }

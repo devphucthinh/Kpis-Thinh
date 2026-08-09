@@ -4,6 +4,18 @@ setlocal EnableExtensions
 set "REPO_ROOT=%~dp0"
 if "%REPO_ROOT:~-1%"=="\" set "REPO_ROOT=%REPO_ROOT:~0,-1%"
 set "KPI_URL=http://localhost:5080"
+set "KPI_PERSISTENCE_MODE=InMemoryTest"
+
+if /I "%~1"=="postgres" (
+    set "KPI_PERSISTENCE_MODE=Postgres"
+    if not defined ConnectionStrings__KpiRuntime (
+        echo [ERROR] ConnectionStrings__KpiRuntime is not available in this process.
+        echo Open a new terminal after configuring the user environment variable, then run: run-kpi.bat postgres
+        pause
+        exit /b 1
+    )
+)
+set "Kpi__PersistenceProfile=%KPI_PERSISTENCE_MODE%"
 
 pushd "%REPO_ROOT%" >nul 2>&1
 if errorlevel 1 (
@@ -30,6 +42,7 @@ if not exist "%REPO_ROOT%\harness.cmd" (
 echo ============================================================
 echo   KPI Management - local launcher
 echo ============================================================
+echo   Persistence profile: %KPI_PERSISTENCE_MODE%
 echo.
 echo [1/3] Bootstrapping the repository with the canonical harness...
 call "%REPO_ROOT%\harness.cmd" bootstrap
@@ -52,6 +65,8 @@ if not defined DOTNET_EXE (
     exit /b 1
 )
 
+echo.
+if /I "%KPI_PERSISTENCE_MODE%"=="Postgres" echo Ensure .\harness.cmd migrate has already completed before starting Web.
 echo.
 echo [2/3] Starting KPI Web at %KPI_URL% ...
 set "ASPNETCORE_ENVIRONMENT=Development"

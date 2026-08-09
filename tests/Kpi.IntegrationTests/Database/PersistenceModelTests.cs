@@ -8,12 +8,31 @@ using Kpi.Domain.Evaluations;
 using Kpi.Domain.Periods;
 using Kpi.Domain.Auditing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Xunit;
 
 namespace Kpi.IntegrationTests.Database;
 
 public sealed class PersistenceModelTests
 {
+    [Fact]
+    public void Relational_model_uses_the_forward_migration_column_names()
+    {
+        var options = new DbContextOptionsBuilder<KpiDbContext>()
+            .UseNpgsql("Host=localhost;Database=kpi_lab;Username=ignored;Password=ignored")
+            .Options;
+        using var context = new KpiDbContext(options);
+
+        AssertColumn<KpiDefinitionRow>(context, "kpi_definitions", nameof(KpiDefinitionRow.Id), "id");
+        AssertColumn<KpiDefinitionRow>(context, "kpi_definitions", nameof(KpiDefinitionRow.OrganizationId), "organization_id");
+        AssertColumn<KpiDefinitionRow>(context, "kpi_definitions", nameof(KpiDefinitionRow.RowVersion), "xmin");
+        AssertColumn<KpiVersionRow>(context, "kpi_versions", nameof(KpiVersionRow.FormulaJson), "formula_json");
+        AssertColumn<KpiVersionRow>(context, "kpi_versions", nameof(KpiVersionRow.DeclaredResultType), "declared_result_type");
+        AssertColumn<KpiEvaluationRow>(context, "kpi_evaluations", nameof(KpiEvaluationRow.FormulaJson), "formula_snapshot_json");
+        AssertColumn<KpiEvaluationRow>(context, "kpi_evaluations", nameof(KpiEvaluationRow.IsCurrent), "is_current_success");
+        AssertColumn<AuditRecordRow>(context, "audit_records", nameof(AuditRecordRow.EntityType), "entity_type");
+    }
+
     [Fact]
     public void Product_migration_manifest_is_forward_only_and_has_sql_for_every_slice()
     {
@@ -100,5 +119,16 @@ public sealed class PersistenceModelTests
             Assert.Equal(activationId, row.ActivationId);
             Assert.Equal("official", context.AuditRecords.Single().SummaryJson.Contains("official", StringComparison.Ordinal) ? "official" : null);
         }
+    }
+
+    private static void AssertColumn<TRow>(KpiDbContext context, string tableName, string propertyName, string expectedColumn)
+        where TRow : class
+    {
+        var entity = context.Model.FindEntityType(typeof(TRow));
+        Assert.NotNull(entity);
+        var storeObject = StoreObjectIdentifier.Table(tableName, null);
+        var property = entity!.FindProperty(propertyName);
+        Assert.NotNull(property);
+        Assert.Equal(expectedColumn, property!.GetColumnName(storeObject));
     }
 }
