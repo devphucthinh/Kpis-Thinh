@@ -216,3 +216,20 @@ organizations 1--* audit_records
 | Immutable Evaluation/history relationships | Foreign keys, insert-only application behavior and no update commands. |
 | Append-only Audit Record | Runtime grants + trigger + append-only store interface. |
 | Stale editable changes | `xmin` concurrency token. |
+
+## Migration Ledger and Runtime Boundary
+
+Schema evolution is tracked separately from product data:
+
+| Table | Columns | Invariant |
+|---|---|---|
+| `kpi_schema_migrations` | `id` text primary key, `checksum` text not null, `applied_at` timestamptz not null | One row per ordered manifest entry; an applied ID with a different checksum is a hard failure. |
+
+The ledger is created by the explicit `Kpi.Migrator` command in the same
+transaction that applies the first product migration. Product migrations are
+forward-only and additive. There is no down-migration or `EnsureCreated` path.
+The migrator validates the connected database name against the configured
+`kpi_lab`/`kpi_lab_test` allow-list before opening a transaction, uses the
+privileged migration connection, and reports applied versus already-skipped
+manifest entries without exposing credentials. The Web host uses a separate
+runtime connection and never invokes the migrator at startup.

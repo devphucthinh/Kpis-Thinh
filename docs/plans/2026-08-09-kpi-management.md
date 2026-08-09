@@ -863,7 +863,24 @@ Use numbered commands a human can copy and explicit repository file pointers an 
 
 - [ ] **Step 4: Complete harness and CI parity**
 
-Ensure bootstrap restores locked packages, installs Playwright Chromium when absent, and applies migrations only to explicitly configured local/test databases. Lint performs format/build; test runs harness policy, unit, integration, and Playwright smoke tests.
+Ensure bootstrap restores locked packages, installs Playwright Chromium when absent,
+and validates non-secret configuration without changing PostgreSQL schema. The
+explicit `./harness.cmd migrate` action applies migrations only to explicitly
+configured local/test databases. Lint performs format/build; test runs harness
+policy, the migration-command contract, unit, integration, and Playwright smoke
+tests.
+
+### Phase 10 implementation status (2026-08-09)
+
+The explicit migration composition is now implemented: `migrate` dispatches the
+dedicated `Kpi.Migrator`, the ledger records SHA-256 checksums and skips matching
+entries transactionally, and target/checksum failures use stable codes. Web
+runtime composition uses `ConnectionStrings:KpiRuntime`; the migrator alone
+uses `ConnectionStrings:KpiMigration`. The checked-in Development profile is
+explicitly `InMemoryTest`, while a durable profile requires PostgreSQL and never
+applies schema on Web startup. `KPI_POSTGRES_TESTS=1` is the opt-in evidence
+profile for the real `kpi_lab_test` database; the default harness reports safe
+skips without credentials.
 
 - [ ] **Step 5: Run line-by-line spec coverage review**
 
@@ -873,6 +890,7 @@ Map every acceptance criterion in design section 19 to a passing test or manual 
 
 ```powershell
 ./harness.cmd bootstrap
+./harness.cmd migrate
 ./harness.cmd status
 ./harness.cmd check
 git diff --check

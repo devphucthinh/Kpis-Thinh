@@ -154,11 +154,73 @@
 
 ## Decision: Test real persistence and use the repository harness
 
-**Decision**: Unit-test Domain/Application seams; run PostgreSQL integration tests for JSONB, range, permissions and concurrency; use a web integration host for delivery contracts; add one browser smoke journey. First scaffold the solution/projects, initialize reviewed package lockfiles once through the canonical harness, then enforce locked bootstrap and prove `lint`, `test`, and `check` execute the intended projects before adding the first public-seam RED test. The recurring bootstrap explicitly provisions the pinned Playwright browser runtime when absent, validates required non-secret local/test configuration, and applies only declared safe local/test migrations. Expose all setup/check commands through `.harness/harness.json` and `harness.cmd`.
+**Decision**: Unit-test Domain/Application seams; run PostgreSQL integration tests for JSONB, range, permissions and concurrency; use a web integration host for delivery contracts; add one browser smoke journey. First scaffold the solution/projects, initialize reviewed package lockfiles once through the canonical harness, then enforce locked bootstrap and prove `lint`, `test`, and `check` execute the intended projects before adding the first public-seam RED test. The recurring bootstrap explicitly provisions the pinned Playwright browser runtime when absent and validates required non-secret local/test configuration. Schema application is an explicit `migrate` action, not a bootstrap or Web-startup side effect. Expose all setup, migration, and check commands through `.harness/harness.json` and `harness.cmd`.
 
 **Rationale**: Fakes cannot prove PostgreSQL-specific integrity or browser interaction, while a single smoke journey prevents over-investing in UI automation.
 
 **Reference**: [ASP.NET Core integration tests](https://learn.microsoft.com/en-us/aspnet/core/test/integration-tests).
+
+## Decision: Make migration an explicit harness action
+
+**Decision**: Expose one canonical `migrate` action through `.harness/harness.json`
+and `harness.cmd`. The action validates a migration-only connection, checks that
+the resolved PostgreSQL database is exactly the declared local or test target,
+and invokes the reviewed forward-only manifest transactionally. `bootstrap`,
+`check`, and Web startup do not mutate database schema.
+
+**Rationale**: The repository already contains `KpiMigrationRunner` and the six
+product SQL slices, but no composition root calls the runner. The Web host also
+falls back to `InMemoryKpiStore` when no connection string is configured. A
+separate explicit action makes the write boundary visible, keeps a clean
+checkout usable without database credentials, and prevents opening the browser
+from unexpectedly changing a database. The runner records applied IDs and
+checksums in `kpi_schema_migrations`; rerunning an already applied manifest is a
+no-op, while a changed applied script fails safely.
+
+**Alternatives considered**:
+
+- Migrate during Web startup: rejected because it hides a schema write behind a
+  UI launch and couples application availability to migration privileges.
+- Keep migrations as an undocumented `dotnet run` command: rejected because it
+  creates a second setup path outside the repository harness.
+- Use `EnsureCreated`: rejected because it bypasses the reviewed forward-only
+  migration order and cannot represent additive evolution safely.
+
+**Configuration contract**: the Web process uses
+`ConnectionStrings:KpiRuntime`; the migrator uses
+`ConnectionStrings:KpiMigration`. Non-secret `Kpi:DatabaseName` and
+`Kpi:TestDatabaseName` values define the only permitted targets. Values are
+provided through user secrets or environment variables (for example,
+`ConnectionStrings__KpiMigration`) and are never committed.
+
+**References**: .NET Generic Host loads environment variables and command-line
+configuration for console applications ([Microsoft Learn](https://learn.microsoft.com/en-us/dotnet/core/extensions/generic-host));
+`dotnet run --project` is the supported project entrypoint
+([Microsoft Learn](https://learn.microsoft.com/en-us/dotnet/core/tools/dotnet-run));
+PostgreSQL roles determine the privileges of each connection
+([PostgreSQL 18 documentation](https://www.postgresql.org/docs/current/database-roles.html)).
+
+## Decision: Use a dedicated `Kpi.Migrator` composition root
+
+**Decision**: Add a small console project that references
+`Kpi.Infrastructure.Postgres`, loads configuration, constructs the migration
+runner, and exits non-zero on configuration, target, checksum, or transaction
+failure. It does not reference `Kpi.Web`, seed product data, or own lifecycle
+policy.
+
+**Rationale**: Migration needs a privileged credential and a deterministic
+exit/output contract, while the Web host needs a restricted runtime credential.
+Keeping those composition roots separate preserves the documented dependency
+direction and makes the command usable from pgAdmin-oriented local setup,
+Windows batch launchers, and Linux CI without introducing a second application
+runtime.
+
+**Alternatives considered**:
+
+- Put migration code in `Kpi.Web` behind a startup flag: rejected because it
+  expands the Web composition root and makes accidental startup mutation easy.
+- Add a general-purpose SQL runner to the harness: rejected because SQL and
+  migration ordering belong to Infrastructure, not orchestration scripts.
 
 ## Approved Technical Decisions
 

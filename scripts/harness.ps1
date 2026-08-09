@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('bootstrap', 'format', 'lint', 'test', 'check', 'status')]
+    [ValidateSet('bootstrap', 'format', 'lint', 'test', 'migrate', 'check', 'status')]
     [string]$Action = 'check'
 )
 
@@ -39,7 +39,7 @@ function Get-HarnessConfig {
         throw "Unsupported harness version '$($config.version)'. Expected version 1."
     }
 
-    foreach ($name in @('bootstrap', 'format', 'lint', 'test')) {
+    foreach ($name in @('bootstrap', 'format', 'lint', 'test', 'migrate')) {
         if (-not ($config.steps.PSObject.Properties.Name -contains $name)) {
             throw "Harness config is missing steps.$name."
         }
@@ -173,7 +173,7 @@ function Show-HarnessStatus {
     Write-Host "Working branch: $($Config.gitPolicy.workingBranch)"
     Write-Host "Forbidden branch fragments: $(@($Config.gitPolicy.forbiddenBranchFragments) -join ', ')"
 
-    foreach ($name in @('bootstrap', 'format', 'lint', 'test')) {
+    foreach ($name in @('bootstrap', 'format', 'lint', 'test', 'migrate')) {
         $count = @($Config.steps.$name).Count
         Write-Host ("{0,-10} {1} step(s)" -f $name, $count)
     }
@@ -193,6 +193,7 @@ switch ($Action) {
     'format' { Invoke-HarnessSteps -Name 'Format' -Steps $config.steps.format }
     'lint' { Invoke-HarnessSteps -Name 'Lint' -Steps $config.steps.lint }
     'test' { Invoke-HarnessSteps -Name 'Test' -Steps $config.steps.test }
+    'migrate' { Invoke-HarnessSteps -Name 'Migrate' -Steps $config.steps.migrate }
     'status' { Show-HarnessStatus -Config $config }
     'check' {
         Test-RepositoryContract -Config $config

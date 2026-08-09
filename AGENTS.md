@@ -14,13 +14,21 @@ Keep this repository easy for an unfamiliar agent to understand, change, and ver
 ## Canonical commands
 
 - Environment setup: `./harness.cmd bootstrap`
+- Database schema migration (explicit local/test action): `./harness.cmd migrate`
 - Full verification: `./harness.cmd check`
 - Focused checks: `./harness.cmd lint` and `./harness.cmd test`
 - Harness diagnostics: `./harness.cmd status`
 
 On macOS or Linux, invoke `pwsh ./scripts/harness.ps1 <action>` instead.
 
-Do not invent alternate setup or test paths. Extend `.harness/harness.json` so local work and CI stay identical.
+`migrate` is the only schema-writing action. `bootstrap` and `check` do not
+apply database migrations. Do not invent alternate setup or test paths. Extend
+`.harness/harness.json` so local work and CI stay identical.
+
+The migrator uses `ConnectionStrings:KpiMigration`; Web persistence uses only
+`ConnectionStrings:KpiRuntime` under the explicit `Kpi:PersistenceProfile=Postgres`
+profile. `InMemoryTest` is a development/test-only profile and must never be a
+silent runtime fallback.
 
 ## Agent skills
 

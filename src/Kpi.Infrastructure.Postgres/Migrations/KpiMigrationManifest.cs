@@ -1,6 +1,6 @@
 namespace Kpi.Infrastructure.Postgres.Migrations;
 
-/// <summary>Forward-only product migration order used by safe local/test bootstrap.</summary>
+/// <summary>Forward-only product migration order consumed by the explicit local/test migrator.</summary>
 public static class KpiMigrationManifest
 {
     public static IReadOnlyList<KpiMigrationScript> Scripts { get; } =
@@ -183,4 +183,8 @@ public static class KpiMigrationManifest
         """;
 }
 
-public sealed record KpiMigrationScript(string Id, string Sql);
+public sealed record KpiMigrationScript(string Id, string Sql)
+{
+    public string Checksum { get; } = Convert.ToHexString(
+        System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(Sql)));
+}

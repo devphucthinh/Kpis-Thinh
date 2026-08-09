@@ -1,7 +1,8 @@
 <!--
 Sync Impact Report
-- Version change: template -> 1.0.0
+- Version change: 1.0.0 -> 1.1.0
 - Modified principles: template placeholders -> five repository principles
+- Modified sections: Repository Constraints now records the selected .NET/PostgreSQL stack and explicit migration boundary
 - Added sections: Repository Constraints; Development Workflow
 - Removed sections: none
 - Follow-up TODOs: none
@@ -49,11 +50,18 @@ the relevant checks pass, and human approval gates have been met.
 
 ## Repository Constraints
 
-The repository is currently stack-neutral. Introducing a runtime, package
-manager, framework, persistence layer, or deployment topology requires a
-recorded ADR, pinned native configuration, and reproducible harness steps.
-Local work items live under `.scratch/`; repository-scoped agent skills live
-under `.agents/skills`.
+The repository uses the approved .NET 10 ASP.NET Core MVC host, modular Domain /
+Application / Infrastructure.Postgres boundaries, and PostgreSQL persistence
+recorded in ADR 0002. Native version pins and reproducible commands live in the
+solution files and `.harness/harness.json`. PostgreSQL schema changes are made
+only through the explicit `./harness.cmd migrate` action; `bootstrap` and
+`check` do not mutate database schema. Local work items live under `.scratch/`;
+repository-scoped agent skills live under `.agents/skills`.
+
+The schema command consumes `ConnectionStrings:KpiMigration`, while the Web
+runtime consumes `ConnectionStrings:KpiRuntime` only under an explicit Postgres
+profile. InMemory is permitted solely for the named development/test profile
+and is never an implicit production fallback.
 
 ## Development Workflow
 
@@ -74,4 +82,4 @@ a semantic version bump: MAJOR for incompatible principle changes, MINOR for a
 new or materially expanded principle, PATCH for clarification only. Every plan
 and review MUST check compliance before work is considered complete.
 
-**Version**: 1.0.0 | **Ratified**: 2026-08-08 | **Last Amended**: 2026-08-08
+**Version**: 1.1.0 | **Ratified**: 2026-08-08 | **Last Amended**: 2026-08-09

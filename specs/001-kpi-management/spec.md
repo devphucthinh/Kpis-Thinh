@@ -36,6 +36,7 @@ This feature proves that one company can govern KPIs from authoring through offi
 - Q: Khi một KPI Period đã được duyệt cần sửa, Amendment được duyệt phải có hiệu lực thế nào trong MVP? → A: Chỉ KPI Period ở trạng thái Scheduled được sửa bằng Amendment; Amendment được duyệt tạo một effective revision bất biến mới, plan gốc và lịch sử vẫn nguyên vẹn, và activation dùng revision mới nhất đã được duyệt.
 - Q: Khi KPI Period bị Approver từ chối, lifecycle phải quay về Draft theo cách nào? → A: Rejection chuyển KPI Period từ In Review sang Rejected và giữ comment/Audit; chỉ KPI Period Planner mới được đưa Rejected period về Draft để sửa và gửi lại.
 - Q: Trong MVP, capability và separation-of-duty có bắt buộc trên mọi governed operation hay chỉ được mô phỏng trên UI? → A: Mọi governed operation bắt buộc kiểm tra capability và separation-of-duty; chỉ production authentication, session, identity-provider integration, và deployment policy adapter nằm ngoài scope.
+- Q: Khi một Formula Variable tùy chọn được công thức tham chiếu nhưng không có input và cũng không có default thì xử lý thế nào? → A: Chỉ được bỏ qua biến tùy chọn khi công thức không tham chiếu đến nó; nếu công thức có tham chiếu mà thiếu giá trị thì trả lỗi thiếu input ổn định, không biến thành Null và không tạo kết quả thành công.
 
 ## Scope & Boundaries
 
@@ -159,7 +160,7 @@ A KPI Administrator or responsible user inspects who changed or governed a KPI, 
 
 - KPI Codes are unique within the company regardless of letter case and remain immutable after creation.
 - Formula Variable codes are case-insensitive canonical `snake_case`; duplicate or case-conflicting codes are rejected.
-- A required Formula Variable without an explicit Evaluation Input or compatible default prevents evaluation; Null is never accepted as an input or successful result.
+- A required Formula Variable without an explicit Evaluation Input or compatible default prevents evaluation. An optional Formula Variable may be omitted only when the formula does not reference it; if the formula references it without an explicit input or compatible default, evaluation returns a stable missing-input Failure. Null is never accepted as an input or successful result.
 - A default value with the wrong declared type is rejected before a formula can be used.
 - Percentage means division by 100, while `MOD` means remainder; they are never treated as synonyms.
 - `IF`, `AND`, and `OR` evaluate only required branches, so an error in an unselected branch does not fail the outcome.
@@ -217,7 +218,7 @@ A KPI Administrator or responsible user inspects who changed or governed a KPI, 
 - **FR-015**: A KPI Policy Approver MUST be able to transfer KPI ownership to another KPI Creator with a reason and Audit Record; KPI Administrators MUST NOT silently edit creator-owned content.
 - **FR-016**: A Formula Variable MUST declare a canonical code, display name, description, Decimal or Boolean type, required flag, compatible optional non-null default, and display order.
 - **FR-017**: A KPI Version MUST support between 0 and 100 dynamically added Formula Variables and MUST preserve their display order after saving and reloading.
-- **FR-018**: Evaluation MUST begin only when every required Formula Variable has an explicit non-null input or a compatible non-null default.
+- **FR-018**: Evaluation MUST begin only when every required Formula Variable has an explicit non-null input or a compatible non-null default, and every optional Formula Variable referenced by the formula has an explicit non-null input or a compatible non-null default; an unreferenced optional variable MAY be omitted without creating Null.
 - **FR-019**: A KPI Formula MUST declare a Decimal or Boolean result type and MUST be rejected when its inferred result type does not match.
 - **FR-020**: The formula language MUST support Decimal and Boolean literals, variables, parentheses, comparisons (`=`, `!=`, `>`, `>=`, `<`, `<=`), `AND`, `OR`, `NOT`, `IF`, `+`, `-`, `*`, `/`, unary minus, postfix `%`, `ROUND`, `ABS`, and `MOD`.
 - **FR-021**: Formula keywords and function names MUST be case-insensitive English terms in every supported display language.
@@ -315,6 +316,7 @@ A KPI Administrator or responsible user inspects who changed or governed a KPI, 
 
 - The first release serves one seeded company; company-scoped identities are retained for later multi-company administration.
 - Manual input is the only source for Formula Test Runs and official KPI Evaluations in this release.
+- An optional Formula Variable that is not referenced by the KPI Formula does not need an Evaluation Input; a referenced optional variable without an input or compatible default produces a stable missing-input Failure rather than Null.
 - Company periods use the Gregorian calendar and `Asia/Ho_Chi_Minh` time interpretation with monthly, quarterly, or annual cadence.
 - Formula results and Formula Variables use Decimal or Boolean values only; Null represents absence/failure context and is never a valid input or successful result.
 - The role personas supply demonstrable actor identities, while governed operations enforce agreed capabilities and separation of duty; production authentication, sessions, identity-provider integration, and deployment policy adapters remain outside this release.

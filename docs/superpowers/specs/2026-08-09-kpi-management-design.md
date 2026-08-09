@@ -707,7 +707,20 @@ Automate one principal flow:
 
 ### 15.6 Harness
 
-`.harness/harness.json` becomes the only source of bootstrap, format, build/static, unit, integration, and browser test commands. Recurring bootstrap performs locked restore, provisions the pinned Playwright browser when absent, validates required non-secret local/test configuration, and safely applies the declared local/test migration manifest. `./harness.cmd check` is the Windows definition of done and CI executes the equivalent PowerShell entrypoint.
+`.harness/harness.json` becomes the only source of bootstrap, migration,
+format, build/static, unit, integration, and browser test commands. Recurring
+bootstrap performs locked restore, provisions the pinned Playwright browser
+when absent, and validates required non-secret local/test configuration; it
+does not apply PostgreSQL schema. The explicit `./harness.cmd migrate` action
+applies the declared local/test migration manifest. `./harness.cmd check` is
+the Windows definition of done and CI executes the equivalent PowerShell
+entrypoint.
+
+The migration/runtime split is part of the implemented composition contract:
+`Kpi.Migrator` uses `ConnectionStrings:KpiMigration`, Web uses
+`ConnectionStrings:KpiRuntime`, and the Development `InMemoryTest` profile is
+explicit rather than a fallback. The migrator ledger stores a checksum for each
+forward-only slice and rejects changed applied SQL before committing.
 
 ## 16. Local environment and database
 
@@ -715,7 +728,10 @@ Automate one principal flow:
 - Use the existing PostgreSQL 18 service.
 - Provision a dedicated `kpi_lab` database and least-privilege user without writing credentials to the repository.
 - Use .NET user-secrets for interactive local configuration and environment variables for automated runs.
-- Bootstrap restores locked tools/packages, provisions the declared browser runtime, validates required local configuration, and applies documented safe local/test migrations; it never invents or stores a password.
+- Bootstrap restores locked tools/packages and provisions the declared browser
+  runtime; it validates required local configuration but never applies schema
+  migrations or invents/stores a password. Run the explicit `migrate` action
+  for schema changes.
 - Local UI runs on an explicitly documented localhost URL.
 
 ## 17. Future extension seams

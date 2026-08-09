@@ -24,7 +24,17 @@ Kpi.Infrastructure.Postgres (EF Core/Npgsql adapters and migrations)
         │
         ▼
 PostgreSQL (relational governance facts + JSONB immutable snapshots)
+
+Kpi.Migrator (explicit local/test schema command)
+        │
+        └──────────────► Kpi.Infrastructure.Postgres ──► PostgreSQL schema
 ```
+
+The two connection boundaries are deliberate: `Kpi.Migrator` reads
+`ConnectionStrings:KpiMigration` and is the only process allowed to write the
+schema; `Kpi.Web` reads `ConnectionStrings:KpiRuntime` for application data.
+The development `InMemoryTest` profile is explicit and is selected only when no
+durable runtime connection is configured.
 
 ## Boundaries
 
@@ -37,6 +47,10 @@ PostgreSQL (relational governance facts + JSONB immutable snapshots)
 - `Kpi.Infrastructure.Postgres` may reference Domain and Application. It owns
   EF mappings, JSONB serialization, PostgreSQL constraints, safe forward-only
   migrations and least-privilege role setup.
+- `Kpi.Migrator` is the only schema-writing composition root. It validates the
+  allowed local/test target and migration connection, then invokes the
+  Infrastructure migration runner. It must not reference `Kpi.Web`, seed
+  product data, or own lifecycle policy.
 - `Kpi.Web` may reference Application and Infrastructure. Controllers map
   transport contracts and views; they do not duplicate formula or lifecycle
   rules. Development persona switching is rejected outside Development.
@@ -62,6 +76,8 @@ evaluations and Audit Records are immutable and transactional.
 ## Verification
 
 `harness.cmd` is the only setup and verification interface. It restores locked
-packages, runs formatting/build/static checks, executes all test projects, and
-enforces the `main` branch policy. See [ADR 0002](decisions/0002-kpi-application-stack.md)
-and the feature plan for the rationale and migration sequence.
+packages, exposes the explicit `migrate` schema action, runs
+formatting/build/static checks, executes all test projects, and enforces the
+`main` branch policy. `bootstrap` and `check` do not write PostgreSQL schema.
+See [ADR 0002](decisions/0002-kpi-application-stack.md) and the feature plan
+for the rationale and migration sequence.

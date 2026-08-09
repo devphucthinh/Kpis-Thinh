@@ -9,16 +9,27 @@ Feature này cung cấp module KPI với công thức an toàn, version bất bi
 - .NET SDK `10.0.302` (đã pin trong `global.json`).
 - Solution là `KpiManagement.slnx`.
 - PostgreSQL 18.x; database local mặc định `kpi_lab`, database test chính xác `kpi_lab_test`.
-- Chạy mọi setup/restore/test bằng `harness.cmd`.
+- Chạy mọi setup/restore/test bằng `harness.cmd`; schema chỉ được ghi bởi
+  `harness.cmd migrate`.
 - Không commit password, `.env`, token, database dump hoặc browser binary.
 
 ## 3. Chạy prototype
 
 ```powershell
 .\harness.cmd bootstrap
+.\harness.cmd migrate
 .\harness.cmd status
 .\harness.cmd check
 ```
+
+`bootstrap` không migrate database. Trước khi chạy `migrate`, cấu hình
+`ConnectionStrings__KpiMigration` bằng user-secrets hoặc environment; target
+được phép chỉ là `kpi_lab` hoặc `kpi_lab_test`. Web dùng
+`ConnectionStrings__KpiRuntime` khi `Kpi:PersistenceProfile=Postgres`. Bản
+Development đã chọn profile `InMemoryTest` một cách tường minh để có thể chạy
+UI không cần database; đây không phải fallback cho Production. Đặt
+`KPI_POSTGRES_TESTS=1` khi muốn bật PostgreSQL integration profile; nếu không,
+test profile mặc định không cần credentials và không ghi schema.
 
 Web host:
 
@@ -82,4 +93,4 @@ Yêu cầu AI tiếp theo đọc `AGENTS.md`, `CONTEXT.md`, `.specify/memory/con
 - SDK không nhận: kiểm tra `global.json` và `harness.cmd status`.
 - Locked restore fail: không chạy `--use-lock-file` thường xuyên; kiểm tra `packages.lock.json`.
 - Formula invalid: đọc `diagnostics[].code`, `message`, `span`; không bypass bằng AST client.
-- PostgreSQL test: destructive setup chỉ được phép trên `kpi_lab_test`; credentials lấy từ user-secrets/environment.
+- PostgreSQL test: đặt `KPI_POSTGRES_TESTS=1`; destructive setup chỉ được phép trên `kpi_lab_test`; credentials lấy từ user-secrets/environment.

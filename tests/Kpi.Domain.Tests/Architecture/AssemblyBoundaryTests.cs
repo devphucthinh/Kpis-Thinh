@@ -11,4 +11,12 @@ public sealed class AssemblyBoundaryTests
         var references = typeof(Kpi.Domain.AssemblyMarker).Assembly.GetReferencedAssemblies().Select(x => x.Name).ToArray();
         Assert.DoesNotContain(references, name => name is not null && (name.StartsWith("Microsoft.AspNetCore", StringComparison.Ordinal) || name.StartsWith("Microsoft.EntityFrameworkCore", StringComparison.Ordinal) || name.StartsWith("Npgsql", StringComparison.Ordinal)));
     }
+
+    [Fact]
+    public void Migrator_does_not_reference_web_delivery()
+    {
+        var references = typeof(Kpi.Migrator.Configuration.MigratorOptions).Assembly.GetReferencedAssemblies().Select(x => x.Name).ToArray();
+        Assert.DoesNotContain("Kpi.Web", references);
+        Assert.Contains("Kpi.Infrastructure.Postgres", references);
+    }
 }

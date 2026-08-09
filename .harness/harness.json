@@ -10,7 +10,8 @@
     ".harness/harness.json",
     "scripts/harness.ps1",
     "scripts/branch-policy.ps1",
-    "tests/harness/branch-policy.tests.ps1"
+    "tests/harness/branch-policy.tests.ps1",
+    "tests/harness/migration-command.tests.ps1"
   ],
   "gitPolicy": {
     "workingBranch": "main",
@@ -71,6 +72,24 @@
           "-File",
           "tests/harness/branch-policy.tests.ps1"
         ]
+      },
+      {
+        "name": "Migration command contract",
+        "command": "powershell.exe",
+        "args": [
+          "-NoProfile",
+          "-ExecutionPolicy",
+          "Bypass",
+          "-File",
+          "tests/harness/migration-command.tests.ps1"
+        ]
+      }
+    ],
+    "migrate": [
+      {
+        "name": "Apply declared PostgreSQL migrations",
+        "command": "dotnet",
+        "args": ["run", "--project", "src/Kpi.Migrator/Kpi.Migrator.csproj", "--no-restore", "--configuration", "Release"]
       }
     ]
   }

@@ -1,17 +1,21 @@
 # Quickstart Validation Guide
 
 **Feature**: `001-kpi-management`  
-**Purpose**: Define the future runnable validation path after implementation. Until the solution exists, use this document as the expected end-to-end evidence rather than attempting ad-hoc setup commands.
+**Purpose**: Run and verify the implemented KPI Management prototype through
+the repository harness and the explicit migration boundary.
 
 ## Prerequisites
 
 1. Work from `main`; repository branch policy rejects any branch name containing `codex`.
-2. Install the SDK version pinned in `global.json` once implementation adds it.
+2. Install the SDK version pinned in `global.json`.
 3. Have a local PostgreSQL 18.x instance available.
-4. Configure only local/user-secret or environment-variable database credentials:
-   - a schema-migration credential;
-   - a limited runtime credential;
-   - a separate test connection targeting exactly `kpi_lab_test`.
+4. Create the local databases (`kpi_lab` and, for integration tests,
+   `kpi_lab_test`) and configure only local/user-secret or environment-variable
+   database credentials:
+   - `ConnectionStrings:KpiMigration` for the schema-migration credential;
+   - `ConnectionStrings:KpiRuntime` for the limited application credential;
+   - a separate test connection targeting exactly `kpi_lab_test` when the
+     opt-in PostgreSQL test profile is enabled.
 5. Do not commit `.env`, passwords, tokens, keys, generated dependencies, database dumps, or browser binaries.
 
 ## Canonical Commands
@@ -20,11 +24,36 @@ The repository harness is the only setup and verification contract:
 
 ```powershell
 .\harness.cmd bootstrap
+.\harness.cmd migrate
 .\harness.cmd status
 .\harness.cmd check
 ```
 
-After implementation, `bootstrap` performs the one-time reviewed package-lock initialization during scaffolding, then uses locked dependency restoration on recurring runs; it also performs only explicitly configured safe local/test schema setup and prepares the browser test runtime. `check` runs repository policy, locked bootstrap, formatting/static checks, and unit/application/integration/browser tests through the same configuration used by CI.
+`bootstrap` uses locked dependency restoration and prepares the browser test
+runtime but does not write PostgreSQL. `migrate` is the explicit, idempotent
+schema action: it validates the target allow-list, applies the six forward-only
+manifest slices through `Kpi.Migrator`, and records the checksum ledger. `check`
+runs repository policy, locked bootstrap, formatting/static checks, and all test
+projects through the same configuration used by CI; it does not require
+migration credentials unless the PostgreSQL integration profile is deliberately
+enabled.
+
+For a PowerShell session, set the migration connection without writing it to a
+file:
+
+```powershell
+$env:ConnectionStrings__KpiMigration = 'Host=localhost;Port=5432;Database=kpi_lab;Username=kpi_migrator;Password=<local-secret>'
+.\harness.cmd migrate
+```
+
+For durable Web persistence, also set
+`ConnectionStrings__KpiRuntime` and `Kpi__PersistenceProfile=Postgres` before
+launching. The checked-in Development profile is `InMemoryTest`, which is safe
+for UI exploration and never runs migrations.
+
+Then open pgAdmin4 on `kpi_lab` and verify `kpi_schema_migrations` plus the
+product tables using the queries in [migration.md](contracts/migration.md).
+Run [run-kpi.bat](../../run-kpi.bat) only after the migration succeeds.
 
 To open the local application after bootstrap, the integration guide created during implementation will supply the exact documented launch URL and command. This command is for running the interactive app; it does not replace `harness.cmd check` as verification.
 

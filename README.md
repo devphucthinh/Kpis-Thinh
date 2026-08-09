@@ -6,13 +6,23 @@ This repository starts with a small, deterministic engineering harness for Codex
 
 ```powershell
 ./harness.cmd bootstrap
+./harness.cmd migrate
 ./harness.cmd check
 ./harness.cmd status
 ```
 
 On macOS or Linux, use `pwsh ./scripts/harness.ps1 <action>`.
 
-The repository does not assume an application stack yet. When a runtime is selected, add its reproducible commands to [`.harness/harness.json`](.harness/harness.json). The harness runs commands directly from argument arrays and never evaluates shell strings.
+The repository uses the approved .NET 10 ASP.NET Core MVC and PostgreSQL KPI
+stack. The harness runs commands directly from argument arrays and never
+evaluates shell strings. `migrate` is explicit and is the only action that can
+write schema; `bootstrap` and `check` remain safe with respect to PostgreSQL
+schema.
+
+The migrator reads `ConnectionStrings:KpiMigration`; the Web process reads
+`ConnectionStrings:KpiRuntime` when `Kpi:PersistenceProfile` is `Postgres`.
+Development may use the explicit `InMemoryTest` profile in
+`appsettings.Development.json`; it is not a production fallback.
 
 The KPI Management prototype is available under `src/`; its human/agent integration workflow is documented in [`HUONG_DAN_TICH_HOP_KPI.txt`](HUONG_DAN_TICH_HOP_KPI.txt).
 
@@ -28,10 +38,13 @@ On Windows, double-click [`run-kpi.bat`](run-kpi.bat) after setup to bootstrap t
 - [`docs/decisions/`](docs/decisions/): durable architecture decisions.
 - [`docs/plans/`](docs/plans/): execution plans for larger changes.
 
-## Adding a stack
+## Stack and migration boundary
 
-1. Record the runtime and package-manager choice in a decision document.
-2. Pin versions in the stack's native files.
-3. Add bootstrap, lint, and test commands to `.harness/harness.json`.
-4. Run `./harness.cmd check` locally; CI runs the same PowerShell entrypoint.
-5. Replace the placeholder architecture description with the actual component map.
+1. Read [ADR 0002](docs/decisions/0002-kpi-application-stack.md) and
+   [the architecture boundary](docs/architecture.md).
+2. Run `./harness.cmd bootstrap` to restore the locked toolchain.
+3. Configure non-secret migration and (for a durable Web run) runtime
+   connection settings, then run `./harness.cmd migrate` against an allowed
+   local/test database.
+4. Run `./harness.cmd check`; CI executes the same PowerShell harness path.
+5. Never add schema writes to Web startup, `bootstrap`, or `check`.
