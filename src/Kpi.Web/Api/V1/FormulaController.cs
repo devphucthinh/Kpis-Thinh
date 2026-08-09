@@ -1,5 +1,6 @@
 using Kpi.Application;
 using Kpi.Application.Common;
+using Kpi.Application.Formula;
 using Kpi.Domain.Formula;
 using Kpi.Domain.Formula.Serialization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,13 +12,16 @@ namespace Kpi.Web.Api.V1;
 [Route("api/v1/formulas")]
 public sealed class FormulaController(KpiOperations operations, ICurrentActor actor) : ControllerBase
 {
+    [HttpGet("capabilities")]
+    public IActionResult Capabilities() => Ok(FormulaLanguageCatalog.ToContract());
+
     [HttpPost("validate")]
     public IActionResult Validate([FromBody] FormulaRequest request)
     {
         var variables = request.Variables.Select((v, i) => FormulaVariableDefinition.Create(v.Code, v.DisplayName ?? v.Code, ParseType(v.Type), v.Required, ParseValue(v.DefaultValue, v.Type), i, v.Description)).ToArray();
         var result = operations.Validate(actor.Current, request.Source, variables, ParseResultType(request.DeclaredResultType));
         var compilation = result.Value!;
-        return Ok(new { valid = compilation.IsSuccess, diagnostics = compilation.Diagnostics, formula = compilation.Formula is null ? null : new { source = compilation.Formula.Source, ast = JsonDocument.Parse(FormulaDocumentSerializer.Serialize(compilation.Formula)).RootElement.GetProperty("ast"), formulaLanguageVersion = compilation.Formula.LanguageVersion, astSchemaVersion = compilation.Formula.AstSchemaVersion } });
+        return Ok(new { valid = compilation.IsSuccess, diagnostics = compilation.Diagnostics, supportedOperations = FormulaLanguageCatalog.ToContract(), formula = compilation.Formula is null ? null : new { source = compilation.Formula.Source, ast = JsonDocument.Parse(FormulaDocumentSerializer.Serialize(compilation.Formula)).RootElement.GetProperty("ast"), formulaLanguageVersion = compilation.Formula.LanguageVersion, astSchemaVersion = compilation.Formula.AstSchemaVersion } });
     }
 
     [HttpPost("test-run")]
@@ -25,10 +29,10 @@ public sealed class FormulaController(KpiOperations operations, ICurrentActor ac
     {
         var variables = request.Variables.Select((v, i) => FormulaVariableDefinition.Create(v.Code, v.DisplayName ?? v.Code, ParseType(v.Type), v.Required, ParseValue(v.DefaultValue, v.Type), i, v.Description)).ToArray();
         var compiled = FormulaEngine.Compile(request.Source, variables, ParseResultType(request.DeclaredResultType));
-        if (!compiled.IsSuccess) return UnprocessableEntity(new { code = "FORMULA_INVALID", diagnostics = compiled.Diagnostics });
+        if (!compiled.IsSuccess) return UnprocessableEntity(new { code = "FORMULA_INVALID", diagnostics = compiled.Diagnostics, supportedOperations = FormulaLanguageCatalog.ToContract() });
         var inputs = request.Inputs.ToDictionary(x => x.Key, x => ParseFormulaValue(x.Value));
         var outcome = FormulaEngine.Evaluate(compiled.Formula!, variables, inputs);
-        return Ok(new { persisted = false, outcome = SerializeOutcome(outcome) });
+        return Ok(new { persisted = false, supportedOperations = FormulaLanguageCatalog.ToContract(), outcome = SerializeOutcome(outcome) });
     }
 
     private static FormulaValueType ParseType(string? type) => string.Equals(type, "Boolean", StringComparison.OrdinalIgnoreCase) ? FormulaValueType.Boolean : FormulaValueType.Decimal;

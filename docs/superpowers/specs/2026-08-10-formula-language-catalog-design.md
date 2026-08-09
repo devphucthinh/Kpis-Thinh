@@ -13,10 +13,10 @@ The Domain formula language remains the source of truth for parsing and
 evaluation. A small application-facing language catalog describes the public
 syntax without evaluating user input. The catalog contains:
 
-- arithmetic operators: `+`, `-`, `*`, `/`, `%`, and `MOD`;
+- arithmetic operators: `+`, `-`, `*`, `/`, postfix `%`, and infix `MOD`;
 - comparison operators: `=`, `!=`, `<`, `<=`, `>`, `>=`;
-- logical functions: `AND`, `OR`, `NOT`, and `IF`;
-- math functions: `ROUND`, `ABS`, and `MOD`;
+- logical operators: infix `AND`, infix `OR`, and unary `NOT`;
+- functions: `IF`, `ROUND`, `ABS`, and call-form `MOD`;
 - each item's kind, signature, parameter summary, description, and example;
 - formula language and AST schema versions.
 
