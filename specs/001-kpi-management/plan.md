@@ -18,7 +18,7 @@ The design deliberately uses neither microservices nor a generic workflow/event-
 
 **Storage**: PostgreSQL 18.x. Relational columns hold identities, state, dates, ownership, concurrency and queryable governance facts; JSONB holds immutable structured formula/evaluation snapshots where their exact structure is part of history.
 
-**Testing**: xUnit unit/application tests, PostgreSQL integration tests, HTTP/UI integration tests, and one high-value Playwright workflow. Every behavior slice starts RED, turns minimally GREEN, then runs the relevant harness command.
+**Testing**: xUnit unit/application tests, PostgreSQL integration tests, HTTP/UI integration tests, and one high-value Playwright workflow. After the harness proves the intended test projects are executed, each behavior slice starts with a public-seam RED test, turns minimally GREEN, then runs the relevant harness command. Delivery-level acceptance evidence is added only after the behavior exists; merely registering a suite is not GREEN evidence.
 
 **Target Platform**: Windows local development through `harness.cmd`; Linux CI through the same PowerShell harness entrypoint; a browser for the local interactive experience.
 
@@ -38,7 +38,7 @@ The design deliberately uses neither microservices nor a generic workflow/event-
 |---|---|---|
 | Discoverable Repository Context | Uses `AGENTS.md`, `CONTEXT.md`, `docs/architecture.md`, `docs/quality.md`, the constitution, active spec, and Grill design; records technical decisions in this feature directory. | Pass |
 | One Deterministic Verification Path | Adds every setup, formatting, lint, test, browser, and full-check command to `.harness/harness.json`; no parallel verification workflow. | Pass |
-| Behavior-First Vertical Slices | Defines public command/formula seams and a RED→GREEN vertical-slice sequence. | Pass |
+| Behavior-First Vertical Slices | Establishes harness/test-project proof before the first RED, then uses public command/formula seams and a RED-to-GREEN vertical-slice sequence. | Pass |
 | Explicit Boundaries and Decisions | Keeps Domain independent of Web/EF; requires ADR 0002 before the runtime stack is introduced. | Pass |
 | Minimal, Safe, Reviewable Change | Uses one deployable application, a single database, no credentials in Git, and no speculative service/bus/event-sourcing infrastructure. | Pass |
 
@@ -48,7 +48,7 @@ The current repository contains only the harness. The proposed dependency direct
 
 ### Post-design gate
 
-The detailed design below preserves the same five principles. No waiver or complexity exception is required.
+The detailed design below preserves the same five principles. No waiver or complexity exception is required. The constitution must be rechecked after task generation and again before implementation is declared complete.
 
 ## Project Structure
 
@@ -121,9 +121,9 @@ Kpi.Domain -> no Web, ORM, database, framework, or delivery dependency
 | `Kpi.Domain.Periods` | KPI Period Plan lifecycle, exact version selections, activation/amendment semantics and period invariants. | Timers, database scans, UI state. | Domain Kpis/common value objects. |
 | `Kpi.Domain.Evaluations` | Immutable KPI Evaluation attempts, Current KPI Evaluation selection, Superseding Evaluation diff/reason rules. | Formula parsing implementation, persistence mutation, display formatting. | Domain Formula/Periods/common value objects. |
 | `Kpi.Domain.Auditing` | Audit Record shape and governed-action facts. | Technical logging, mutable audit repositories. | Domain common value objects. |
-| `Kpi.Application` | Public commands/queries, actor capability checks, separation of duty, transaction boundaries, reconciliation coordination, ports for storage/clock/current actor. | Web concerns, EF entities, SQL, formula internals. | Kpi.Domain only. |
+| `Kpi.Application` | Public commands/queries, actor capability checks, separation of duty, transaction boundaries, and the single `ReconcileKpiLifecycle` orchestration seam over storage/clock/current-actor ports. | Web concerns, EF entities, SQL, formula internals, or duplicated lifecycle policy in the worker. | Kpi.Domain only. |
 | `Kpi.Infrastructure.Postgres` | EF mappings, PostgreSQL migrations, storage-port adapters, constraints, transaction implementation, database permission setup. | Lifecycle policy or formula semantics. | Kpi.Application + Kpi.Domain + persistence packages. |
-| `Kpi.Web` | MVC pages, transport models, localization, diagnostics presentation, development-only persona selector, hosted reconciliation trigger. | Direct lifecycle or formula policy, direct table updates, production identity implementation. | Kpi.Application + Infrastructure composition root. |
+| `Kpi.Web` | MVC pages, transport models, localization, diagnostics presentation, development-only persona selector, hosted trigger that invokes `ReconcileKpiLifecycle`. | Direct lifecycle or formula policy, direct table updates, production identity implementation. | Kpi.Application + Infrastructure composition root. |
 
 The Formula module is intentionally a deep module: callers see compile/evaluate contracts, never a trusted AST constructor or an execution callback.
 
@@ -136,7 +136,8 @@ Public seams are behavior-oriented; tests must not call private parser, controll
 | `FormulaCompiler.Compile` | Converts source, Formula Variables, and declared result type into a typed, versioned Formula Compilation or diagnostics. | Domain unit test. |
 | `FormulaEvaluator.Evaluate` | Produces Decimal/Boolean success or structured Failure from a compiled formula and non-null Evaluation Inputs. | Domain unit test with deterministic budget/time source. |
 | KPI Definition/Version commands | Create Draft, edit Draft, submit, approve/reject, publish, retire, clone, archive/restore, transfer ownership. | Application command test with fake actor/clock/store. |
-| KPI Period commands | Create/edit plan, select exact version, submit, approve/reject/cancel/amend, reconcile states. | Application command test with fake clock; PostgreSQL integration for overlap constraints. |
+| KPI Period commands | Create/edit plan, select exact version, submit, approve/reject/cancel/amend. | Application command test with fake clock; PostgreSQL integration for overlap constraints. |
+| `ReconcileKpiLifecycle` | Reconciles due Version effectivity/predecessor retirement and Period scheduled-to-active/active-to-closed transitions in one idempotent Application orchestration seam. | Application command test with fake clock; PostgreSQL transaction and restart/catch-up integration tests. |
 | Evaluation commands | Create official attempt, resolve Current KPI Evaluation, create a Superseding Evaluation. | Application command test plus PostgreSQL transaction test. |
 | Audit query | Returns immutable ordered Audit Records filtered by entity/actor/type/date. | Integration test through query port/HTTP contract. |
 | Delivery contracts | Validate formula/Test Run, governed commands, read history, localized ProblemDetails, concurrency response. | Web integration test; one browser smoke journey. |
@@ -180,7 +181,8 @@ KPI Period: Draft -> InReview -> Scheduled -> Active -> Closed
 ```
 
 - Publish is the only operation that assigns `effective_from` and moves an approved version into Published.
-- Publishing a successor closes the predecessor range at the successor start; reconciliation retires the predecessor at that instant. The hand-off is one transaction.
+- `ReconcileKpiLifecycle` is the only Application orchestration seam for due lifecycle work. It invokes Version effectivity/predecessor retirement and Period scheduled-to-active/active-to-closed policy together; the hosted worker only invokes this seam and contains no lifecycle policy.
+- Publishing a successor closes the predecessor range at the successor start; lifecycle reconciliation retires the predecessor at that instant. The hand-off is one transaction.
 - Approval delegates can decide but cannot edit submitted content; a Period Planner cannot approve their own plan.
 - Approved Period selections are immutable. An amendment is a separate reviewed proposal; it never overwrites the approved plan.
 - Closing blocks ordinary evaluation but permits a governed correction of an existing successful evaluation with the same KPI Version, complete new inputs and mandatory reason.
@@ -193,9 +195,9 @@ KPI Period: Draft -> InReview -> Scheduled -> Active -> Closed
 | Create KPI Version | Web → Application → Definition aggregate → store + audit | Sequential number, predecessor/change summary, required content, Draft status. |
 | Define formula and variables | Web editor → formula validation seam → Draft command → Formula module → store | Variable uniqueness/order/default type; declared result type; source span diagnostics; client AST never trusted. |
 | Validate/Test Run | Web/API → Formula compile/evaluate → response | Formula safety limits; non-null inputs/defaults; Test Run returns result only, opens no evaluation/audit transaction. |
-| Review/publish/activate version | Web/API → Application actor check → Definition aggregate → transaction + audit | Not self-editing; approver role; approved-only publish; range exclusion; predecessor hand-off. |
+| Review/publish/effect version | Web/API → Application actor check → Definition aggregate → transaction + audit | Not self-editing; approver role; approved-only publish; range exclusion; predecessor hand-off. |
 | Create/approve period | Web/API → Application → Period aggregate → transaction + audit | Cadence/version eligibility, no duplicate definition, no illegal overlap, planner/approver separation, freeze at approval. |
-| Activate/close period | Hosted trigger/future scheduler → reconciliation command → store transaction + audit | State-qualified due transition; atomically create activations; idempotent repeat/downtime catch-up. |
+| Reconcile KPI lifecycle | Hosted trigger/future scheduler → `ReconcileKpiLifecycle` → Version and Period policy → store transaction + audit | State-qualified Version and Period transitions; atomically create activations; idempotent repeat/downtime catch-up. |
 | Official KPI Evaluation | Web/API → Application → Formula engine + evaluation stream → transaction + audit relation | Active activation, complete inputs/defaults, exact Formula Document/version snapshot, success/failure immutable, Current only on success. |
 | Correct/Supersede evaluation | Web/API → Application → evaluation stream → transaction + audit relation | Existing successful evaluation, same KPI Version, mandatory reason, full new input snapshot, server-derived diff, predecessor retained. |
 | Read audit/history | Web/API → Application query → store read model | Ordered immutable Audit Records, filters, history links; no write path. |
@@ -203,6 +205,8 @@ KPI Period: Draft -> InReview -> Scheduled -> Active -> Closed
 ## Persistence and Consistency Strategy
 
 ### Persistence model
+
+The list below is the target logical data model, not an instruction to deliver all schema objects in one migration. The additive migration order is defined in [Migrations and configuration](#migrations-and-configuration); each vertical slice introduces only the schema and enforcement needed for its verified behavior.
 
 Keep governance facts relational:
 
@@ -245,6 +249,8 @@ One explicit transaction includes the business transition and its Audit Record f
 - official evaluation, correction, Current replacement, and diff creation.
 
 Test Run begins no persistence transaction. Query operations are read-only.
+
+Audit arrives with the first governed mutation rather than as a final feature: Draft create/update, submit/reject/return, approval, publish, archive/restore/delete, ownership transfer, Period actions, official Evaluation and correction each commit their resulting Audit Record in the same transaction. The later audit slice adds query/UI/permission coverage and cross-slice proof; it does not postpone business audit.
 
 ### Decimal persistence decision
 
@@ -289,7 +295,7 @@ All Application commands receive an `ActorContext` and enforce capabilities befo
 - KPI Evaluator: creates official Evaluations and governed corrections, not formula changes.
 - KPI Administrator: reads governance/history but cannot modify creator-owned KPI content.
 
-For the MVP, `DevelopmentPersonaProvider` is the only `ActorContext` source and exists only in Development. Startup fails if persona switching is enabled in another environment. A future real identity/authorization adapter implements the same `CurrentActor` port; it does not bypass command-level checks.
+Before any persona-dependent HTTP, MVC, or browser work, the shared Web foundation establishes the `CurrentActor` port, authoritative Application capability checks, and the Development-only `DevelopmentPersonaProvider`. Startup fails if persona switching is enabled outside Development. A future real identity/authorization adapter implements the same port; it does not bypass command-level checks or lifecycle reconciliation.
 
 ## Error Handling and Delivery Boundaries
 
@@ -315,15 +321,18 @@ The Web host exposes the minimum HTTP surface needed for the spec: formula valid
 - Test Run has a clearly non-persistent label and never appears in official Evaluation history.
 - History shows current versus superseded/failed attempts, correction reason, input diff and result diff.
 - `vi-VN` is the default; core `en-US` resources ship immediately; formula keywords, codes and machine-readable property names remain canonical English.
-- Seed one company, the six agreed personas, and `REVENUE_ACHIEVEMENT` with representative Decimal/Boolean variables. Seed/demo mode is visibly development-only.
+- Development-only, idempotent application seeding creates one company, the six agreed personas, and `REVENUE_ACHIEVEMENT` with representative Decimal/Boolean variables. It is visibly development-only, lives outside schema migrations, and never runs in Production.
 
 ## Migrations, Configuration, and Observability
 
 ### Migrations and configuration
 
-- Use one initial migration for the relational schema, JSONB columns, constraints, range indexes/exclusions, audit trigger, and seed reference data.
-- Future migrations are additive when possible; never rewrite immutable Evaluation/Audit history. Formula language/AST schema versions allow old snapshots to remain readable.
+- Migrations are additive vertical slices, not one full-schema initial migration. The target logical model remains [data-model.md](data-model.md), while the migration sequence is: (1) test-database infrastructure only; (2) Definition/Version persistence plus the minimal `audit_records` protection needed by Draft authoring; (3) effective-range constraints and Version-governance enforcement; (4) Period/Activation persistence and constraints; (5) Evaluation/Current/Supersession persistence and constraints; (6) audit query, permissions, and cross-slice integrity proof. Each applied migration is forward-only and immutable history is never rewritten.
+- Schema migrations contain schema, constraints, triggers, indexes, and any unavoidable static production reference data only. For this MVP they contain no product or demo data.
+- `Development` composition provides an idempotent development-only seeder for the company, six personas, and sample KPI. It is not a migration, never runs in Production, and does not require production data to exist.
+- Formula language/AST schema versions allow old snapshots to remain readable. Decimal JSON snapshots retain the canonical invariant strings; no relational numeric projection is introduced in the MVP.
 - Separate a privileged schema-migration credential from the limited runtime credential. Store both only in user secrets/environment variables, never `.env` or Git.
+- The first governed persistence slice creates append-only audit protection: the runtime role receives only `SELECT`/`INSERT` on `audit_records`; the table rejects `UPDATE`/`DELETE`; ownership, DDL, and truncation remain unavailable to the runtime role. The migration role alone creates or changes this protection. The final audit slice verifies those restrictions end-to-end.
 - Bootstrap creates/updates schema only for explicitly configured local/test databases. Integration tests use a distinct `kpi_lab_test` database and validate its name before any drop/recreate step.
 
 ### Observability versus product audit
@@ -347,13 +356,13 @@ The harness is extended, never bypassed:
 
 | Harness action | Planned responsibility |
 |---|---|
-| `bootstrap` | Restore locked packages, install Playwright browser when absent, check required local configuration, and apply only explicit local/test migrations. |
+| `bootstrap` | During scaffolding, perform the one-time deterministic lockfile initialization through this declared harness action, review and commit every project lockfile, then enforce `dotnet restore --locked-mode` on all recurring runs. It also installs the Playwright browser when absent, checks required local configuration, and applies only explicit local/test migrations. |
 | `format` | Verify formatting. |
-| `lint` | Formatting, static analysis and build without restore. |
-| `test` | Existing branch-policy test plus Domain, Application, PostgreSQL integration and browser smoke suites. |
-| `check` | Existing repository contract followed by lint and test; the Windows definition of done. |
+| `lint` | Formatting, static analysis and build without restore after locked bootstrap has succeeded. |
+| `test` | Existing branch-policy test plus the intended Domain, Application, PostgreSQL integration and browser smoke projects, all without restore; harness wiring proves the projects are actually executed before the first behavior RED test. |
+| `check` | Contract check, locked bootstrap, lint, and test in that order; the Windows definition of done and the command CI invokes. |
 
-No command is added outside `.harness/harness.json`; CI continues to execute the PowerShell harness entrypoint.
+No command is added outside `.harness/harness.json`; CI continues to execute the PowerShell harness entrypoint. The one-time lockfile initialization is a bootstrap transition, not a user-facing parallel verification command; after reviewed lockfiles exist, bootstrap must never rewrite them.
 
 ## Dependencies and Technology Choices
 
@@ -371,18 +380,16 @@ No parser, scripting, generic expression evaluator, message bus, CQRS framework,
 
 ## Vertical Implementation Strategy
 
-These are planning slices only; `$speckit-tasks` will turn the approved plan into ordered tasks.
+These are planning slices only; `$speckit-tasks` will turn the approved plan into ordered tasks. Each slice is a public, behavior-proving vertical increment and adds its required Audit Record atomically with the governed write. Delivery/browser tests follow behavior rather than acting as a substitute for it.
 
-1. **Harnessed baseline** — pin runtime/packages, solution boundaries, architecture ADR, and a Domain dependency test through the canonical harness.
-2. **Safe formula authoring** — Formula Variable validation, tokenizer, parser, typed AST, serialization and deterministic evaluator with unit tests.
-3. **Definition/version governance** — Definition identity, Draft rules, Version review/publish/effective-range hand-off, archive/restore/ownership and audit facts.
-4. **Period governance** — Period Plan lifecycle, selection eligibility, separation of duty, overlap invariants, amendments and idempotent reconciliation.
-5. **Evaluation history** — Official evaluation, Current selection, Superseding Evaluation, diffs, Failure behavior and Test Run separation.
-6. **Durable integrity** — PostgreSQL mappings/migrations, JSONB round trips, range/unique/audit constraints, concurrency and transaction tests.
-7. **Delivery contracts** — Minimal HTTP/MVC boundary, stable error mapping, source-authoritative AST and localized reads.
-8. **Authoring UI** — KPI list and Draft editor with variable cards, syntax guidance, diagnostics, AST preview and transient Test Run.
-9. **Governance UI** — Review, Period, Evaluation, correction and Audit pages; development persona safety; time worker; Vietnamese/English resources.
-10. **Operational finish** — harness/CI parity, guide, end-to-end acceptance evidence and review against this spec.
+1. **Scaffold and harness proof** — pin SDK/packages, create solution/module/test boundaries and architecture ADR, initialize reviewed package lockfiles through `bootstrap`, switch recurring bootstrap to locked restore, wire `lint`/`test`/`check` to the intended projects, and prove the canonical harness executes them. Only then introduce the first behavior RED test.
+2. **Formula and Draft authoring** — Formula Variable validation, tokenizer, parser, typed AST, serialization and deterministic evaluator; Definition/Version Draft persistence in the second additive migration; Draft create/update audit in the same transaction; then source-authoritative validation/Test Run delivery and editor behavior.
+3. **Version governance and effectivity** — submit/reject/return/approve/publish, archive/restore/delete and ownership transfer, with their audit facts; third additive migration adds effective ranges, constraints and predecessor hand-off enforcement; `ReconcileKpiLifecycle` performs the due effectivity/retirement transition.
+4. **Period planning and activation** — fourth additive migration adds Period/Activation persistence; Period lifecycle, exact version selection, separation of duty, overlap rules and amendments, all with audit; the same lifecycle seam handles scheduled-to-active/active-to-closed work and atomically creates activations.
+5. **Official Evaluation and correction** — fifth additive migration adds Evaluation/Current/Supersession persistence; official evaluation, immutable outcomes, Current selection, correction diffs/reasons and audit; Test Run stays transient.
+6. **Audit completion and durable integrity** — final additive audit slice supplies audit/history query/UI authorization, database-role/trigger verification, concurrency and cross-slice transaction evidence. It verifies the audit protections introduced with the first governed mutation; it does not introduce audit late.
+7. **Shared delivery foundation and screens** — establish development-only persona safety and authoritative capability enforcement before persona-dependent HTTP/MVC/browser work; then add localized contracts and the authoring, governance, period, evaluation/correction, and audit screens in the order behavior becomes available.
+8. **Acceptance and operational finish** — add a delivery-level end-to-end workflow only after each component behavior is green; complete harness/CI parity, integration guide, measurable acceptance evidence, and the required final constitution recheck.
 
 ## Requirement Traceability
 
@@ -400,7 +407,7 @@ These are planning slices only; `$speckit-tasks` will turn the approved plan int
 
 No active specification requirement is uncovered.
 
-## Technical Decisions Requiring Human Approval
+## Human-Approved Technical Decisions
 
-1. **Decimal relational projection**: the approved 28-significant-digit / 10-fractional-digit formula domain is preserved in canonical Decimal strings. A `numeric(28,10)` projection would only allow 18 digits left of the decimal. This plan therefore omits it from authoritative history; approve a later `numeric(38,10)` projection or a documented 18-integer-digit cap before introducing queryable numeric result columns.
-2. **Local database roles**: the MVP needs a privileged migration role and limited runtime role to make append-only audit permissions meaningful. Their passwords and provisioning remain a user-controlled local setup action, not repository content.
+1. **Canonical Decimal storage**: the approved 28-significant-digit / 10-fractional-digit formula domain is preserved in canonical invariant Decimal strings in Formula and Evaluation JSON snapshots. `numeric(28,10)` and any relational numeric projection are excluded from the MVP because they could reduce the approved range. A later projection requires a separate explicit decision and must never silently reduce historical values.
+2. **Local database roles**: the approved MVP uses a privileged schema-migration role and limited runtime role to make append-only audit permissions meaningful. Their passwords and provisioning remain a user-controlled local setup action, never repository content.

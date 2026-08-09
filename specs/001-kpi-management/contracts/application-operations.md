@@ -38,7 +38,7 @@ The operation returns either a typed success/read model or a stable failure. The
 | Create/update Draft Plan | Validate cadence/date/selection rules with fresh token. |
 | Submit/approve/reject/cancel | Enforce Period Planner/Approver separation and explicit lifecycle. |
 | Amend | Propose a separately governed amendment without mutating frozen plan. |
-| Reconcile time | Idempotently activate/close only due state-qualified Periods and audit actual transitions. |
+| Reconcile KPI lifecycle | `ReconcileKpiLifecycle` is the sole Application orchestration seam for due Version effectivity/predecessor retirement and Period scheduled-to-active/active-to-closed transitions. It is idempotent, audits actual transitions, and is the only operation a hosted worker invokes. |
 
 ## Evaluation and Audit operations
 

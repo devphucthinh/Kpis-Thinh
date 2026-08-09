@@ -24,7 +24,7 @@ The repository harness is the only setup and verification contract:
 .\harness.cmd check
 ```
 
-After implementation, `bootstrap` restores pinned dependencies, performs only explicitly configured safe local/test schema setup, and prepares the browser test runtime. `check` runs repository policy, formatting/static checks, unit/application/integration/browser tests through the same configuration used by CI.
+After implementation, `bootstrap` performs the one-time reviewed package-lock initialization during scaffolding, then uses locked dependency restoration on recurring runs; it also performs only explicitly configured safe local/test schema setup and prepares the browser test runtime. `check` runs repository policy, locked bootstrap, formatting/static checks, and unit/application/integration/browser tests through the same configuration used by CI.
 
 To open the local application after bootstrap, the integration guide created during implementation will supply the exact documented launch URL and command. This command is for running the interactive app; it does not replace `harness.cmd check` as verification.
 
@@ -39,7 +39,7 @@ In Development only, select these seeded personas:
 - Hoàng Giang — KPI Evaluator
 - Đỗ Hà — KPI Administrator
 
-The seed set includes the company and a `REVENUE_ACHIEVEMENT` example KPI. Persona switching must fail outside Development.
+An idempotent Development composition seeder, outside schema migrations, creates the company and a `REVENUE_ACHIEVEMENT` example KPI. Production never receives demo data, and persona switching must fail outside Development.
 
 ## Principal Validation Journey
 

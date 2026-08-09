@@ -4,6 +4,10 @@
 **Behavior contract**: [spec.md](spec.md)  
 **Canonical language**: [`CONTEXT.md`](../../CONTEXT.md)
 
+## Target Model and Migration Sequencing
+
+This document records the target logical end state. It does not require every listed table, constraint, or relationship to be introduced in one migration. The approved additive migration order in [plan.md](plan.md) delivers only the persistence required by each verified vertical behavior; applied migrations move forward and do not rewrite immutable KPI Evaluation or Audit Record history.
+
 ## Aggregate and Reference Map
 
 ```text

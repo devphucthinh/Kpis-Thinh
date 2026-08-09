@@ -67,6 +67,17 @@
 
 **References**: [Npgsql JSON mapping](https://www.npgsql.org/efcore/mapping/json.html), [PostgreSQL JSON](https://www.postgresql.org/docs/current/datatype-json.html), [PostgreSQL range types](https://www.postgresql.org/docs/current/rangetypes.html), [constraints](https://www.postgresql.org/docs/current/ddl-constraints.html), [partial indexes](https://www.postgresql.org/docs/current/indexes-partial.html).
 
+## Decision: Target logical model with additive vertical migrations
+
+**Decision**: [data-model.md](data-model.md) describes the target logical model, while schema evolution is delivered as additive vertical migrations: test-database infrastructure; Definition/Version plus the minimal audited Draft write; Version effectivity constraints; Period/Activation; Evaluation/Current/Supersession; then audit query/permission/cross-slice verification. No migration contains product or demo data, and no applied migration rewrites immutable Evaluation or Audit history.
+
+**Rationale**: The target model must remain clear without requiring a risky one-shot migration before each vertical behavior is verifiable. This order makes the required database enforcement appear at the same time as the governed user behavior it protects.
+
+**Alternatives considered**:
+
+- One full-schema initial migration: rejected because it hides slice dependencies and postpones meaningful persistence verification.
+- Schema migration demo data: rejected because local UX samples must never become Production content.
+
 ## Decision: Optimistic editing plus short transactional locks
 
 **Decision**: Use PostgreSQL `xmin` as an opaque optimistic concurrency token for editable Definition metadata, Draft KPI Versions and Draft KPI Period Plans. Use short transactions and row/definition/activation locks for transitions that must serialize: publish hand-off, period approval/activation, correction, and reconciliation.
@@ -82,7 +93,7 @@
 
 ## Decision: Append-only Audit Records have separate protections
 
-**Decision**: Every governed command writes its business change and Audit Record in one transaction. The runtime database role has `SELECT`/`INSERT` only on `audit_records`; a trigger rejects update/delete as defense in depth. Tombstones for permitted hard-deletes retain logical identity and snapshot fields rather than requiring a foreign key to deleted content.
+**Decision**: Every governed command writes its business change and Audit Record in one transaction. The first governed persistence slice creates the Audit Record table, runtime `SELECT`/`INSERT` restriction, and update/delete-rejecting trigger; each later governed slice writes its audit fact atomically. The final audit slice adds query/UI/permission and cross-slice verification. Tombstones for permitted hard-deletes retain logical identity and snapshot fields rather than requiring a foreign key to deleted content.
 
 **Rationale**: Application logs cannot satisfy a user-queryable Audit Record contract. Both application and database protection are necessary so the normal runtime cannot mutate history after commit.
 
@@ -95,7 +106,7 @@
 
 ## Decision: One idempotent reconciliation command
 
-**Decision**: Reconcile due version and period transitions once on application startup and periodically thereafter through one Application command using an injected clock. State-qualified updates append Audit Records only when a row actually changes.
+**Decision**: `ReconcileKpiLifecycle` is the one Application orchestration command. It invokes due Version effectivity/predecessor-retirement and Period scheduled-to-active/active-to-closed transitions once on startup and periodically thereafter through an injected clock. State-qualified updates append Audit Records only when a row actually changes; the hosted worker only calls this seam and owns no lifecycle policy.
 
 **Rationale**: This handles downtime and repeat invocation without putting business rules into a timer or future cloud scheduler.
 
@@ -108,7 +119,7 @@
 
 ## Decision: Demo persona is an input seam, not authentication
 
-**Decision**: Application commands use `ActorContext`/current-actor and capability ports. The Web project supplies only a development persona provider and refuses to start with persona switching outside Development. Command-level checks enforce separation of duty regardless of UI state.
+**Decision**: Before persona-dependent HTTP, MVC, or browser work, establish the shared `ActorContext`/current-actor capability ports and authoritative Application checks. The Web project supplies only a development persona provider and refuses to start with persona switching outside Development. Command-level checks enforce separation of duty regardless of UI state.
 
 **Rationale**: The spec excludes production authentication but requires demonstrable governance and protection from UI-only bypass.
 
@@ -121,12 +132,12 @@
 
 ## Decision: Test real persistence and use the repository harness
 
-**Decision**: Unit-test Domain/Application seams; run PostgreSQL integration tests for JSONB, range, permissions and concurrency; use a web integration host for delivery contracts; add one browser smoke journey. Expose all setup/check commands through `.harness/harness.json` and `harness.cmd`.
+**Decision**: Unit-test Domain/Application seams; run PostgreSQL integration tests for JSONB, range, permissions and concurrency; use a web integration host for delivery contracts; add one browser smoke journey. First scaffold the solution/projects, initialize reviewed package lockfiles once through the canonical harness, then enforce locked bootstrap and prove `lint`, `test`, and `check` execute the intended projects before adding the first public-seam RED test. Expose all setup/check commands through `.harness/harness.json` and `harness.cmd`.
 
 **Rationale**: Fakes cannot prove PostgreSQL-specific integrity or browser interaction, while a single smoke journey prevents over-investing in UI automation.
 
 **Reference**: [ASP.NET Core integration tests](https://learn.microsoft.com/en-us/aspnet/core/test/integration-tests).
 
-## Outstanding Technical Approval
+## Approved Technical Decisions
 
-The active specification has no unresolved product ambiguity. The plan flags only one numeric-storage decision: `numeric(28,10)` is insufficient for a Decimal value with 28 integer digits and ten fractional digits. Canonical Formula/Evaluation snapshots therefore use invariant strings; any future relational numeric projection needs explicit approval for its precision/range policy.
+The active specification has no unresolved product ambiguity or outstanding technical approval. Canonical Formula/Evaluation snapshots use invariant Decimal strings across the approved domain; the MVP has no relational numeric projection. The MVP also uses distinct local schema-migration and restricted runtime database roles, with credentials supplied only outside the repository.
