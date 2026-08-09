@@ -1,2 +1,30 @@
-@{ Layout = "_Layout"; }
-<h1>Official Evaluation</h1><p>Chọn KPI Version đang Active và nhập giá trị biến. Mọi lần chạy chính thức được lưu bất biến.</p>
+@model Kpi.Web.ViewModels.KpiEvaluationPageVm
+@{ Layout = "_Layout"; ViewData["Title"] = "Official Evaluation"; ViewData["ActiveNav"] = "evaluations"; }
+
+<div class="page-title"><div><div class="muted">OFFICIAL EVALUATION</div><h1>@Model.DefinitionName <span class="status-badge status-active">v@Model.VersionNumber</span></h1><p class="subtitle">Chỉ sử dụng KPI Version từ một KPI Period Activation đang Active.</p></div><a class="button secondary" href="/KpiEvaluations/History?definitionId=@Model.DefinitionId">Lịch sử</a></div>
+
+@if (!Model.CanEvaluate)
+{
+    <div class="flash-message" role="alert">Evaluation chỉ được thực hiện khi Activation khớp Version và Period đang Active. Hãy mở KPI Period để kiểm tra trạng thái.</div>
+}
+
+<div class="card">
+    <div class="muted">FORMULA SNAPSHOT</div><h2>@Model.DefinitionCode · v@Model.VersionNumber</h2><pre>@Model.FormulaSource</pre>
+    <details><summary>AST xem trước</summary><pre>@Model.AstJson</pre></details>
+</div>
+
+<div class="card" style="margin-top:18px;" data-evaluation-inputs>
+    <div class="muted">EVALUATION INPUTS</div><h2>Nhập dữ liệu chính thức</h2><p class="subtitle">Giá trị sẽ được lưu cùng Formula Snapshot, Version, Activation và thời điểm tính.</p>
+    <form method="post" action="/KpiEvaluations/Create">
+        @Html.AntiForgeryToken()<input type="hidden" name="DefinitionId" value="@Model.DefinitionId" /><input type="hidden" name="VersionId" value="@Model.VersionId" /><input type="hidden" name="ActivationId" value="@Model.ActivationId" />
+        @foreach (var variable in Model.Variables)
+        {
+            <label data-input-type="@variable.Type">@variable.DisplayName <span class="muted">(@variable.Code · @variable.Type · @(variable.Required ? "required" : "optional"))</span><input name="Inputs[@variable.Code]" value="@variable.DefaultValue" placeholder="@(variable.DefaultValue ?? $"Giá trị {variable.Type}")" @(variable.Required ? "required" : null) /></label>
+        }
+        <button class="button" type="submit" @(Model.CanEvaluate ? null : "disabled")>Tính evaluation mới</button>
+    </form>
+</div>
+
+<div class="card" style="margin-top:18px;"><div class="muted">CURRENT KPI EVALUATION</div><h2>Current KPI Evaluation</h2><p class="subtitle">Lịch sử mặc định hiển thị 25 lần mới nhất. Evaluation lỗi không thay thế Current.</p><p>@(Model.Current?.OutcomeText ?? "Chưa có kết quả hiện tại.")</p></div>
+
+<div class="panel" style="margin-top:18px;"><strong>Test Run</strong><p class="subtitle">Muốn thử công thức mà không lưu dữ liệu chính thức, quay lại KPI Workbench và dùng Test Run — không lưu Evaluation.</p></div>

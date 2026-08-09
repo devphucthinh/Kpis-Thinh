@@ -2,13 +2,14 @@ using Kpi.Application;
 using Kpi.Application.Common;
 using Kpi.Domain.Formula;
 using Kpi.Domain.Formula.Serialization;
+using Kpi.Domain.Evaluations;
 using Kpi.Domain.Kpis;
 using Kpi.Domain.Periods;
 using Kpi.Web.ViewModels;
 
 namespace Kpi.Web.Queries;
 
-public sealed class KpiWebReadModelService(KpiOperations kpis, PeriodOperations periods)
+public sealed class KpiWebReadModelService(KpiOperations kpis, PeriodOperations periods, EvaluationOperations evaluations)
 {
     public KpiIndexPageVm GetKpiIndex(ActorContext actor, string? query = null, KpiVersionStatus? status = null)
     {
@@ -100,6 +101,77 @@ public sealed class KpiWebReadModelService(KpiOperations kpis, PeriodOperations 
             period.Status == KpiPeriodStatus.Active,
             notice);
     }
+
+    public KpiEvaluationPageVm? GetEvaluationPage(ActorContext actor, Guid definitionId, Guid activationId, string? notice = null)
+    {
+        var definition = kpis.List(actor.OrganizationId).FirstOrDefault(x => x.Id == definitionId);
+        if (definition is null) return null;
+        var activation = periods.List(actor.OrganizationId)
+            .SelectMany(period => period.Activations.Select(item => (Period: period, Activation: item)))
+            .FirstOrDefault(item => item.Activation.Id == activationId);
+        var version = activation.Activation is not null
+            ? definition.Versions.FirstOrDefault(x => x.Id == activation.Activation.VersionId)
+            : definition.Versions.OrderByDescending(x => x.VersionNumber).FirstOrDefault();
+        if (version is null) return null;
+        var current = evaluations.Current(definitionId, actor.OrganizationId);
+        var attempts = evaluations.History(definitionId, actor.OrganizationId)
+            .OrderByDescending(x => x.EvaluatedAt)
+            .Take(25)
+            .Select(item => ToEvaluationAttempt(item, current?.Id == item.Id))
+            .ToArray();
+        var activationMatches = activation.Activation is not null && activation.Period.Status == KpiPeriodStatus.Active && activation.Activation.DefinitionId == definitionId && activation.Activation.VersionId == version.Id;
+        var variables = version.Variables.OrderBy(x => x.DisplayOrder).Select(variable => new FormulaVariableInputVm(variable.Code, variable.DisplayName, variable.Type, variable.Required, Format(variable.DefaultValue), variable.Description, variable.DisplayOrder)).ToArray();
+        return new(
+            definition.Id,
+            definition.Code.Value,
+            definition.Name,
+            version.Id,
+            version.VersionNumber,
+            activationId,
+            version.Formula.Source,
+            FormulaDocumentSerializer.Serialize(version.Formula),
+            variables,
+            current is null ? null : ToEvaluationAttempt(current, true),
+            attempts,
+            actor.Can(KpiCapability.Evaluate) && activationMatches,
+            notice);
+    }
+
+    public KpiEvaluationPageVm? GetEvaluationHistory(ActorContext actor, Guid definitionId, string? notice = null)
+    {
+        var definition = kpis.List(actor.OrganizationId).FirstOrDefault(x => x.Id == definitionId);
+        if (definition is null) return null;
+        var activationId = evaluations.History(definitionId, actor.OrganizationId).OrderByDescending(x => x.EvaluatedAt).Select(x => x.ActivationId).FirstOrDefault() ?? Guid.Empty;
+        return GetEvaluationPage(actor, definitionId, activationId, notice);
+    }
+
+    public KpiCorrectionPageVm? GetCorrectionPage(ActorContext actor, Guid definitionId, Guid predecessorId, string? notice = null)
+    {
+        var history = GetEvaluationHistory(actor, definitionId, notice);
+        var predecessor = history?.Attempts.FirstOrDefault(x => x.Id == predecessorId);
+        return history is null || predecessor is null ? null : new(history, predecessor, actor.Can(KpiCapability.Evaluate), notice);
+    }
+
+    private static EvaluationAttemptVm ToEvaluationAttempt(KpiEvaluation evaluation, bool current) => new(
+        evaluation.Id,
+        evaluation.EvaluatedAt,
+        evaluation.Outcome switch { EvaluationSuccess => "Success", EvaluationFailure => "Failure", _ => "Unknown" },
+        FormatOutcome(evaluation.Outcome),
+        current,
+        evaluation.VersionId,
+        evaluation.ActivationId,
+        evaluation.SupersedesId,
+        evaluation.CorrectionReason,
+        evaluation.Inputs.ToDictionary(item => item.Key, item => Format(item.Value) ?? "null"),
+        evaluation.FormulaSnapshot?.Source ?? "(formula snapshot unavailable)",
+        evaluation.CorrectionDiff);
+
+    private static string FormatOutcome(EvaluationOutcome outcome) => outcome switch
+    {
+        EvaluationSuccess success => Format(success.Value) ?? "null",
+        EvaluationFailure failure => $"{failure.Code}: {failure.Message}",
+        _ => "Unknown"
+    };
 
     private static KpiPeriodVersionOptionVm ToVersionOption(KpiPeriod period, KpiVersion version)
     {
