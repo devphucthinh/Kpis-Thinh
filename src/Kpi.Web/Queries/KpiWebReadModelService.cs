@@ -1,5 +1,6 @@
 using Kpi.Application;
 using Kpi.Application.Common;
+using Kpi.Domain.Auditing;
 using Kpi.Domain.Formula;
 using Kpi.Domain.Formula.Serialization;
 using Kpi.Domain.Evaluations;
@@ -150,6 +151,56 @@ public sealed class KpiWebReadModelService(KpiOperations kpis, PeriodOperations 
         var history = GetEvaluationHistory(actor, definitionId, notice);
         var predecessor = history?.Attempts.FirstOrDefault(x => x.Id == predecessorId);
         return history is null || predecessor is null ? null : new(history, predecessor, actor.Can(KpiCapability.Evaluate), notice);
+    }
+
+    public OverviewPageVm GetOverview(ActorContext actor)
+    {
+        var definitions = kpis.List(actor.OrganizationId).Where(x => !x.Archived).ToArray();
+        var periodsList = periods.List(actor.OrganizationId).OrderBy(x => x.StartsAt).ToArray();
+        var evaluationsList = definitions
+            .SelectMany(definition => evaluations.History(definition.Id, actor.OrganizationId).Select(evaluation => (definition, evaluation)))
+            .OrderByDescending(item => item.evaluation.EvaluatedAt)
+            .ToArray();
+        var published = definitions.SelectMany(x => x.Versions).Count(x => x.Status == KpiVersionStatus.Published && x.EffectiveTo is null);
+        var pending = definitions.SelectMany(x => x.Versions).Count(x => x.Status == KpiVersionStatus.InReview)
+            + periodsList.Count(x => x.Status == KpiPeriodStatus.InReview);
+        var failures = evaluationsList.Count(item => item.evaluation.Outcome is EvaluationFailure);
+        var metrics = new[]
+        {
+            new OverviewMetricVm("KPI Definitions", definitions.Length, $"{published} phiên bản đang hiệu lực", "primary"),
+            new OverviewMetricVm("Kỳ KPI", periodsList.Length, $"{periodsList.Count(x => x.Status == KpiPeriodStatus.Active)} kỳ đang hoạt động", "success"),
+            new OverviewMetricVm("Evaluations", evaluationsList.Length, $"{failures} lần cần kiểm tra", failures == 0 ? "success" : "warning"),
+            new OverviewMetricVm("Chờ xử lý", pending, "Review hoặc phê duyệt", pending == 0 ? "success" : "warning")
+        };
+        var actions = new List<OverviewActionVm>();
+        if (definitions.Any(x => x.Versions.Any(version => version.Status == KpiVersionStatus.Draft && x.OwnerId == actor.ActorId)))
+            actions.Add(new("Hoàn thiện KPI Draft", "Có KPI Draft của bạn cần tiếp tục chỉnh sửa hoặc gửi duyệt.", "/Kpis?status=Draft", "primary"));
+        if (definitions.Any(x => x.Versions.Any(version => version.Status == KpiVersionStatus.InReview)) && actor.Can(KpiCapability.ReviewKpi))
+            actions.Add(new("Review KPI Version", "Có phiên bản đang chờ KPI Policy Approver xử lý.", "/Kpis?status=InReview", "warning"));
+        if (periodsList.Any(x => x.Status == KpiPeriodStatus.InReview) && actor.Can(KpiCapability.ApprovePeriod))
+            actions.Add(new("Duyệt Kỳ KPI", "Kỳ KPI cần KPI Period Approver phê duyệt trước khi lên lịch.", "/KpiPeriods", "warning"));
+        if (actions.Count == 0)
+            actions.Add(new("Khám phá KPI Workbench", "Mở danh sách để xem công thức, phiên bản và trạng thái governance.", "/Kpis", "success"));
+
+        var recent = evaluationsList.Take(5).Select(item => new OverviewEvaluationVm(
+            item.definition.Id,
+            item.definition.Code.Value,
+            item.evaluation.EvaluatedAt,
+            item.evaluation.Outcome switch { EvaluationSuccess => "Success", EvaluationFailure => "Failure", _ => "Unknown" },
+            FormatOutcome(item.evaluation.Outcome))).ToArray();
+        var upcoming = periodsList.Where(x => x.Status is KpiPeriodStatus.Scheduled or KpiPeriodStatus.Active).Take(5)
+            .Select(period => new KpiPeriodListItemVm(period.Id, period.Code, period.Name, period.Cadence, period.StartsAt, period.EndsAt, period.Status, period.SelectedVersions.Count, period.Activations.Count, true)).ToArray();
+        return new(metrics, actions, recent, upcoming);
+    }
+
+    public AuditPageVm GetAudit(ActorContext actor, string? entityType = null, Guid? entityId = null, Guid? actorId = null, AuditEventType? eventType = null, DateTimeOffset? from = null, DateTimeOffset? to = null)
+    {
+        var items = kpis.Audit(actor.OrganizationId, entityType, entityId, from, to, actorId, eventType)
+            .OrderByDescending(item => item.OccurredAt)
+            .Take(100)
+            .Select(item => new AuditItemVm(item.Id, item.OccurredAt, item.ActorId, item.EntityType, item.EntityId, item.EventType, item.Reason, item.Summary))
+            .ToArray();
+        return new(items, entityType, entityId, actorId, eventType, from, to);
     }
 
     private static EvaluationAttemptVm ToEvaluationAttempt(KpiEvaluation evaluation, bool current) => new(

@@ -1,4 +1,48 @@
-@{ Layout = "_Layout"; }
-<h1>Quản trị KPI</h1>
-<p>Định nghĩa, kiểm thử và theo dõi công thức KPI theo phiên bản.</p>
-<a class="button" href="/Kpis">Mở danh sách KPI</a>
+@model Kpi.Web.ViewModels.OverviewPageVm
+@{ Layout = "_Layout"; ViewData["Title"] = "Tổng quan"; ViewData["ActiveNav"] = "overview"; }
+
+<div class="page-title">
+    <div><div class="muted">KPI CONTROL CENTER</div><h1>Tổng quan</h1><p class="subtitle">Một màn hình để nhìn nhanh tình trạng KPI, kỳ đang chạy và việc cần xử lý tiếp theo.</p></div>
+    <a class="button" href="/Kpis/Create">+ Tạo KPI</a>
+</div>
+
+<section class="metric-grid" aria-label="Operational metrics">
+@foreach (var metric in Model.Metrics)
+{
+    <article class="metric-card tone-@metric.Tone"><div class="muted">@metric.Label</div><div class="metric-value">@metric.Value</div><div class="muted">@metric.Detail</div></article>
+}
+</section>
+
+<div class="overview-grid" style="margin-top:22px;">
+    <section class="card"><div class="section-heading"><div><div class="muted">NEXT ACTIONS</div><h2>Việc cần làm</h2></div></div>
+        <div class="action-list">
+        @foreach (var action in Model.Actions)
+        {
+            <a class="action-item tone-@action.Tone" href="@action.Href"><span><strong>@action.Label</strong><small>@action.Description</small></span><span aria-hidden="true">→</span></a>
+        }
+        </div>
+    </section>
+    <section class="card"><div class="section-heading"><div><div class="muted">LATEST 5</div><h2>Đánh giá gần đây</h2></div><a href="/KpiEvaluations/History">Xem lịch sử</a></div>
+        @if (Model.RecentEvaluations.Count == 0)
+        { <div class="empty-state">Chưa có Evaluation chính thức.</div> }
+        else
+        {
+            <div class="timeline-list">
+            @foreach (var item in Model.RecentEvaluations)
+            { <div class="timeline-item"><span class="timeline-dot status-@item.OutcomeKind.ToLowerInvariant()"></span><div><strong>@item.DefinitionCode</strong><div>@item.OutcomeText</div><small class="muted">@item.EvaluatedAt.ToLocalTime()</small></div></div> }
+            </div>
+        }
+    </section>
+</div>
+
+<section class="card" style="margin-top:22px;"><div class="section-heading"><div><div class="muted">SCHEDULED & ACTIVE</div><h2>Kỳ KPI</h2></div><a href="/KpiPeriods">Mở danh sách kỳ</a></div>
+@if (Model.UpcomingPeriods.Count == 0)
+{ <div class="empty-state">Chưa có kỳ Scheduled hoặc Active.</div> }
+else
+{
+    <div style="overflow:auto;"><table><thead><tr><th>Kỳ</th><th>Cadence</th><th>Thời gian</th><th>KPIs</th><th>Trạng thái</th></tr></thead><tbody>
+    @foreach (var period in Model.UpcomingPeriods)
+    { <tr><td><a href="/KpiPeriods/Details/@period.Id"><strong>@period.Code</strong></a><div class="muted">@period.Name</div></td><td>@period.Cadence</td><td>@period.StartsAt.ToLocalTime().ToString("dd/MM/yyyy") — @period.EndsAt.ToLocalTime().ToString("dd/MM/yyyy")</td><td>@period.SelectionCount</td><td>@await Html.PartialAsync("_StatusBadge", period.Status.ToString())</td></tr> }
+    </tbody></table></div>
+}
+</section>

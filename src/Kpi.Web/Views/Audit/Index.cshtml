@@ -1,3 +1,27 @@
-@model IReadOnlyList<Kpi.Domain.Auditing.AuditRecord>
-@{ Layout = "_Layout"; }
-<h1>Audit Record</h1><table><thead><tr><th>Thời điểm</th><th>Đối tượng</th><th>Sự kiện</th><th>Lý do</th></tr></thead><tbody>@foreach (var record in Model) { <tr><td>@record.OccurredAt.LocalDateTime</td><td>@record.EntityType</td><td>@record.EventType</td><td>@record.Reason</td></tr> }</tbody></table>
+@model Kpi.Web.ViewModels.AuditPageVm
+@using Kpi.Domain.Auditing
+@{ Layout = "_Layout"; ViewData["Title"] = "Audit timeline"; ViewData["ActiveNav"] = "audit"; }
+
+<div class="page-title"><div><div class="muted">GOVERNANCE</div><h1>Audit timeline</h1><p class="subtitle">Audit Record là bằng chứng nghiệp vụ append-only: ai đã làm gì, trên đối tượng nào và vì lý do gì.</p></div></div>
+
+<form class="card filter-grid" method="get" action="/Audit" aria-label="Bộ lọc Audit">
+    <label>Entity type<input name="entityType" value="@Model.EntityType" placeholder="KPI_VERSION" /></label>
+    <label>Entity ID<input name="entityId" value="@Model.EntityId" placeholder="UUID" /></label>
+    <label>Actor ID<input name="actorId" value="@Model.ActorId" placeholder="UUID" /></label>
+    <label>Event type<select name="eventType"><option value="">Tất cả sự kiện</option>@foreach (var item in Enum.GetValues<AuditEventType>()) { if (Model.EventType == item) { <option value="@item" selected>@item</option> } else { <option value="@item">@item</option> } }</select></label>
+    <label>Từ ngày<input type="date" name="from" value="@(Model.From?.ToString("yyyy-MM-dd"))" /></label>
+    <label>Đến ngày<input type="date" name="to" value="@(Model.To?.ToString("yyyy-MM-dd"))" /></label>
+    <div class="filter-actions"><button class="button" type="submit">Lọc audit</button><a class="button secondary" href="/Audit">Xóa lọc</a></div>
+</form>
+
+<section class="card" style="margin-top:18px;"><div class="section-heading"><h2>Audit Record <span class="muted">(@Model.Items.Count)</span></h2><span class="muted">Mới nhất trước</span></div>
+@if (Model.Items.Count == 0)
+{ <div class="empty-state">Không có Audit Record khớp bộ lọc.</div> }
+else
+{
+<div style="overflow:auto;"><table><thead><tr><th>Thời điểm</th><th>Actor</th><th>Đối tượng</th><th>Sự kiện</th><th>Summary / lý do</th></tr></thead><tbody>
+@foreach (var item in Model.Items)
+{ <tr><td>@item.OccurredAt.ToLocalTime()</td><td><code>@item.ActorId</code></td><td><strong>@item.EntityType</strong><div class="muted"><code>@item.EntityId</code></div></td><td>@await Html.PartialAsync("_StatusBadge", item.EventType.ToString())<div>@item.EventType</div></td><td>@(item.Summary ?? "—")@if (!string.IsNullOrWhiteSpace(item.Reason)) { <div class="muted">Lý do: @item.Reason</div> }</td></tr> }
+</tbody></table></div>
+}
+</section>
