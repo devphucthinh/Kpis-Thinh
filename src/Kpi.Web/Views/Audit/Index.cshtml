@@ -1,0 +1,3 @@
+@model IReadOnlyList<Kpi.Domain.Auditing.AuditRecord>
+@{ Layout = "_Layout"; }
+<h1>Audit Record</h1><table><thead><tr><th>Thời điểm</th><th>Đối tượng</th><th>Sự kiện</th><th>Lý do</th></tr></thead><tbody>@foreach (var record in Model) { <tr><td>@record.OccurredAt.LocalDateTime</td><td>@record.EntityType</td><td>@record.EventType</td><td>@record.Reason</td></tr> }</tbody></table>

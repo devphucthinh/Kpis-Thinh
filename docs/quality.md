@@ -19,3 +19,5 @@ A change is ready when:
 - **CI:** executes the same `check` command used locally.
 
 Until an application stack is selected, lint and test step lists are intentionally empty. Adding application code without wiring those steps is incomplete.
+
+The KPI feature extends the harness with locked .NET restore, formatting, analyzer build, all test projects, and the repository branch-policy test. Manual usability and guide-following evidence remain explicit gates; automated checks do not fabricate human results.

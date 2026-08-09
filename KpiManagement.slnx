@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Kpi.Domain/Kpi.Domain.csproj" />
+    <Project Path="src/Kpi.Application/Kpi.Application.csproj" />
+    <Project Path="src/Kpi.Infrastructure.Postgres/Kpi.Infrastructure.Postgres.csproj" />
+    <Project Path="src/Kpi.Web/Kpi.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Kpi.Domain.Tests/Kpi.Domain.Tests.csproj" />
+    <Project Path="tests/Kpi.Application.Tests/Kpi.Application.Tests.csproj" />
+    <Project Path="tests/Kpi.IntegrationTests/Kpi.IntegrationTests.csproj" />
+    <Project Path="tests/Kpi.Web.EndToEndTests/Kpi.Web.EndToEndTests.csproj" />
+  </Folder>
+</Solution>

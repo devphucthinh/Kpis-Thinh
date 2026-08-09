@@ -1,0 +1,3 @@
+@model Kpi.Web.Controllers.EvaluationHistoryModel
+@{ Layout = "_Layout"; }
+<h1>Lịch sử Evaluation</h1><p>Current: <strong>@(Model.Current?.Id.ToString() ?? "chưa có")</strong></p><table><thead><tr><th>Thời điểm</th><th>Kết quả</th><th>Supersedes</th><th>Lý do</th></tr></thead><tbody>@foreach (var item in Model.Attempts) { <tr><td>@item.EvaluatedAt.LocalDateTime</td><td>@(item.Outcome is Kpi.Domain.Formula.EvaluationSuccess success ? success.Value : item.Outcome)</td><td>@item.SupersedesId</td><td>@item.CorrectionReason</td></tr> }</tbody></table>

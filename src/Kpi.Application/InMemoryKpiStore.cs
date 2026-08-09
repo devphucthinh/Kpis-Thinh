@@ -1,0 +1,28 @@
+using Kpi.Domain.Auditing;
+using Kpi.Domain.Evaluations;
+using Kpi.Domain.Kpis;
+using Kpi.Domain.Periods;
+
+namespace Kpi.Application;
+
+/// <summary>Deterministic local store used by the prototype and replaced by the PostgreSQL adapter in production.</summary>
+public sealed class InMemoryKpiStore
+{
+    private readonly object _gate = new();
+    private readonly List<KpiDefinition> _definitions = [];
+    private readonly List<AuditRecord> _audit = [];
+    private readonly Dictionary<Guid, EvaluationStream> _streams = [];
+    private readonly List<KpiPeriod> _periods = [];
+
+    public IReadOnlyList<KpiDefinition> Definitions { get { lock (_gate) return _definitions.ToArray(); } }
+    public IReadOnlyList<AuditRecord> Audit { get { lock (_gate) return _audit.OrderBy(x => x.OccurredAt).ToArray(); } }
+    public IReadOnlyList<KpiPeriod> Periods { get { lock (_gate) return _periods.ToArray(); } }
+    public KpiDefinition AddDefinition(KpiDefinition definition, AuditRecord audit) { lock (_gate) { _definitions.Add(definition); _audit.Add(audit); return definition; } }
+    public void AddAudit(AuditRecord audit) { lock (_gate) _audit.Add(audit); }
+    public KpiDefinition? Find(Guid id) { lock (_gate) return _definitions.FirstOrDefault(x => x.Id == id); }
+    public KpiDefinition? FindByCode(string code) { lock (_gate) return _definitions.FirstOrDefault(x => string.Equals(x.Code.Value, code, StringComparison.OrdinalIgnoreCase)); }
+    public EvaluationStream Stream(Guid definitionId) { lock (_gate) { if (!_streams.TryGetValue(definitionId, out var stream)) _streams[definitionId] = stream = new EvaluationStream(); return stream; } }
+    public KpiPeriod AddPeriod(KpiPeriod period, AuditRecord audit) { lock (_gate) { _periods.Add(period); _audit.Add(audit); return period; } }
+    public KpiPeriod? FindPeriod(Guid id) { lock (_gate) return _periods.FirstOrDefault(x => x.Id == id); }
+    public void Clear() { lock (_gate) { _definitions.Clear(); _periods.Clear(); _audit.Clear(); _streams.Clear(); } }
+}

@@ -14,6 +14,8 @@ On macOS or Linux, use `pwsh ./scripts/harness.ps1 <action>`.
 
 The repository does not assume an application stack yet. When a runtime is selected, add its reproducible commands to [`.harness/harness.json`](.harness/harness.json). The harness runs commands directly from argument arrays and never evaluates shell strings.
 
+The KPI Management prototype is available under `src/`; its human/agent integration workflow is documented in [`HUONG_DAN_TICH_HOP_KPI.txt`](HUONG_DAN_TICH_HOP_KPI.txt).
+
 ## Repository map
 
 - [`AGENTS.md`](AGENTS.md): durable instructions for coding agents.

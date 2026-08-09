@@ -1,26 +1,67 @@
 # Architecture
 
-## Current state
+## Runtime topology
 
-This repository currently contains the engineering harness only; no application runtime or deployable component has been selected.
+The MVP is one ASP.NET Core MVC process and one PostgreSQL database. The host
+serves Vietnamese-first `.cshtml` pages and `/api/v1` JSON contracts. A hosted
+reconciliation trigger calls the same Application operation used by tests; it
+does not contain lifecycle policy.
+
+```text
+Browser / API client
+        │
+        ▼
+Kpi.Web (MVC, API, localization, Development persona)
+        │
+        ▼
+Kpi.Application (commands, queries, capability checks, transactions, ports)
+        │
+        ▼
+Kpi.Domain (Formula, KPI, Period, Evaluation and Audit invariants)
+        ▲
+        │
+Kpi.Infrastructure.Postgres (EF Core/Npgsql adapters and migrations)
+        │
+        ▼
+PostgreSQL (relational governance facts + JSONB immutable snapshots)
+```
 
 ## Boundaries
 
-- `.harness/` is declarative configuration for reproducible setup and checks.
-- `scripts/` contains thin, deterministic entrypoints used locally and in CI.
-- `docs/` contains durable context, decisions, quality policy, and execution plans.
-- Application code will live outside these harness directories and must expose its lifecycle through `.harness/harness.json`.
+- `Kpi.Domain` is framework- and persistence-independent. It owns the closed
+  formula language, typed AST, Decimal evaluator, aggregate state transitions,
+  immutable Evaluation and Audit facts.
+- `Kpi.Application` is the only command boundary. It receives `ActorContext`,
+  enforces capabilities and separation of duty before mutation, and commits
+  governed state with Audit Records through ports.
+- `Kpi.Infrastructure.Postgres` may reference Domain and Application. It owns
+  EF mappings, JSONB serialization, PostgreSQL constraints, safe forward-only
+  migrations and least-privilege role setup.
+- `Kpi.Web` may reference Application and Infrastructure. Controllers map
+  transport contracts and views; they do not duplicate formula or lifecycle
+  rules. Development persona switching is rejected outside Development.
+- `.harness/` and `scripts/` are orchestration only. Application code never
+  references harness implementation details.
 
-## Dependency direction
+## Forbidden dependencies and scope
 
-The harness may invoke application tooling. Application code must not depend on harness implementation details. CI and contributors both invoke the same harness entrypoint so there is one verification path.
+Domain must not reference ASP.NET Core, EF Core, Npgsql, MVC, Razor, or the
+harness. The MVP does not introduce microservices, a message bus, generic
+workflow/event-sourcing frameworks, a SPA, production identity integration,
+external connectors, or arbitrary code evaluation.
 
-## Updating this document
+## Persistence and data flow
 
-When an application stack is introduced, replace this placeholder with:
+Relational columns protect company scope, identifiers, lifecycle status,
+effective/period ranges, concurrency tokens, revision numbers and Current
+evaluation pointers. JSONB stores exact Formula Documents, ordered variable
+snapshots, Evaluation inputs/outcomes/diffs and audit summaries. Formula source
+is authoritative on writes; the server generates and versions the AST. Official
+evaluations and Audit Records are immutable and transactional.
 
-- a component and data-flow map;
-- public interfaces and ownership boundaries;
-- dependency direction and forbidden dependencies;
-- runtime, persistence, and deployment topology;
-- links to the decisions that explain non-obvious constraints.
+## Verification
+
+`harness.cmd` is the only setup and verification interface. It restores locked
+packages, runs formatting/build/static checks, executes all test projects, and
+enforces the `main` branch policy. See [ADR 0002](decisions/0002-kpi-application-stack.md)
+and the feature plan for the rationale and migration sequence.

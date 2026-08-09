@@ -12,6 +12,16 @@ $RepositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $ConfigPath = Join-Path $RepositoryRoot '.harness/harness.json'
 $BranchPolicyPath = Join-Path $RepositoryRoot 'scripts/branch-policy.ps1'
 
+# The Windows installer commonly registers dotnet under Program Files without
+# updating the current non-login shell. Make the canonical harness discover it
+# while still allowing PATH or CI-provisioned SDKs to win.
+if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
+    $knownDotnet = Join-Path ${env:ProgramFiles} 'dotnet'
+    if (Test-Path (Join-Path $knownDotnet 'dotnet.exe')) {
+        $env:Path = "$knownDotnet$([IO.Path]::PathSeparator)$env:Path"
+    }
+}
+
 . $BranchPolicyPath
 
 function Write-Section {
@@ -186,6 +196,7 @@ switch ($Action) {
     'status' { Show-HarnessStatus -Config $config }
     'check' {
         Test-RepositoryContract -Config $config
+        Invoke-HarnessSteps -Name 'Bootstrap' -Steps $config.steps.bootstrap
         Invoke-HarnessSteps -Name 'Lint' -Steps $config.steps.lint
         Invoke-HarnessSteps -Name 'Test' -Steps $config.steps.test
         Write-Host "`nAll harness checks passed." -ForegroundColor Green

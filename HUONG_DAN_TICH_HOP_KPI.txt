@@ -1,0 +1,85 @@
+# Hướng dẫn tích hợp KPI Management vào project khác
+
+## 1. Mục đích
+
+Feature này cung cấp module KPI với công thức an toàn, version bất biến, quy trình duyệt, KPI Period, Evaluation history và Audit Record. Công thức được biên dịch thành AST ở server; không dùng `eval`.
+
+## 2. Điều kiện môi trường
+
+- .NET SDK `10.0.302` (đã pin trong `global.json`).
+- Solution là `KpiManagement.slnx`.
+- PostgreSQL 18.x; database local mặc định `kpi_lab`, database test chính xác `kpi_lab_test`.
+- Chạy mọi setup/restore/test bằng `harness.cmd`.
+- Không commit password, `.env`, token, database dump hoặc browser binary.
+
+## 3. Chạy prototype
+
+```powershell
+.\harness.cmd bootstrap
+.\harness.cmd status
+.\harness.cmd check
+```
+
+Web host:
+
+```powershell
+dotnet run --project src/Kpi.Web/Kpi.Web.csproj --urls http://localhost:5080
+```
+
+Mở `http://localhost:5080/Kpis`. Development seed tạo mẫu `REVENUE_ACHIEVEMENT`; Production không seed demo và không cho phép persona switcher.
+
+## 4. Luồng UI
+
+1. Vào **Tạo KPI**, nhập mã uppercase snake case, tên và mô tả.
+2. Mở KPI, nhập biến và công thức. Tên hàm luôn tiếng Anh: `IF`, `AND`, `OR`, `NOT`, `ROUND`, `ABS`, `MOD`.
+3. Editor gọi `/api/v1/formulas/validate`, hiển thị diagnostics và AST preview.
+4. Creator submit Version; persona Approver duyệt/reject với comment rồi publish với `effectiveFrom`.
+5. Tạo Period, chọn đúng Version, submit và duyệt bằng người khác. Rejected chỉ Planner được đưa về Draft. Amendment chỉ áp dụng cho Scheduled Period và tạo effective revision bất biến.
+6. Official Evaluation lưu input/result/error; Test Run không lưu Evaluation. Correction tạo Superseding Evaluation và chỉ thành công mới thay Current.
+7. Persona Administrator xem Audit timeline ở `/Audit`.
+
+## 5. API mẫu
+
+```http
+POST /api/v1/formulas/validate
+Content-Type: application/json
+
+{"source":"IF(revenue > target AND active, ROUND(revenue / target * 100, 2), 0)","declaredResultType":"Decimal","variables":[{"code":"revenue","displayName":"Revenue","type":"Decimal","required":true},{"code":"target","displayName":"Target","type":"Decimal","required":true},{"code":"active","displayName":"Active","type":"Boolean","required":true}]}
+```
+
+Response có `valid`, `diagnostics`, `formula.source`, `formula.ast`, `formulaLanguageVersion`, `astSchemaVersion`. Decimal trong snapshot là chuỗi invariant khi đi qua JSON.
+
+Tạo Definition: `POST /api/v1/kpis?persona=creator`.
+Tạo Version: `POST /api/v1/kpis/{definitionId}/versions?persona=creator`.
+Submit/review/publish dùng các action trong `src/Kpi.Web/Api/V1/KpiDefinitionsController.cs`.
+
+## 6. Tích hợp vào solution lớn
+
+Giữ dependency direction: `Web -> Application -> Domain`, còn `Infrastructure.Postgres -> Application + Domain`.
+
+- Copy `src/Kpi.Domain` trước; Domain không tham chiếu ASP.NET/EF/Npgsql.
+- Đưa `Kpi.Application` vào composition root và thay `InMemoryKpiStore` bằng persistence adapter.
+- Đưa `Kpi.Infrastructure.Postgres` vào project PostgreSQL, chạy migration bằng role migration riêng; runtime role không được UPDATE/DELETE Audit.
+- Thay `CurrentActorAccessor` bằng adapter identity của MS365, Azure, AWS hoặc Gmail. Adapter chỉ cấp `ActorContext`; command capability và separation-of-duty vẫn bắt buộc.
+- Thay Development persona/seed bằng identity và data provisioning thật trước Production.
+
+## 7. Quy tắc domain
+
+- Formula source là authoring source; AST do server tạo và version hóa.
+- Không dùng `eval`, Roslyn scripting, reflection hoặc binary floating point.
+- Chỉ Decimal, Boolean và Error/Null theo contract; chia 0 trả Failure.
+- Version đã submit/publish không sửa tại chỗ; tạo successor.
+- Period approve đóng băng ngày/selections; Scheduled Amendment tạo revision.
+- Evaluation và Audit append-only; Failure không thay Current thành công.
+- UI persona không cấp quyền; mọi command phải kiểm tra ActorContext.
+
+## 8. Tiếp tục bằng AI khác
+
+Yêu cầu AI tiếp theo đọc `AGENTS.md`, `CONTEXT.md`, `.specify/memory/constitution.md`, `docs/architecture.md`, `docs/quality.md`, `specs/001-kpi-management/spec.md`, `plan.md`, `tasks.md`, `docs/superpowers/specs/2026-08-09-kpi-management-design.md` và file này. AI phải chạy `harness.cmd status`, xem `git diff`, tìm task đầu tiên còn `[ ]`, viết RED trước GREEN, cập nhật checkbox và chạy `harness.cmd check`. Không tạo branch có chữ `codex`; làm việc trên `main`.
+
+## 9. Sự cố thường gặp
+
+- SDK không nhận: kiểm tra `global.json` và `harness.cmd status`.
+- Locked restore fail: không chạy `--use-lock-file` thường xuyên; kiểm tra `packages.lock.json`.
+- Formula invalid: đọc `diagnostics[].code`, `message`, `span`; không bypass bằng AST client.
+- PostgreSQL test: destructive setup chỉ được phép trên `kpi_lab_test`; credentials lấy từ user-secrets/environment.

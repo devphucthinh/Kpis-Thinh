@@ -17,6 +17,10 @@ node_modules/
 venv/
 
 # Build, test, and cache output
+bin/
+obj/
+TestResults/
+playwright/.local-browsers/
 dist/
 build/
 coverage/
@@ -26,6 +30,11 @@ coverage/
 .ruff_cache/
 __pycache__/
 *.py[cod]
+
+# .NET local state
+*.user
+*.suo
+packages/
 
 # Logs and temporary files
 *.log

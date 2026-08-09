@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><AssemblyName>Kpi.Application</AssemblyName><RootNamespace>Kpi.Application</RootNamespace></PropertyGroup>
+  <ItemGroup><ProjectReference Include="..\Kpi.Domain\Kpi.Domain.csproj" /></ItemGroup>
+</Project>

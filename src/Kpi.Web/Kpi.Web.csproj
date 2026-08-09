@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup><AssemblyName>Kpi.Web</AssemblyName><RootNamespace>Kpi.Web</RootNamespace><Nullable>enable</Nullable></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Kpi.Application\Kpi.Application.csproj" />
+    <ProjectReference Include="..\Kpi.Infrastructure.Postgres\Kpi.Infrastructure.Postgres.csproj" />
+  </ItemGroup>
+</Project>

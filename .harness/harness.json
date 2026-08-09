@@ -19,10 +19,48 @@
     ]
   },
   "steps": {
-    "bootstrap": [],
-    "format": [],
-    "lint": [],
+    "bootstrap": [
+      {
+        "name": "Locked dependency restore",
+        "command": "dotnet",
+        "args": ["restore", "KpiManagement.slnx", "--locked-mode"]
+      },
+      {
+        "name": "Build Playwright driver",
+        "command": "dotnet",
+        "args": ["build", "KpiManagement.slnx", "--no-restore", "--configuration", "Release"]
+      },
+      {
+        "name": "Provision pinned Playwright Chromium",
+        "command": "powershell.exe",
+        "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "scripts/provision-playwright.ps1"]
+      }
+    ],
+    "format": [
+      {
+        "name": "Verify C# formatting",
+        "command": "dotnet",
+        "args": ["format", "KpiManagement.slnx", "--no-restore", "--verify-no-changes"]
+      }
+    ],
+    "lint": [
+      {
+        "name": "Build solution with analyzers",
+        "command": "dotnet",
+        "args": ["build", "KpiManagement.slnx", "--no-restore", "--configuration", "Release"]
+      }
+    ],
     "test": [
+      {
+        "name": "All .NET test projects",
+        "command": "dotnet",
+        "args": ["test", "KpiManagement.slnx", "--no-restore", "--configuration", "Release"]
+      },
+      {
+        "name": "Integration guide contract",
+        "command": "powershell.exe",
+        "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "tests/harness/integration-guide.tests.ps1"]
+      },
       {
         "name": "Git branch policy tests",
         "command": "powershell.exe",

@@ -1,0 +1,6 @@
+@model IReadOnlyList<Kpi.Domain.Kpis.KpiDefinition>
+@{ Layout = "_Layout"; }
+<div class="page-title"><h1>Danh sách KPI</h1><a class="button" href="/Kpis/Create">Thêm KPI</a></div>
+<table><thead><tr><th>Mã</th><th>Tên</th><th>Phiên bản</th><th>Trạng thái</th></tr></thead><tbody>
+@foreach (var kpi in Model) { var latest = kpi.Versions.LastOrDefault(); <tr><td><a href="/Kpis/Edit/@kpi.Id">@kpi.Code</a></td><td>@kpi.Name</td><td>@(latest?.VersionNumber.ToString() ?? "-")</td><td>@(latest?.Status.ToString() ?? "Draft")</td></tr> }
+</tbody></table>

@@ -1,0 +1,4 @@
+@model Kpi.Web.Controllers.CreateKpiModel
+@{ Layout = "_Layout"; }
+<h1>Tạo KPI Definition</h1>
+<form method="post"><div asp-validation-summary="All"></div><label>Mã KPI <input asp-for="Code" placeholder="REVENUE_ACHIEVEMENT" /></label><label>Tên <input asp-for="Name" /></label><label>Mô tả <textarea asp-for="Description"></textarea></label><button class="button" type="submit">Tạo Draft</button></form>
