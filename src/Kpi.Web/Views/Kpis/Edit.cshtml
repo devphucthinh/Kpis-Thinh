@@ -1,10 +1,10 @@
 @model Kpi.Web.Controllers.EditKpiModel
 @{ Layout = "_Layout"; }
 <h1>Soạn KPI: @Model.Definition?.Code</h1>
-<div asp-validation-summary="All"></div><form method="post" action="/Kpis/AddVersion">@Html.AntiForgeryToken()<input type="hidden" asp-for="DefinitionId" /><label>Tên phiên bản <input asp-for="VersionName" /></label><label>Mô tả <textarea asp-for="VersionDescription"></textarea></label><label>Biến (mỗi dòng một mã) <textarea asp-for="Variables" placeholder="revenue&#10;target"></textarea></label><label>Công thức <textarea asp-for="Source" id="formula-source" placeholder="revenue / target * 100"></textarea></label><label>Ghi chú thay đổi <input asp-for="ChangeSummary" /></label><button class="button" type="submit">Lưu phiên bản Draft</button></form>
+<div asp-validation-summary="All"></div><form method="post" action="/Kpis/AddVersion">@Html.AntiForgeryToken()<input type="hidden" asp-for="DefinitionId" /><label>Tên phiên bản <input asp-for="VersionName" /></label><label>Mô tả <textarea asp-for="VersionDescription"></textarea></label><label>Biến (mỗi dòng một mã) <textarea asp-for="Variables" id="formula-variables" placeholder="revenue&#10;target"></textarea></label><label>Công thức <textarea asp-for="Source" id="formula-source" placeholder="revenue / target * 100"></textarea></label><label>Ghi chú thay đổi <input asp-for="ChangeSummary" /></label><button class="button" type="submit">Lưu phiên bản Draft</button></form>
 <section><h2>Phiên bản hiện có</h2><ul>@foreach (var version in Model.Definition?.Versions ?? []) { <li>v@version.VersionNumber — @version.Status — <code>@version.Formula.Source</code></li> }</ul></section>
 <section><h2>Kiểm tra cú pháp</h2><pre id="formula-diagnostics" role="alert"></pre><h3>AST xem trước</h3><pre id="formula-ast"></pre></section>
 <script type="module">
 import { attachFormulaEditor } from '/js/formula-editor.js';
-attachFormulaEditor(document.getElementById('formula-source'), document.getElementById('formula-diagnostics'), document.getElementById('formula-ast'));
+attachFormulaEditor(document.getElementById('formula-source'), document.getElementById('formula-variables'), document.getElementById('formula-diagnostics'), document.getElementById('formula-ast'));
 </script>

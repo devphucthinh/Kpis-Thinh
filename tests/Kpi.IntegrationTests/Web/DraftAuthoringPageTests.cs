@@ -74,6 +74,18 @@ public sealed class DraftAuthoringPageTests : IClassFixture<WebApplicationFactor
         Assert.Contains("lower snake case", html, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task Formula_editor_sends_declared_variables_to_validator()
+    {
+        var response = await _client.GetAsync("/js/formula-editor.js", TestContext.Current.CancellationToken);
+        var javascript = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("parseVariableCodes", javascript, StringComparison.Ordinal);
+        Assert.Contains("variables: parseVariableCodes(variableInput.value)", javascript, StringComparison.Ordinal);
+        Assert.DoesNotContain("variables: []", javascript, StringComparison.Ordinal);
+    }
+
     private async Task<(string DefinitionId, string Token)> GetDefinitionAndToken()
     {
         var index = await _client.GetStringAsync("/Kpis", TestContext.Current.CancellationToken);
