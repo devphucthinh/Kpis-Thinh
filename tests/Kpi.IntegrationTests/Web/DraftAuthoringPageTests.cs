@@ -27,8 +27,10 @@ public sealed class DraftAuthoringPageTests : IClassFixture<WebApplicationFactor
         var html = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("action=\"/Kpis/AddVersion\"", html, StringComparison.Ordinal);
+        Assert.Contains("action=\"/Kpis/UpdateDraft\"", html, StringComparison.Ordinal);
         Assert.Contains("name=\"__RequestVerificationToken\"", html, StringComparison.Ordinal);
+        Assert.Contains("name=\"VersionId\"", html, StringComparison.Ordinal);
+        Assert.Contains("name=\"ConcurrencyToken\"", html, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -84,6 +86,26 @@ public sealed class DraftAuthoringPageTests : IClassFixture<WebApplicationFactor
         Assert.Contains("parseVariableCodes", javascript, StringComparison.Ordinal);
         Assert.Contains("variables: parseVariableCodes(variableInput.value)", javascript, StringComparison.Ordinal);
         Assert.DoesNotContain("variables: []", javascript, StringComparison.Ordinal);
+        Assert.Contains("scheduleValidation();", javascript, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Draft_page_loads_saved_source_and_variables_into_editor()
+    {
+        var index = await _client.GetStringAsync("/Kpis", TestContext.Current.CancellationToken);
+        var definitionId = Regex.Match(index, @"/Kpis/Edit/(?<id>[0-9a-f-]{36})", RegexOptions.IgnoreCase).Groups["id"].Value;
+        Assert.NotEmpty(definitionId);
+
+        var response = await _client.GetAsync($"/Kpis/Edit/{definitionId}", TestContext.Current.CancellationToken);
+        var html = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var source = Regex.Match(html, "id=\"formula-source\"[^>]*>(?<source>.*?)</textarea>", RegexOptions.Singleline).Groups["source"].Value.Trim();
+        var variables = Regex.Match(html, "id=\"formula-variables\"[^>]*>(?<variables>.*?)</textarea>", RegexOptions.Singleline).Groups["variables"].Value.Trim();
+        Assert.NotEmpty(source);
+        Assert.NotEmpty(variables);
+        Assert.Contains("revenue", variables, StringComparison.Ordinal);
+        Assert.Contains("target", variables, StringComparison.Ordinal);
     }
 
     [Fact]

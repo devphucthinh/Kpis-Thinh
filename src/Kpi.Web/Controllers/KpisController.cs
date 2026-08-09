@@ -1,6 +1,7 @@
 using Kpi.Application;
 using Kpi.Application.Common;
 using Kpi.Domain.Formula;
+using Kpi.Domain.Kpis;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Kpi.Web.Controllers;
@@ -27,7 +28,27 @@ public sealed class KpisController(KpiOperations operations, ICurrentActor actor
     public IActionResult Edit(Guid id)
     {
         var definition = operations.List(actor.Current.OrganizationId).FirstOrDefault(x => x.Id == id);
-        return definition is null ? NotFound() : View(new EditKpiModel { DefinitionId = id, Definition = definition });
+        if (definition is null) return NotFound();
+
+        var draft = definition.Versions
+            .Where(x => x.Status == KpiVersionStatus.Draft)
+            .OrderByDescending(x => x.VersionNumber)
+            .FirstOrDefault();
+
+        if (draft is null) return View(new EditKpiModel { DefinitionId = id, Definition = definition });
+
+        return View(new EditKpiModel
+        {
+            DefinitionId = id,
+            VersionId = draft.Id,
+            ConcurrencyToken = operations.ConcurrencyToken(draft).Value,
+            Definition = definition,
+            VersionName = draft.Name,
+            VersionDescription = draft.Description,
+            Variables = string.Join(Environment.NewLine, draft.Variables.OrderBy(x => x.DisplayOrder).Select(x => x.Code)),
+            Source = draft.Formula.Source,
+            ChangeSummary = draft.ChangeSummary
+        });
     }
 
     [HttpPost]

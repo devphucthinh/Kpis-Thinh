@@ -71,4 +71,5 @@ export function attachFormulaEditor(source, variableInput, diagnostics, astPrevi
   variableInput.addEventListener("input", scheduleValidation);
   testButton.addEventListener("click", runTest);
   syncTestInputs();
+  scheduleValidation();
 }
