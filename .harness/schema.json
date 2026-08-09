@@ -4,7 +4,7 @@
   "title": "Repository harness configuration",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "requiredFiles", "steps"],
+  "required": ["version", "requiredFiles", "gitPolicy", "steps"],
   "properties": {
     "$schema": { "type": "string" },
     "version": { "const": 1 },
@@ -12,6 +12,20 @@
       "type": "array",
       "items": { "type": "string", "minLength": 1 },
       "uniqueItems": true
+    },
+    "gitPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["workingBranch", "forbiddenBranchFragments"],
+      "properties": {
+        "workingBranch": { "type": "string", "minLength": 1 },
+        "forbiddenBranchFragments": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
     },
     "steps": {
       "type": "object",

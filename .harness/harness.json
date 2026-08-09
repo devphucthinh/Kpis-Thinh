@@ -8,12 +8,32 @@
     "docs/architecture.md",
     "docs/quality.md",
     ".harness/harness.json",
-    "scripts/harness.ps1"
+    "scripts/harness.ps1",
+    "scripts/branch-policy.ps1",
+    "tests/harness/branch-policy.tests.ps1"
   ],
+  "gitPolicy": {
+    "workingBranch": "main",
+    "forbiddenBranchFragments": [
+      "codex"
+    ]
+  },
   "steps": {
     "bootstrap": [],
     "format": [],
     "lint": [],
-    "test": []
+    "test": [
+      {
+        "name": "Git branch policy tests",
+        "command": "powershell.exe",
+        "args": [
+          "-NoProfile",
+          "-ExecutionPolicy",
+          "Bypass",
+          "-File",
+          "tests/harness/branch-policy.tests.ps1"
+        ]
+      }
+    ]
   }
 }

@@ -10,6 +10,9 @@ $ErrorActionPreference = 'Stop'
 
 $RepositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $ConfigPath = Join-Path $RepositoryRoot '.harness/harness.json'
+$BranchPolicyPath = Join-Path $RepositoryRoot 'scripts/branch-policy.ps1'
+
+. $BranchPolicyPath
 
 function Write-Section {
     param([Parameter(Mandatory)][string]$Message)
@@ -30,6 +33,10 @@ function Get-HarnessConfig {
         if (-not ($config.steps.PSObject.Properties.Name -contains $name)) {
             throw "Harness config is missing steps.$name."
         }
+    }
+
+    if (-not ($config.PSObject.Properties.Name -contains 'gitPolicy')) {
+        throw 'Harness config is missing gitPolicy.'
     }
 
     return $config
@@ -63,6 +70,35 @@ function Test-RepositoryContract {
     if ($trackedEnvFiles.Count -gt 0) {
         throw "Potential secret-bearing env files are tracked: $($trackedEnvFiles -join ', ')"
     }
+
+    $gitCommand = Get-Command git -ErrorAction SilentlyContinue
+    if (-not $gitCommand) {
+        throw 'Git is required to enforce the repository branch policy.'
+    }
+
+    $isGitRepository = @(& git -C $RepositoryRoot rev-parse --is-inside-work-tree 2>$null)
+    if ($LASTEXITCODE -ne 0 -or $isGitRepository.Count -eq 0 -or $isGitRepository[0] -ne 'true') {
+        throw "Repository root is not a Git working tree: $RepositoryRoot"
+    }
+
+    $activeBranch = (@(& git -C $RepositoryRoot branch --show-current) -join '').Trim()
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Unable to read the active Git branch.'
+    }
+
+    $branchNames = @(
+        @(& git -C $RepositoryRoot for-each-ref '--format=%(refname:short)' refs/heads refs/remotes) |
+            Where-Object { $_ -and $_ -notmatch '/HEAD$' }
+    )
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Unable to read local and remote-tracking Git branches.'
+    }
+
+    Assert-GitBranchPolicy `
+        -ActiveBranch $activeBranch `
+        -BranchNames $branchNames `
+        -WorkingBranch $Config.gitPolicy.workingBranch `
+        -ForbiddenBranchFragments @($Config.gitPolicy.forbiddenBranchFragments)
 
     Write-Host 'Repository contract passed.' -ForegroundColor Green
 }
@@ -124,6 +160,8 @@ function Show-HarnessStatus {
     Write-Section 'Harness status'
     Write-Host "Repository: $RepositoryRoot"
     Write-Host "Config version: $($Config.version)"
+    Write-Host "Working branch: $($Config.gitPolicy.workingBranch)"
+    Write-Host "Forbidden branch fragments: $(@($Config.gitPolicy.forbiddenBranchFragments) -join ', ')"
 
     foreach ($name in @('bootstrap', 'format', 'lint', 'test')) {
         $count = @($Config.steps.$name).Count
