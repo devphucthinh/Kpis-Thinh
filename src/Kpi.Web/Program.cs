@@ -6,6 +6,7 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<Kpi.Application.Common.IClock, Kpi.Application.Common.SystemClock>();
 builder.Services.AddSingleton<Kpi.Application.Formula.FormulaService>();
+builder.Services.AddScoped<Kpi.Web.Queries.KpiWebReadModelService>();
 builder.Services.AddScoped<Kpi.Web.Development.CurrentActorAccessor>();
 builder.Services.AddScoped<Kpi.Application.Common.ICurrentActor>(sp => sp.GetRequiredService<Kpi.Web.Development.CurrentActorAccessor>());
 PostgresRuntimeConfiguration.AddPersistence(builder.Services, builder.Configuration);
