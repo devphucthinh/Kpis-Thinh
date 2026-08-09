@@ -43,3 +43,6 @@ tmp/
 
 # Repository-local installer tools
 .tools/
+
+# Local visual brainstorming sessions
+.superpowers/
