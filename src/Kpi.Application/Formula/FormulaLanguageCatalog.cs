@@ -27,10 +27,10 @@ public static class FormulaLanguageCatalog
 
     public static IReadOnlyList<FormulaOperationDescriptor> Functions { get; } =
     [
-        Operation("IF", "function", "IF(condition, whenTrue, whenFalse)", ["condition", "whenTrue", "whenFalse"], "Trả về một trong hai nhánh theo điều kiện Boolean.", "IF(active, revenue, 0)", "IF(condition, whenTrue, whenFalse)"),
-        Operation("ROUND", "function", "ROUND(value, decimals)", ["value", "decimals"], "Làm tròn Decimal; decimals từ 0 đến 10.", "ROUND(revenue / target * 100, 2)", "ROUND(value, decimals)"),
-        Operation("ABS", "function", "ABS(value)", ["value"], "Lấy giá trị tuyệt đối của Decimal.", "ABS(actual - target)", "ABS(value)"),
-        Operation("MOD", "function", "MOD(left, right)", ["left", "right"], "Dạng hàm của phép lấy phần dư Decimal.", "MOD(worked, 7)", "MOD(left, right)")
+        Operation("IF", "function", "IF(condition, whenTrue, whenFalse)", ["condition", "whenTrue", "whenFalse"], "Trả về một trong hai nhánh theo điều kiện Boolean.", "IF(active, revenue, 0)", "IF()"),
+        Operation("ROUND", "function", "ROUND(value, decimals)", ["value", "decimals"], "Làm tròn Decimal; decimals từ 0 đến 10.", "ROUND(revenue / target * 100, 2)", "ROUND()"),
+        Operation("ABS", "function", "ABS(value)", ["value"], "Lấy giá trị tuyệt đối của Decimal.", "ABS(actual - target)", "ABS()"),
+        Operation("MOD", "function", "MOD(left, right)", ["left", "right"], "Dạng hàm của phép lấy phần dư Decimal.", "MOD(worked, 7)", "MOD()")
     ];
 
     public static IReadOnlyList<FormulaOperationDescriptor> All => Operators.Concat(Functions).ToArray();
