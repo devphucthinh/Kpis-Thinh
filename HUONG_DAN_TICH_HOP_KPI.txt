@@ -610,3 +610,52 @@ ConnectionStrings__KpiRuntime, execute .\harness.cmd migrate, then start
 cmd /c run-kpi.bat postgres and refresh pgAdmin 4.
 The shared layout exposes the stable browser selector data-theme-toggle for
 automated theme checks and manual QA.
+
+18. FORMULA OPERATIONS AND EDITOR ASSISTANCE
+--------------------------------------------
+
+The supported formula language is exposed by:
+
+    GET /api/v1/formulas/capabilities
+
+The response contains formulaLanguageVersion, astSchemaVersion, operators,
+functions, and examples. The validate and test-run responses also contain the
+same object under supportedOperations. Use this endpoint to build an external
+formula help panel instead of duplicating the operation list.
+
+Supported operations in the current language:
+
+    +       left + right                         Decimal addition
+    -       left - right                         Decimal subtraction
+    *       left * right                         Decimal multiplication
+    /       left / right                         Decimal division
+    %       value%                               Percentage postfix (value/100)
+    MOD     left MOD right / MOD(left, right)    Decimal remainder
+    = !=    left = right / left != right         Equality comparison
+    < <=    left < right / left <= right         Ordered comparison
+    > >=    left > right / left >= right         Ordered comparison
+    AND     left AND right                       Boolean AND
+    OR      left OR right                        Boolean OR
+    NOT     NOT value                            Boolean NOT
+    IF      IF(condition, whenTrue, whenFalse)  Conditional value
+    ROUND   ROUND(value, decimals)               Decimal rounding, scale 0..10
+    ABS     ABS(value)                           Decimal absolute value
+
+Examples:
+
+    ROUND(revenue / target * 100, 2)
+    IF(active AND approved, revenue, 0)
+    ABS(actual - target) <= 5
+    MOD(workedHours, 7)
+
+In the Workbench, type a function/operator/declared variable in the formula
+textarea. The panel formula-suggestions-panel appears below the editor and
+filters suggestions by the current token. Use Up/Down to move, Enter to insert,
+and Escape to close. Selecting a function inserts a safe snippet such as
+ROUND(); selecting an operator inserts spacing around the operator.
+
+The panel formula-syntax-helper below the listbox shows the selected
+operation's signature, parameter meaning, and an example in an Excel-like
+hint. This text is guidance only; server validation and the AST endpoint remain
+the source of truth. If the capabilities request is unavailable, the editor
+uses a small local fallback and continues to validate against the server.

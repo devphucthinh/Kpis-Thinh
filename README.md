@@ -30,6 +30,8 @@ On Windows, double-click [`run-kpi.bat`](run-kpi.bat) after setup to bootstrap t
 
 The UI smoke evidence lives in `tests/Kpi.Web.EndToEndTests/KpiFullFlowTests.cs` and is executed by `./harness.cmd test`. It covers the Control Center shell, light/dark theme toggle, keyboard focus target, and a 390px viewport; a human localhost walkthrough remains required for final usability sign-off.
 
+Formula syntax discovery is available at `GET /api/v1/formulas/capabilities`. The Workbench uses the returned catalog for its operation dropdown and displays the selected signature/example below the editor.
+
 ## Repository map
 
 - [`AGENTS.md`](AGENTS.md): durable instructions for coding agents.
