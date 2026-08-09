@@ -28,13 +28,25 @@ public sealed class FormulaController(KpiOperations operations, ICurrentActor ac
         if (!compiled.IsSuccess) return UnprocessableEntity(new { code = "FORMULA_INVALID", diagnostics = compiled.Diagnostics });
         var inputs = request.Inputs.ToDictionary(x => x.Key, x => ParseFormulaValue(x.Value));
         var outcome = FormulaEngine.Evaluate(compiled.Formula!, variables, inputs);
-        return Ok(new { persisted = false, outcome });
+        return Ok(new { persisted = false, outcome = SerializeOutcome(outcome) });
     }
 
     private static FormulaValueType ParseType(string? type) => string.Equals(type, "Boolean", StringComparison.OrdinalIgnoreCase) ? FormulaValueType.Boolean : FormulaValueType.Decimal;
     private static FormulaResultType ParseResultType(string? type) => string.Equals(type, "Boolean", StringComparison.OrdinalIgnoreCase) ? FormulaResultType.Boolean : FormulaResultType.Decimal;
     private static FormulaValue? ParseValue(JsonElement? value, string? type) => value is null ? null : ParseFormulaValue(value.Value);
     private static FormulaValue ParseFormulaValue(JsonElement value) => value.ValueKind == JsonValueKind.True || value.ValueKind == JsonValueKind.False ? FormulaValue.Boolean(value.GetBoolean()) : FormulaValue.Decimal(value.ValueKind == JsonValueKind.String ? decimal.Parse(value.GetString()!, System.Globalization.CultureInfo.InvariantCulture) : value.GetDecimal());
+    private static object SerializeOutcome(EvaluationOutcome outcome) => outcome switch
+    {
+        EvaluationSuccess success => new { kind = "Success", value = SerializeValue(success.Value) },
+        EvaluationFailure failure => new { kind = "Failure", code = failure.Code, message = failure.Message, span = failure.Span },
+        _ => new { kind = "Failure", code = "FORMULA_OUTCOME_UNKNOWN", message = "The formula outcome is not supported.", span = (SourceSpan?)null }
+    };
+    private static object? SerializeValue(FormulaValue value) => value switch
+    {
+        DecimalFormulaValue decimalValue => decimalValue.Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        BooleanFormulaValue booleanValue => booleanValue.Value,
+        _ => null
+    };
 }
 
 public sealed record FormulaRequest(string Source, IReadOnlyList<FormulaVariableRequest> Variables, string DeclaredResultType);

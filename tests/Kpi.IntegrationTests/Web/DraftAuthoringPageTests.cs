@@ -86,6 +86,22 @@ public sealed class DraftAuthoringPageTests : IClassFixture<WebApplicationFactor
         Assert.DoesNotContain("variables: []", javascript, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task Draft_page_exposes_transient_formula_test_run_panel()
+    {
+        var index = await _client.GetStringAsync("/Kpis", TestContext.Current.CancellationToken);
+        var definitionId = Regex.Match(index, @"/Kpis/Edit/(?<id>[0-9a-f-]{36})", RegexOptions.IgnoreCase).Groups["id"].Value;
+        Assert.NotEmpty(definitionId);
+
+        var response = await _client.GetAsync($"/Kpis/Edit/{definitionId}", TestContext.Current.CancellationToken);
+        var html = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("formula-test-run", html, StringComparison.Ordinal);
+        Assert.Contains("formula-test-inputs", html, StringComparison.Ordinal);
+        Assert.Contains("formula-test-result", html, StringComparison.Ordinal);
+    }
+
     private async Task<(string DefinitionId, string Token)> GetDefinitionAndToken()
     {
         var index = await _client.GetStringAsync("/Kpis", TestContext.Current.CancellationToken);

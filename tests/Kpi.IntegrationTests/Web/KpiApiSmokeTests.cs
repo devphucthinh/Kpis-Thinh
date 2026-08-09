@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
 
@@ -28,6 +29,26 @@ public sealed class KpiApiSmokeTests : IClassFixture<WebApplicationFactory<Progr
         var body = await response.Content.ReadFromJsonAsync<FormulaResponse>(TestContext.Current.CancellationToken);
         Assert.True(body!.Valid);
         Assert.Equal("binary", body.Formula!.Ast.NodeType);
+    }
+
+    [Fact]
+    public async Task Formula_test_run_returns_typed_result_and_transient_marker()
+    {
+        var response = await _client.PostAsJsonAsync("/api/v1/formulas/test-run", new
+        {
+            source = "value * 2",
+            declaredResultType = "Decimal",
+            variables = new[] { new { code = "value", displayName = "Value", type = "Decimal", required = true } },
+            inputs = new { value = 5 }
+        }, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        var root = document.RootElement;
+        Assert.False(root.GetProperty("persisted").GetBoolean());
+        var outcome = root.GetProperty("outcome");
+        Assert.Equal("Success", outcome.GetProperty("kind").GetString());
+        Assert.Equal("10", outcome.GetProperty("value").GetString());
     }
 
     private sealed record FormulaResponse(bool Valid, FormulaDocumentResponse? Formula);
