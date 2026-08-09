@@ -37,13 +37,13 @@ public sealed class KpiWebReadModelService(KpiOperations kpis)
             .OrderByDescending(x => x.VersionNumber)
             .Select(version => ToVersionItem(actor, definition, version, currentVersion?.Id == version.Id))
             .ToArray();
-        var draft = definition.Versions
-            .Where(x => x.Status == KpiVersionStatus.Draft)
+        var editorVersion = definition.Versions
+            .Where(x => x.Status != KpiVersionStatus.Retired)
             .OrderByDescending(x => x.VersionNumber)
             .Select(version => ToEditor(actor, definition, version))
             .FirstOrDefault();
 
-        return new(definition.Id, definition.Code.Value, definition.Name, definition.Description, definition.OwnerId, definition.Archived, versions, draft, notice, []);
+        return new(definition.Id, definition.Code.Value, definition.Name, definition.Description, definition.OwnerId, definition.Archived, versions, editorVersion, notice, []);
     }
 
     public KpiVersionEditorVm? GetVersionEditor(ActorContext actor, Guid definitionId, Guid versionId)

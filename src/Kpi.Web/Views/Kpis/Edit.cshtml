@@ -28,6 +28,8 @@
     </div>
 }
 
+@if (draft is null || (draft.Status == Kpi.Domain.Kpis.KpiVersionStatus.Draft && draft.CanSave))
+{
 <div class="card">
     <form method="post" action="@(form.VersionId == Guid.Empty ? "/Kpis/AddVersion" : "/Kpis/UpdateDraft")">
         @Html.AntiForgeryToken()
@@ -62,6 +64,44 @@
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="button" type="submit">@(form.VersionId == Guid.Empty ? "Lưu phiên bản Draft" : "Cập nhật Draft")</button><span class="muted">Lưu không tự động Submit; bạn sẽ kiểm tra công thức trước.</span></div>
     </form>
 </div>
+}
+else if (draft is not null)
+{
+<div class="card" data-read-only-version>
+    <div class="muted">READ-ONLY FORMULA SNAPSHOT · v@draft.VersionNumber</div>
+    <h2>@draft.Name @await Html.PartialAsync("_StatusBadge", draft.Status.ToString())</h2>
+    <p class="subtitle">@draft.Description</p>
+    <pre class="formula-source-readonly">@draft.Source</pre>
+    <div class="panel"><strong>Formula Variables</strong><ul>@foreach (var variable in draft.Variables) { <li><code>@variable.Code</code> · @variable.DisplayName · @variable.Type · @(variable.Required ? "required" : "optional")</li> }</ul></div>
+</div>
+@if (draft.Status == Kpi.Domain.Kpis.KpiVersionStatus.InReview && draft.CanReview)
+{
+    <div class="card" data-review-panel style="margin-top:18px;">
+        <div class="muted">KPI GOVERNANCE</div><h2>Review phiên bản</h2><p class="subtitle">KPI Policy Approver xem nội dung ở chế độ chỉ đọc và phải ghi nhận xét.</p>
+        <form method="post" action="/Kpis/Review">
+            @Html.AntiForgeryToken()<input type="hidden" name="definitionId" value="@Model.Workbench.DefinitionId" /><input type="hidden" name="versionId" value="@draft.VersionId" />
+            <label>Nhận xét <textarea name="comment" required placeholder="Ghi lý do approve hoặc reject"></textarea></label>
+            <button class="button" type="submit" name="approve" value="true">Approve</button>
+            <button class="button danger" type="submit" name="approve" value="false">Reject</button>
+        </form>
+    </div>
+}
+@if (draft.Status == Kpi.Domain.Kpis.KpiVersionStatus.Approved && draft.CanPublish)
+{
+    <div class="card" data-publish-panel style="margin-top:18px;">
+        <div class="muted">PUBLISH</div><h2>Phát hành phiên bản</h2><p class="subtitle">Chọn thời điểm hiệu lực; hệ thống sẽ kiểm tra khoảng hiệu lực không chồng lấn.</p>
+        <form method="post" action="/Kpis/Publish">
+            @Html.AntiForgeryToken()<input type="hidden" name="definitionId" value="@Model.Workbench.DefinitionId" /><input type="hidden" name="versionId" value="@draft.VersionId" />
+            <label>Effective from <input type="datetime-local" name="effectiveFrom" required /></label>
+            <button class="button" type="submit">Publish phiên bản</button>
+        </form>
+    </div>
+}
+@if (draft.Status == Kpi.Domain.Kpis.KpiVersionStatus.Rejected && draft.CanSave)
+{
+    <div class="card" data-return-draft-panel style="margin-top:18px;"><p>Phiên bản bị reject với nhận xét cần xử lý trước khi gửi lại.</p><form method="post" action="/Kpis/ReturnToDraft">@Html.AntiForgeryToken()<input type="hidden" name="definitionId" value="@Model.Workbench.DefinitionId" /><input type="hidden" name="versionId" value="@draft.VersionId" /><button class="button" type="submit">Đưa về Draft</button></form></div>
+}
+}
 
 <div class="card" id="formula-test-run" style="margin-top:18px;">
     <div class="muted">FORMULA TEST RUN</div><h2>Chạy thử công thức</h2><p class="subtitle">Test Run chỉ hiển thị kết quả, không lưu KPI Evaluation hoặc Audit Record.</p>
