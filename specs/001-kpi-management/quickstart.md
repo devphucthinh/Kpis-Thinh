@@ -54,18 +54,22 @@ An idempotent Development composition seeder, outside schema migrations, creates
    Confirm syntax guidance, diagnostics/source spans when deliberately invalid, and generated AST preview.
 4. Run a Formula Test Run with manual inputs. Confirm an outcome is visible and no official Evaluation/history row is added after reload.
 5. Submit the Version. As **KPI Policy Approver**, approve it with a comment; publish it with an effective date. Confirm a creator cannot self-approve or edit submitted content.
-6. As **KPI Period Planner**, create a matching-cadence Period Plan, select the exact eligible Version, and submit it. As **KPI Period Approver**, approve it. Confirm dates/selections are frozen and same-person approval is rejected.
-7. Advance the controlled clock or reconciliation boundary. Confirm Scheduled becomes Active once and later Closed once; repeat reconciliation to confirm no duplicate Audit Records.
-8. As **KPI Evaluator**, enter official values that produce 25. Reload and confirm exact source, ordered inputs, outcome and Current KPI Evaluation history.
-9. Correct `revenue` to produce 30, supplying a reason. Confirm the original attempt remains, changed inputs/result are shown, and 30 is Current.
-10. Cause a later Failure such as division by zero. Confirm it remains history and does not replace the Current successful result.
-11. As **KPI Administrator**, inspect Audit history for create/review/publish/period/evaluation/correction. Confirm monitoring does not expose editing actions.
-12. Archive and restore a Definition with history. Separately hard-delete an unused never-submitted Draft and confirm its Audit tombstone remains.
+6. As **KPI Period Planner**, create a matching-cadence Period Plan, select the exact eligible Version, and submit it. As a separate **KPI Period Approver**, reject it with a comment. Confirm it is read-only in Rejected; return as the Planner to Draft, revise, and resubmit while rejection evidence remains visible.
+7. As the separate **KPI Period Approver**, approve the resubmitted Period. Confirm dates/selections are frozen and same-person approval is rejected without state or Audit mutation.
+8. While the Period is Scheduled, propose a reasoned Amendment with a complete candidate interval/selection snapshot. Approve it as the separate Period Approver. Confirm the original approved plan remains unchanged, a new immutable effective revision is visible, and an Active/Closed/Cancelled Period rejects a new Amendment.
+9. Advance the controlled clock or reconciliation boundary. Confirm Scheduled becomes Active once using the latest approved effective revision and later becomes Closed once; repeat reconciliation to confirm no duplicate transitions or Audit Records.
+10. As **KPI Evaluator**, enter official values that produce 25. Reload and confirm exact source, ordered inputs, outcome and Current KPI Evaluation history.
+11. Correct `revenue` to produce 30, supplying a reason. Confirm the original attempt remains, changed inputs/result are shown, and 30 is Current.
+12. Cause a later Failure such as division by zero. Confirm it remains history and does not replace the Current successful result.
+13. As **KPI Administrator**, inspect Audit history for create/review/publish/period/amendment/evaluation/correction. Confirm monitoring does not expose editing actions.
+14. Archive and restore a Definition with history. Separately hard-delete an unused never-submitted Draft and confirm its Audit tombstone remains.
 
 ## Expected Safety Evidence
 
 - Test Run never persists an Evaluation or changes Current.
 - A stale concurrency token never overwrites a newer Draft/Plan.
+- A wrong capability or self-conflicting decision changes neither governed state nor Audit history.
+- A stale Amendment base revision cannot replace a newer approved effective revision.
 - An effective range or Period overlap is rejected before it creates an illegal schedule.
 - A Formula Failure has a stable code and never fabricates a Null success.
 - A submitted AST cannot replace the server-generated Formula AST.

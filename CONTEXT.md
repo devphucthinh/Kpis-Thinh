@@ -65,7 +65,7 @@ The person who prepares and submits a KPI Period Plan but cannot approve that sa
 _Avoid_: KPI Period Approver, KPI Creator
 
 **KPI Period Approver**:
-The authority who approves or rejects a submitted KPI Period Plan without editing it or having submitted it.
+The authority who approves or rejects a submitted KPI Period Plan or Scheduled KPI Period Amendment without editing it or having submitted/proposed it.
 _Avoid_: KPI Period Planner, KPI Policy Approver
 
 **Scheduled KPI Period**:
@@ -81,8 +81,12 @@ A KPI Period that has reached its end and no longer accepts ordinary KPI Evaluat
 _Avoid_: Cancelled period, deleted period
 
 **KPI Period Amendment**:
-An audited, separately approved change proposed for a Scheduled, Active, or Closed KPI Period instead of editing the approved plan in place.
+An audited, separately reviewed proposal to change a Scheduled KPI Period by creating a new immutable effective revision instead of editing an approved plan in place.
 _Avoid_: Period edit, silent correction
+
+**KPI Period Effective Revision**:
+An immutable complete interval-and-selection snapshot used for activation; revision zero is the original approved plan and each later revision comes from an approved Scheduled KPI Period Amendment.
+_Avoid_: Mutable period plan, amendment delta
 
 **KPI Period Activation**:
 The governed selection of one KPI Version of a KPI Definition for use in a specific KPI Period.

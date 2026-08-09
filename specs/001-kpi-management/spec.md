@@ -6,7 +6,7 @@
 
 **Created**: 2026-08-09
 
-**Status**: Draft — Awaiting specification review
+**Status**: Approved — Clarified for implementation planning
 
 **Input**: Approved KPI management findings from the completed Grill session, `CONTEXT.md`, and the current repository documentation.
 
@@ -29,6 +29,14 @@ This feature proves that one company can govern KPIs from authoring through offi
 - KPI Administrators can monitor governed activity and explain the history without editing creator-owned KPI content.
 - Reviewers can reproduce any historical outcome from the exact version, formula, ordered inputs, and evaluation record that produced it.
 
+## Clarifications
+
+### Session 2026-08-09
+
+- Q: Khi một KPI Period đã được duyệt cần sửa, Amendment được duyệt phải có hiệu lực thế nào trong MVP? → A: Chỉ KPI Period ở trạng thái Scheduled được sửa bằng Amendment; Amendment được duyệt tạo một effective revision bất biến mới, plan gốc và lịch sử vẫn nguyên vẹn, và activation dùng revision mới nhất đã được duyệt.
+- Q: Khi KPI Period bị Approver từ chối, lifecycle phải quay về Draft theo cách nào? → A: Rejection chuyển KPI Period từ In Review sang Rejected và giữ comment/Audit; chỉ KPI Period Planner mới được đưa Rejected period về Draft để sửa và gửi lại.
+- Q: Trong MVP, capability và separation-of-duty có bắt buộc trên mọi governed operation hay chỉ được mô phỏng trên UI? → A: Mọi governed operation bắt buộc kiểm tra capability và separation-of-duty; chỉ production authentication, session, identity-provider integration, và deployment policy adapter nằm ngoài scope.
+
 ## Scope & Boundaries
 
 ### In Scope
@@ -38,7 +46,7 @@ This feature proves that one company can govern KPIs from authoring through offi
 - Traceable KPI Versions with review, approval, publication, effective dates, retirement, cloning, change summaries, and diffs.
 - Dynamic ordered Formula Variables and manual test or official Evaluation Inputs.
 - Deterministic Decimal and Boolean formulas using the approved arithmetic, comparison, logical, conditional, percentage, rounding, absolute-value, and remainder operations.
-- Monthly, quarterly, and annual KPI Period planning, approval, scheduling, activation, closure, cancellation, and governed amendment.
+- Monthly, quarterly, and annual KPI Period planning, approval, scheduling, activation, closure, cancellation, and governed Amendment of Scheduled periods through immutable effective revisions.
 - Formula Test Runs that are discarded and official KPI Evaluations that are immutable.
 - Corrective Superseding Evaluations with changed-input and changed-result explanations.
 - Append-only Audit Records for governed actions and state changes.
@@ -47,7 +55,7 @@ This feature proves that one company can govern KPIs from authoring through offi
 
 ### Out of Scope
 
-- Production authentication or authorization enforcement.
+- Production authentication, session management, identity-provider integration, and deployment-grade identity/policy adapters; governed operations still enforce the approved capabilities and separation of duty independently of the UI.
 - Employee assignment, employee-specific KPI tracking, management notifications, or manager reporting.
 - Nested KPI references in formulas.
 - Importing values from spreadsheets, productivity suites, ERP systems, data warehouses, or external services.
@@ -107,9 +115,10 @@ A KPI Period Planner defines a company-calendar interval and selects one eligibl
 
 1. **Given** eligible published versions, **When** the Planner builds a Draft KPI Period Plan, **Then** each KPI Definition can appear at most once and only with a matching cadence.
 2. **Given** a submitted plan, **When** the same person attempts to approve it, **Then** approval is rejected without changing the plan.
-3. **Given** a separate approver and valid non-overlapping dates, **When** the plan is approved, **Then** dates and selections are frozen and the period becomes Scheduled.
-4. **Given** a Scheduled or Active period and time has advanced past a boundary during downtime, **When** time reconciliation next runs, **Then** each due transition occurs once and the same reconciliation can be repeated without duplicate transitions.
-5. **Given** an approved period that needs change, **When** a user proposes an amendment, **Then** the original plan remains unchanged until the separately reviewed amendment is approved.
+3. **Given** a submitted plan, **When** a separate KPI Period Approver rejects it with a comment, **Then** the period becomes Rejected without changing its content; only its Planner may return it to Draft for revision and resubmission.
+4. **Given** a separate approver and valid non-overlapping dates, **When** the plan is approved, **Then** dates and selections are frozen and the period becomes Scheduled.
+5. **Given** a Scheduled or Active period and time has advanced past a boundary during downtime, **When** time reconciliation next runs, **Then** each due transition occurs once and the same reconciliation can be repeated without duplicate transitions.
+6. **Given** a Scheduled period that needs change before activation, **When** the Planner proposes an Amendment and a separate KPI Period Approver approves it, **Then** an immutable effective revision is created, the original approved plan remains unchanged, and activation uses the latest approved revision.
 
 ---
 
@@ -158,6 +167,7 @@ A KPI Administrator or responsible user inspects who changed or governed a KPI, 
 - Formulas exceeding 100 variables, 10,000 source characters, expression depth 32, 10,000 evaluated expression elements, or 500 milliseconds are rejected or stopped with an explanatory Failure.
 - Concurrent edits using stale state never overwrite a newer Draft or plan; the stale action is rejected and the user must reload.
 - A KPI Version cannot be published before approval, and no role can bypass review.
+- UI persona selection never grants authority by itself; every governed action rejects missing or conflicting capabilities before changing business state or Audit history.
 - An approver cannot edit submitted content while deciding it.
 - Published or Retired content remains immutable; reuse starts by cloning it into a new Draft with a Change Summary.
 - Effective ranges for versions of the same KPI Definition cannot overlap.
@@ -165,10 +175,13 @@ A KPI Administrator or responsible user inspects who changed or governed a KPI, 
 - Same-cadence KPI Periods cannot overlap, and the same KPI Definition cannot be active in overlapping periods.
 - Exact start and end boundaries are applied once: start makes a Scheduled period Active; end makes an Active period Closed.
 - Repeated or delayed time reconciliation cannot duplicate state transitions or Audit Records.
+- Only a Scheduled KPI Period may receive an Amendment in the MVP; Draft or In Review content is edited through normal planning, while Active, Closed, or Cancelled periods reject Amendment proposals without changing plan or Audit state.
+- An approved Amendment creates a new immutable effective revision for later activation; it never overwrites the original approved plan or any earlier Amendment revision.
 - A correction must use the same KPI Version as the corrected evaluation and must include a reason.
 - An unsuccessful correction attempt remains history and cannot displace the last Current successful evaluation.
 - Closing a KPI Period blocks new ordinary evaluations but does not erase or prevent a governed correction of an existing successful evaluation.
 - Cancelling a period preserves its plan, decisions, selections, and audit history.
+- A Rejected KPI Period remains read-only until its KPI Period Planner explicitly returns it to Draft; rejection comment, actor, time, and Audit Record remain historical after revision and resubmission.
 
 ## Requirements *(mandatory)*
 
@@ -219,12 +232,12 @@ A KPI Administrator or responsible user inspects who changed or governed a KPI, 
 - **FR-030**: A Formula Test Run MUST use the same formula meaning and calculation rules as an official evaluation but MUST NOT persist an Evaluation, change Current results, or create official evaluation history.
 - **FR-031**: Saving and reloading a KPI Version MUST preserve formula source text exactly, preserve ordered Formula Variables, and reproduce the same formula meaning and version metadata.
 - **FR-032**: A KPI Period Planner MUST be able to create a KPI Period Plan with code, name, description, cadence, start, end, and exact selected KPI Versions.
-- **FR-033**: KPI Period lifecycle MUST support Draft → In Review → Scheduled → Active → Closed, rejection back to Draft, and cancellation from Draft, In Review, or Scheduled.
+- **FR-033**: KPI Period lifecycle MUST support Draft → In Review → Scheduled → Active → Closed, In Review → Rejected → Draft, and cancellation from Draft, In Review, or Scheduled; rejection MUST preserve the Approver's comment and Audit Record, and only the KPI Period Planner MAY return a Rejected period to Draft for revision and resubmission.
 - **FR-034**: The person who submits a KPI Period Plan MUST NOT approve that same plan; the approver may approve or reject with a comment but MUST NOT edit it.
 - **FR-035**: Each KPI Definition MUST appear at most once in a KPI Period, and each selected KPI Version cadence MUST match the period cadence.
 - **FR-036**: Eligible versions MUST be presented newest to oldest, with ineligible choices unavailable and accompanied by a reason.
 - **FR-037**: Same-cadence KPI Periods MUST NOT overlap, and the same KPI Definition MUST NOT be active in overlapping periods.
-- **FR-038**: Approval MUST freeze a KPI Period's dates and selected versions; later change MUST use a separately reviewed KPI Period Amendment.
+- **FR-038**: Approval MUST freeze a KPI Period's dates and selected versions; only a Scheduled period MAY be changed through a separately reviewed KPI Period Amendment, whose approval MUST create a new immutable effective revision used by activation without overwriting the original approved plan or earlier revisions.
 - **FR-039**: Reaching a Scheduled period's start MUST activate all selections atomically; reaching an Active period's end MUST close the period.
 - **FR-040**: Time reconciliation MUST be idempotent, MUST catch up after downtime, and MUST create exactly one transition and Audit Record for each actual due change.
 - **FR-041**: An ordinary official KPI Evaluation MUST be allowed only for a KPI Period Activation in an Active KPI Period.
@@ -236,7 +249,7 @@ A KPI Administrator or responsible user inspects who changed or governed a KPI, 
 - **FR-047**: A correction MUST show literal old/new values for each changed input and old/new result values while preserving all prior attempts.
 - **FR-048**: Audit Records MUST be append-only and MUST cover definition creation and Draft edits, review and publication decisions, retirement, archive/restore, ownership transfer, period planning and transitions, amendments, and evaluation correction relationships.
 - **FR-049**: Audit history MUST support filtering by affected entity, actor, event type, and date and MUST expose actor, time, reason when required, correlation, and concise change context.
-- **FR-050**: The first release MUST provide demonstrable personas for KPI Creator, KPI Policy Approver, KPI Period Planner, KPI Period Approver, KPI Evaluator, and KPI Administrator without representing them as production authentication.
+- **FR-050**: The first release MUST provide demonstrable personas for KPI Creator, KPI Policy Approver, KPI Period Planner, KPI Period Approver, KPI Evaluator, and KPI Administrator without representing them as production authentication; every governed operation MUST independently enforce the applicable capability and separation-of-duty rule before changing business state or Audit history.
 - **FR-051**: KPI Administrators MUST be able to monitor Definitions, Versions, Periods, Evaluations, and Audit history but MUST NOT edit creator-owned KPI content.
 - **FR-052**: Concurrent changes based on stale state MUST be rejected without overwriting a newer Draft or KPI Period Plan.
 - **FR-053**: User-facing behavior and failure explanations MUST be available primarily in Vietnamese, with core English text available; canonical codes and formula terms MUST remain English.
@@ -250,7 +263,7 @@ A KPI Administrator or responsible user inspects who changed or governed a KPI, 
 ### Key Entities
 
 - **Company**: The initial organizational scope for actors, KPI Definitions, KPI Periods, KPI Evaluations, and Audit Records.
-- **Actor**: A demonstrable user identity with one of the agreed KPI capabilities; production identity enforcement is outside this release.
+- **Actor**: A demonstrable user identity with one of the agreed KPI capabilities; production identity integration is outside this release.
 - **KPI Definition**: Stable company-scoped KPI identity with immutable KPI Code, current owner, and archive state.
 - **KPI Version**: A traceable content revision belonging to one KPI Definition, optionally succeeding another version.
 - **Formula Variable**: An ordered, named, typed input definition owned by one KPI Version.
@@ -259,7 +272,7 @@ A KPI Administrator or responsible user inspects who changed or governed a KPI, 
 - **KPI Period Activation**: The exact selection of one KPI Version of a KPI Definition within one KPI Period.
 - **KPI Evaluation**: An immutable official attempt for one activation, optionally superseding an earlier attempt.
 - **Evaluation Outcome**: Either a successful Decimal/Boolean value or a structured Failure.
-- **KPI Period Amendment**: A separately reviewed proposal to change an approved period without overwriting its plan.
+- **KPI Period Amendment**: A separately reviewed proposal for a Scheduled period whose approval creates a new immutable effective revision for activation without overwriting the original approved plan or earlier revisions.
 - **Audit Record**: An immutable governed-action record connected to its company, actor, entity, time, reason, and change context.
 
 ### Acceptance Criteria
@@ -269,13 +282,13 @@ A KPI Administrator or responsible user inspects who changed or governed a KPI, 
 - **AC-003**: Every approved formula construct validates and evaluates deterministically, and no formula can execute arbitrary behavior outside the approved language.
 - **AC-004**: After durable save and reload, formula source, generated structured meaning, version metadata, ordered inputs, successful result or Failure, and governed history are semantically unchanged.
 - **AC-005**: Repeated Formula Test Runs create zero official Evaluation attempts and never change Current results.
-- **AC-006**: KPI Versions and KPI Periods accept every allowed lifecycle transition and reject every forbidden or role-conflicting transition without partial change.
+- **AC-006**: KPI Versions, KPI Periods, and KPI Period Amendments accept every allowed lifecycle or revision transition and reject every forbidden, state-conflicting, or role-conflicting transition without partial change.
 - **AC-007**: A due successor version retires its predecessor exactly once, and due KPI Period start/end transitions occur exactly once even after downtime.
 - **AC-008**: Correcting an Evaluation preserves the old attempt, new attempt, changed inputs, result difference, reason, exact version, and chronological relationship.
 - **AC-009**: A failed attempt after a successful Current KPI Evaluation remains visible and does not replace the Current result.
 - **AC-010**: The machine-readable formula view returns exact source, generated structured meaning with version metadata, and exact Decimal text while rejecting client-provided structured meaning as authoritative.
 - **AC-011**: All core user journeys and failures can be completed in Vietnamese, and the same core text has an English representation without translating formula keywords or canonical codes.
-- **AC-012**: Demonstration personas cannot be mistaken for or enabled as production authentication behavior.
+- **AC-012**: Demonstration personas cannot be mistaken for or enabled as production authentication behavior, and changing UI persona state cannot bypass capability or separation-of-duty enforcement on a governed operation.
 - **AC-013**: Eligible unused Draft content can be hard-deleted only with an Audit tombstone; content with governed history can only be archived and restored.
 - **AC-014**: A stale concurrent change is rejected and leaves the newer saved state unchanged.
 - **AC-015**: Every governed state change can be traced to an immutable Audit Record containing the responsible actor, time, affected entity, and required reason or change context.
@@ -304,8 +317,10 @@ A KPI Administrator or responsible user inspects who changed or governed a KPI, 
 - Manual input is the only source for Formula Test Runs and official KPI Evaluations in this release.
 - Company periods use the Gregorian calendar and `Asia/Ho_Chi_Minh` time interpretation with monthly, quarterly, or annual cadence.
 - Formula results and Formula Variables use Decimal or Boolean values only; Null represents absence/failure context and is never a valid input or successful result.
-- The role personas demonstrate agreed responsibilities and separation of duty but are not production authentication or authorization.
+- The role personas supply demonstrable actor identities, while governed operations enforce agreed capabilities and separation of duty; production authentication, sessions, identity-provider integration, and deployment policy adapters remain outside this release.
 - A KPI Policy Approver and a KPI Period Approver decide submitted content without editing it; a period submitter cannot approve the same plan.
+- A rejected KPI Period remains Rejected and read-only until its Planner explicitly returns it to Draft; rejection evidence remains immutable.
+- KPI Period Amendments apply only while a period is Scheduled; an approved Amendment becomes a new immutable effective revision for activation and never mutates the original approved plan.
 - Historical records are retained indefinitely for the feasibility release unless they meet the explicitly narrow unused-Draft deletion rule.
 - External identity, employee assignment, notifications, external data sources, nested KPIs, dashboards, and reporting are future features and do not need placeholder implementations now.
 - Repository quality policy and the approved domain glossary remain authoritative throughout later planning and implementation.

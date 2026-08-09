@@ -30,7 +30,7 @@ This is a working feasibility application, not throwaway prototype code. It must
 4. Dynamic Formula Variables with ordered definitions and manual evaluation inputs.
 5. Formula tokenizer, Pratt parser, typed/versioned AST, validator, and deterministic evaluator.
 6. Monthly, quarterly, and annual KPI periods using the company calendar and `Asia/Ho_Chi_Minh`.
-7. Separate period planning and approval, scheduled activation, closure, cancellation, and amendments.
+7. Separate period planning and approval, explicit rejection recovery, scheduled activation, closure, cancellation, and Scheduled-only Amendment effective revisions.
 8. Selection of one eligible KPI Version per KPI Definition in each period.
 9. Transient Formula Test Runs and persisted official KPI Evaluations.
 10. Immutable evaluation corrections with changed-input and changed-result diffs.
@@ -43,7 +43,7 @@ This is a working feasibility application, not throwaway prototype code. It must
 
 ### 2.2 Explicitly excluded
 
-- Real authentication or authorization enforcement.
+- Production authentication, sessions, identity-provider integration, and deployment-grade identity/policy adapters. Domain/Application capability and separation-of-duty enforcement remains included.
 - Employee assignment and employee-specific KPI tracking.
 - Nested KPI references inside formulas.
 - Data ingestion from Microsoft Graph, Excel, ERP, data warehouses, or external APIs.
@@ -164,11 +164,11 @@ Callers never construct trusted AST nodes. `Compile` is the only trusted path fr
 
 Application commands express user intent such as create definition, create version, submit review, approve, publish, retire, archive, restore, and transfer ownership. Domain objects enforce transitions; controllers do not reimplement state rules.
 
-KPI Creators own and edit their Draft content. KPI Policy Approvers decide without editing. KPI Administrators can monitor definitions, versions, periods, evaluations, and audit history but cannot modify creator-owned KPI content. These are simulated capabilities in the first release, not production authorization.
+KPI Creators own and edit their Draft content. KPI Policy Approvers decide without editing. KPI Administrators can monitor definitions, versions, periods, evaluations, and audit history but cannot modify creator-owned KPI content. Development personas supply simulated identities, while Application commands authoritatively enforce capabilities and separation of duty; only production identity integration is deferred.
 
 #### Period governance module
 
-Application commands prepare plans, select eligible versions, submit, approve, reconcile scheduled time transitions, close, cancel, and amend periods. A supplied clock makes time behavior deterministic in tests.
+Application commands prepare plans, select eligible versions, submit, approve/reject, return Rejected plans to Draft, reconcile scheduled time transitions, close, cancel, and propose/review Scheduled Amendments. Approved Amendments create immutable effective revisions used by activation. A supplied clock makes time behavior deterministic in tests.
 
 #### Evaluation module
 
@@ -191,6 +191,7 @@ erDiagram
     KPI_DEFINITION ||--o{ KPI_VERSION : versions
     KPI_VERSION o|--o| KPI_VERSION : succeeds
     ORGANIZATION ||--o{ KPI_PERIOD : schedules
+    KPI_PERIOD ||--o{ KPI_PERIOD_AMENDMENT : revises
     KPI_PERIOD ||--o{ KPI_PERIOD_ACTIVATION : contains
     KPI_VERSION ||--o{ KPI_PERIOD_ACTIVATION : selected_as
     KPI_PERIOD_ACTIVATION ||--o{ KPI_EVALUATION : evaluates
@@ -283,7 +284,10 @@ Rules:
 - one KPI Definition may appear only once in a period;
 - the same KPI Definition cannot be active in overlapping periods in the first release;
 - approval freezes dates and selections;
-- changes after approval require a separately reviewed amendment;
+- rejection moves InReview to a read-only Rejected state; only the Planner may return it to Draft, while rejection evidence remains immutable;
+- only Scheduled periods may be amended in the MVP;
+- an approved Amendment records a complete immutable effective revision based on the latest approved revision, never overwrites the original plan, and is the revision used by later activation;
+- Active, Closed, and Cancelled periods reject Amendment proposals;
 - selected versions cannot be invalidated in a way that breaks a Scheduled or Active period;
 - reaching the start time activates all selected versions atomically;
 - reaching the end time closes the period;
@@ -693,16 +697,17 @@ Automate one principal flow:
 2. create definition and Draft version;
 3. add variables and validate/test formula;
 4. submit and approve/publish with the appropriate persona;
-5. create, submit, and approve a period with separate personas;
-6. activate the period through controlled time/reconciliation;
-7. evaluate with manual inputs;
-8. reload and confirm formula, AST, result, and history;
-9. correct an input and inspect the diff;
-10. inspect audit, archive, and restore behavior.
+5. create and submit a period, reject it as a separate Approver, return it to Draft as its Planner, revise/resubmit, and approve it;
+6. approve a Scheduled Amendment and verify the original plan plus immutable effective revision;
+7. activate the period through controlled time/reconciliation using the latest approved revision;
+8. evaluate with manual inputs;
+9. reload and confirm formula, AST, result, revision, and history;
+10. correct an input and inspect the diff;
+11. inspect audit, archive, and restore behavior.
 
 ### 15.6 Harness
 
-`.harness/harness.json` becomes the only source of bootstrap, format, build/static, unit, integration, and browser test commands. `./harness.cmd check` is the Windows definition of done and CI executes the equivalent PowerShell entrypoint.
+`.harness/harness.json` becomes the only source of bootstrap, format, build/static, unit, integration, and browser test commands. Recurring bootstrap performs locked restore, provisions the pinned Playwright browser when absent, validates required non-secret local/test configuration, and safely applies the declared local/test migration manifest. `./harness.cmd check` is the Windows definition of done and CI executes the equivalent PowerShell entrypoint.
 
 ## 16. Local environment and database
 
@@ -710,7 +715,7 @@ Automate one principal flow:
 - Use the existing PostgreSQL 18 service.
 - Provision a dedicated `kpi_lab` database and least-privilege user without writing credentials to the repository.
 - Use .NET user-secrets for interactive local configuration and environment variables for automated runs.
-- Bootstrap restores tools/packages and applies documented migrations; it never invents or stores a password.
+- Bootstrap restores locked tools/packages, provisions the declared browser runtime, validates required local configuration, and applies documented safe local/test migrations; it never invents or stores a password.
 - Local UI runs on an explicitly documented localhost URL.
 
 ## 17. Future extension seams

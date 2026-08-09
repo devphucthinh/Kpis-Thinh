@@ -16,7 +16,8 @@ Organization
  ├─ KPI Definitions
  │   └─ KPI Versions
  ├─ KPI Periods
- │   └─ KPI Period Activations -> exact KPI Version
+ │   ├─ KPI Period Amendment effective revisions
+ │   └─ KPI Period Activations -> exact KPI Version + effective revision
  │        └─ KPI Evaluation attempt stream
  └─ Audit Records
 ```
@@ -29,8 +30,9 @@ Organization
 | KPI Version | Entity inside Definition boundary | Stable id, Definition id, sequential version number, optional predecessor id. | Draft content/review/publication lifecycle; content immutable after submission. |
 | Formula Variable | Value object inside Version | Canonical code and display order. | Draft-only replacement with Version content. |
 | Formula Document | Value object inside Version/Evaluation snapshot | Exact source, server-generated typed AST, language/schema version, checksum. | Never client-authoritative; new semantics create a new Version. |
-| KPI Period | Aggregate root | Stable id, organization id, human code, planner id, approver id. | Plan lifecycle, interval, selections and amendments. |
-| KPI Period Activation | Entity resolved from approved Period selection | Period id + Definition id, exact Version id. | Active/closed context and Current evaluation reference. |
+| KPI Period | Aggregate root | Stable id, organization id, human code, planner id, approver id. | Plan lifecycle, original frozen interval/selections, latest approved effective revision pointer and amendments. |
+| KPI Period Amendment | Immutable reviewed revision inside Period boundary | Stable id, Period id, increasing revision number and base revision number. | InReview decision state only; approved/rejected content becomes immutable. |
+| KPI Period Activation | Entity resolved from the latest approved Period effective revision | Period id + Definition id, exact Version id and effective revision number. | Active/closed context and Current evaluation reference. |
 | KPI Evaluation | Immutable entity in Activation stream | Stable id, activation id, optional supersedes id. | Never edited; only successor can change the stream's Current result. |
 | Audit Record | Append-only record | Stable id, organization/entity/actor/correlation ids. | No supported mutation. |
 
@@ -124,16 +126,28 @@ The real AST includes closed node types for literals, variables, unary/binary op
 | `name`, `description`, `cadence` | Required human context and Monthly/Quarterly/Annual cadence. |
 | `start`, `end` | Required half-open interval interpreted in `Asia/Ho_Chi_Minh`, stored as unambiguous instants. |
 | `plannerActorId`, `approverActorId` | Submitter and approving actor; must be different. |
-| `status` | Draft, InReview, Rejected, Scheduled, Active, Closed, Cancelled. |
-| `selections` | One exact eligible Version per Definition; frozen after approval. |
-| `amendments` | Separately reviewed proposals; never in-place changes to approved selection/date. |
+| `status` | Draft, InReview, Rejected, Scheduled, Active, Closed, Cancelled. Rejected is read-only until Planner return to Draft. |
+| `selections` | Original approved selection set; one exact eligible Version per Definition and frozen after approval. |
+| `latestEffectiveRevisionNumber` | `0` for the original approved plan; advances only when a Scheduled Amendment is approved. |
+| `amendments` | Ordered separately reviewed immutable effective revisions; never in-place changes to original selection/date. |
 | `revision` | Optimistic token while editable. |
+
+### KPI Period Amendment fields
+
+| Field | Rule |
+|---|---|
+| `id`, `periodId`, `revisionNumber` | Stable identity and unique increasing revision number within one Period. |
+| `baseRevisionNumber` | Latest approved effective revision on which the proposal was based; stale review cannot advance a different base. |
+| `proposedStart`, `proposedEnd`, `proposedSelections` | Complete candidate effective plan snapshot, not an in-place delta; the same cadence, eligibility, duplicate and overlap rules apply. |
+| `reason`, `proposedBy`, `proposedAt` | Required proposal provenance from the KPI Period Planner. |
+| `status` | InReview, Approved or Rejected. |
+| `reviewedBy`, `reviewedAt`, `reviewComment` | Required decision provenance from a distinct KPI Period Approver. |
 
 ### Activation fields
 
 | Field | Rule |
 |---|---|
-| `periodId`, `definitionId`, `versionId` | Unique Period/Definition pair and exact historical Version reference. |
+| `periodId`, `definitionId`, `versionId`, `effectiveRevisionNumber` | Unique Period/Definition pair, exact historical Version reference and the original (`0`) or approved Amendment revision used at activation. |
 | `activatedAt`, `closedAt` | Set by idempotent period reconciliation. |
 | `currentSuccessfulEvaluationId` | Optional pointer to the latest successful immutable attempt. |
 
@@ -143,8 +157,10 @@ The real AST includes closed node types for literals, variables, unary/binary op
 - Version cadence matches Period cadence and its effective range covers the planned activation.
 - Same-company/same-cadence Period ranges do not overlap.
 - A Definition cannot be active in overlapping Periods.
-- Approval freezes dates and selections; amendment is separate governance.
-- Scheduled → Active atomically creates/activates all selections; Active → Closed blocks ordinary new Evaluations.
+- Rejection moves InReview to Rejected; only the Planner may return the read-only plan to Draft, while rejection evidence remains immutable.
+- Approval freezes the original dates and selections. Only Scheduled permits Amendment proposal/review; approval advances `latestEffectiveRevisionNumber` to a new immutable complete snapshot without rewriting the original or an earlier revision.
+- Amendment approval revalidates cadence, eligibility and overlap under the Period lock; a stale `baseRevisionNumber` is rejected with no Amendment/Audit partial commit.
+- Scheduled → Active atomically resolves the latest approved effective revision and creates/activates all selections from it; Active → Closed blocks ordinary new Evaluations.
 
 ## KPI Evaluation and Supersession
 
@@ -183,7 +199,8 @@ Audit rows are not an event source. They are a user-queryable, append-only expla
 ```text
 organizations 1--* actors
 organizations 1--* kpi_definitions 1--* kpi_versions
-organizations 1--* kpi_periods 1--* kpi_period_activations *--1 kpi_versions
+organizations 1--* kpi_periods 1--* kpi_period_amendments
+kpi_periods 1--* kpi_period_activations *--1 kpi_versions
 kpi_period_activations 1--* kpi_evaluations
 kpi_evaluations 0..1--0..1 kpi_evaluations (supersedes)
 organizations 1--* audit_records
@@ -192,6 +209,7 @@ organizations 1--* audit_records
 | Integrity rule | Enforcement |
 |---|---|
 | Code/version/activation uniqueness | Unique indexes. |
+| Amendment revision uniqueness and approved base progression | Unique Period/revision index plus Period lock and stale-base validation. |
 | Version effective-range and period cadence-range overlap | PostgreSQL range exclusion constraints. |
 | One Current success | Partial unique index plus activation lock. |
 | Cross-table Definition active-period overlap | Approval transaction + scoped lock + integration concurrency test. |

@@ -69,7 +69,7 @@
 
 ## Decision: Target logical model with additive vertical migrations
 
-**Decision**: [data-model.md](data-model.md) describes the target logical model, while schema evolution is delivered as additive vertical migrations: test-database infrastructure; Definition/Version plus the minimal audited Draft write; Version effectivity constraints; Period/Activation; Evaluation/Current/Supersession; then audit query/permission/cross-slice verification. No migration contains product or demo data, and no applied migration rewrites immutable Evaluation or Audit history.
+**Decision**: [data-model.md](data-model.md) describes the target logical model, while schema evolution is delivered through six forward-only product migrations after test-database safety setup: Draft authoring with minimal Audit protection; Version governance; Definition retention; Period/Activation; Period Amendment effective revisions; and Evaluation/Current/Supersession. Audit query/permission/cross-slice verification consumes those migrations without adding a replacement schema. No migration contains product or demo data, and no applied migration rewrites immutable Evaluation or Audit history.
 
 **Rationale**: The target model must remain clear without requiring a risky one-shot migration before each vertical behavior is verifiable. This order makes the required database enforcement appear at the same time as the governed user behavior it protects.
 
@@ -77,6 +77,28 @@
 
 - One full-schema initial migration: rejected because it hides slice dependencies and postpones meaningful persistence verification.
 - Schema migration demo data: rejected because local UX samples must never become Production content.
+
+## Decision: Scheduled Period Amendments create immutable effective revisions
+
+**Decision**: Only a Scheduled KPI Period may receive an Amendment in the MVP. Approval of that separately reviewed Amendment creates a new immutable effective revision; the original approved plan and every prior revision remain unchanged. Activation resolves the latest approved effective revision transactionally. Draft/InReview content uses ordinary editing, while Active/Closed/Cancelled periods reject Amendment proposals.
+
+**Rationale**: This makes an approved Amendment operationally meaningful without rewriting governed history or introducing mid-period activation changes. Restricting the MVP to pre-activation changes keeps lifecycle, overlap, eligibility and audit behavior deterministic.
+
+**Alternatives considered**:
+
+- Mutate the original approved plan: rejected because approval freezes its dates and selections.
+- Amend an Active period: rejected for the MVP because it requires mid-period activation replacement and evaluation-history rules.
+- Record decision-only Amendments: rejected because an approved change would have no effect on later activation.
+
+## Decision: Period rejection is an explicit recoverable state
+
+**Decision**: Rejection moves a KPI Period from InReview to Rejected and persists the Approver comment and Audit Record. The plan stays read-only until its KPI Period Planner explicitly returns it to Draft, after which it may be revised and resubmitted. Cancellation remains a distinct terminal action from Draft, InReview or Scheduled.
+
+**Rationale**: An explicit decision state preserves explainability and mirrors Version governance while keeping the Planner, not the Approver, responsible for reopening editable content.
+
+**Alternatives considered**:
+
+- Reject directly to Draft: rejected because the current status would no longer distinguish an undecided Draft from a rejected plan without consulting history.
 
 ## Decision: Optimistic editing plus short transactional locks
 
@@ -117,9 +139,9 @@
 
 **Reference**: [Hosted services](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/host/hosted-services).
 
-## Decision: Demo persona is an input seam, not authentication
+## Decision: Demo persona is an input seam, not production identity
 
-**Decision**: Before persona-dependent HTTP, MVC, or browser work, establish the shared `ActorContext`/current-actor capability ports and authoritative Application checks. The Web project supplies only a development persona provider and refuses to start with persona switching outside Development. Command-level checks enforce separation of duty regardless of UI state.
+**Decision**: Before persona-dependent HTTP, MVC, or browser work, establish the shared `ActorContext`/current-actor capability ports and authoritative Application checks. The Web project supplies only a development persona provider and refuses to start with persona switching outside Development. Command-level checks enforce capabilities and separation of duty regardless of UI state. Production authentication, sessions, identity-provider integration and deployment policy adapters are deferred.
 
 **Rationale**: The spec excludes production authentication but requires demonstrable governance and protection from UI-only bypass.
 
@@ -132,7 +154,7 @@
 
 ## Decision: Test real persistence and use the repository harness
 
-**Decision**: Unit-test Domain/Application seams; run PostgreSQL integration tests for JSONB, range, permissions and concurrency; use a web integration host for delivery contracts; add one browser smoke journey. First scaffold the solution/projects, initialize reviewed package lockfiles once through the canonical harness, then enforce locked bootstrap and prove `lint`, `test`, and `check` execute the intended projects before adding the first public-seam RED test. Expose all setup/check commands through `.harness/harness.json` and `harness.cmd`.
+**Decision**: Unit-test Domain/Application seams; run PostgreSQL integration tests for JSONB, range, permissions and concurrency; use a web integration host for delivery contracts; add one browser smoke journey. First scaffold the solution/projects, initialize reviewed package lockfiles once through the canonical harness, then enforce locked bootstrap and prove `lint`, `test`, and `check` execute the intended projects before adding the first public-seam RED test. The recurring bootstrap explicitly provisions the pinned Playwright browser runtime when absent, validates required non-secret local/test configuration, and applies only declared safe local/test migrations. Expose all setup/check commands through `.harness/harness.json` and `harness.cmd`.
 
 **Rationale**: Fakes cannot prove PostgreSQL-specific integrity or browser interaction, while a single smoke journey prevents over-investing in UI automation.
 
@@ -140,4 +162,4 @@
 
 ## Approved Technical Decisions
 
-The active specification has no unresolved product ambiguity or outstanding technical approval. Canonical Formula/Evaluation snapshots use invariant Decimal strings across the approved domain; the MVP has no relational numeric projection. The MVP also uses distinct local schema-migration and restricted runtime database roles, with credentials supplied only outside the repository.
+The active specification has no unresolved product ambiguity or outstanding technical approval. Canonical Formula/Evaluation snapshots use invariant Decimal strings across the approved domain; the MVP has no relational numeric projection. The MVP uses distinct local schema-migration and restricted runtime database roles, with credentials supplied only outside the repository. Scheduled Amendment effective revisions and explicit Rejected-to-Draft Period recovery are approved behavior, and production identity integration remains outside scope while command-level capability enforcement remains mandatory.

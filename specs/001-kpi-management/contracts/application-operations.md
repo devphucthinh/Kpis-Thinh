@@ -11,7 +11,7 @@ Every governed command carries:
 - opaque concurrency token when changing an editable resource;
 - command timestamp/clock supplied by the application boundary.
 
-The operation returns either a typed success/read model or a stable failure. The delivery layer maps these results to localized HTTP/UI responses without reimplementing rules.
+The operation enforces its required capability and separation-of-duty rule before invoking Domain mutation, then returns either a typed success/read model or a stable failure. Authorization failure changes neither business state nor Audit history. The delivery layer maps these results to localized HTTP/UI responses without reimplementing rules.
 
 ## KPI Definition and Version operations
 
@@ -20,7 +20,7 @@ The operation returns either a typed success/read model or a stable failure. The
 | Create Definition | Validate company-unique KPI Code and Creator capability; create initial Draft context and Audit Record. |
 | Update Draft | Require owner/capability and fresh token; reject published/submitted content mutation. |
 | Create/clone Version | Allocate sequential number; clone retired behavior only into a new Draft with Change Summary. |
-| Submit/approve/reject | Enforce valid Draft, Policy Approver decision-only role and review comment. |
+| Submit/approve/reject/return to Draft | Enforce valid Draft, Policy Approver decision-only role and review comment; only the owning Creator may return Rejected content to Draft. |
 | Publish/retire | Enforce approval, legal effective range and predecessor/successor transition in one transaction. |
 | Archive/restore/delete/transfer | Enforce Draft deletion eligibility, audit tombstone, no automatic reactivation and approved ownership transfer reason. |
 
@@ -36,9 +36,10 @@ The operation returns either a typed success/read model or a stable failure. The
 | Operation | Required behavior |
 |---|---|
 | Create/update Draft Plan | Validate cadence/date/selection rules with fresh token. |
-| Submit/approve/reject/cancel | Enforce Period Planner/Approver separation and explicit lifecycle. |
-| Amend | Propose a separately governed amendment without mutating frozen plan. |
-| Reconcile KPI lifecycle | `ReconcileKpiLifecycle` is the sole Application orchestration seam for due Version effectivity/predecessor retirement and Period scheduled-to-active/active-to-closed transitions. It is idempotent, audits actual transitions, and is the only operation a hosted worker invokes. |
+| Submit/approve/reject/cancel | Enforce Period Planner/Approver separation and explicit lifecycle; rejection enters the read-only Rejected state with comment/Audit evidence. |
+| Return Rejected Period to Draft | Require the Period's Planner; preserve rejection evidence while reopening editable Draft content for revision/resubmission. |
+| Propose/review Amendment | Permit only Scheduled periods; Planner proposes a complete candidate effective revision with reason and base revision, a distinct Approver approves/rejects it, stale base fails, and approval advances the immutable latest effective revision without mutating original plan history. |
+| Reconcile KPI lifecycle | `ReconcileKpiLifecycle` is the sole Application orchestration seam for due Version effectivity/predecessor retirement and Period scheduled-to-active/active-to-closed transitions. Activation resolves the latest approved Period effective revision. Reconciliation is idempotent, audits actual transitions, and is the only operation a hosted worker invokes. |
 
 ## Evaluation and Audit operations
 

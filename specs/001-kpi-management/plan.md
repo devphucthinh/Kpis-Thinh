@@ -26,7 +26,7 @@ The design deliberately uses neither microservices nor a generic workflow/event-
 
 **Performance Goals**: At least 95% of in-limit formula validation feedback is visible within one second; formula evaluation is bounded to 500 milliseconds and 10,000 evaluated nodes; reconciliation performs only due state transitions and is safe to repeat.
 
-**Constraints**: One seeded company; manual inputs only; Gregorian calendar in `Asia/Ho_Chi_Minh`; Decimal/Boolean formula values; no arbitrary formula execution; no production authentication; no committed credentials; the repository harness is the only setup/verification interface.
+**Constraints**: One seeded company; manual inputs only; Gregorian calendar in `Asia/Ho_Chi_Minh`; Decimal/Boolean formula values; no arbitrary formula execution; no production authentication/session/identity-provider integration; authoritative command-level capability and separation-of-duty checks; no committed credentials; the repository harness is the only setup/verification interface.
 
 **Scale/Scope**: MVP supports up to 100 Formula Variables, 10,000 source characters, AST depth 32, and one active version per KPI Definition at any instant. Multi-company administration, employee assignment, providers, dashboards, and external inputs remain future extensions.
 
@@ -136,7 +136,7 @@ Public seams are behavior-oriented; tests must not call private parser, controll
 | `FormulaCompiler.Compile` | Converts source, Formula Variables, and declared result type into a typed, versioned Formula Compilation or diagnostics. | Domain unit test. |
 | `FormulaEvaluator.Evaluate` | Produces Decimal/Boolean success or structured Failure from a compiled formula and non-null Evaluation Inputs. | Domain unit test with deterministic budget/time source. |
 | KPI Definition/Version commands | Create Draft, edit Draft, submit, approve/reject, publish, retire, clone, archive/restore, transfer ownership. | Application command test with fake actor/clock/store. |
-| KPI Period commands | Create/edit plan, select exact version, submit, approve/reject/cancel/amend. | Application command test with fake clock; PostgreSQL integration for overlap constraints. |
+| KPI Period commands | Create/edit plan, select exact version, submit, approve/reject, return Rejected to Draft, cancel, and propose/review Scheduled Amendment effective revisions. | Application command test with fake clock; PostgreSQL integration for overlap and revision constraints. |
 | `ReconcileKpiLifecycle` | Reconciles due Version effectivity/predecessor retirement and Period scheduled-to-active/active-to-closed transitions in one idempotent Application orchestration seam. | Application command test with fake clock; PostgreSQL transaction and restart/catch-up integration tests. |
 | Evaluation commands | Create official attempt, resolve Current KPI Evaluation, create a Superseding Evaluation. | Application command test plus PostgreSQL transaction test. |
 | Audit query | Returns immutable ordered Audit Records filtered by entity/actor/type/date. | Integration test through query port/HTTP contract. |
@@ -153,7 +153,7 @@ The canonical language remains `CONTEXT.md`; this model does not rename it.
 | Boundary | Contains | Core invariants |
 |---|---|---|
 | **KPI Definition** aggregate | KPI Definition metadata and KPI Version metadata/content. | Immutable company-scoped KPI Code; sequential version numbers; only Draft content editable; a Definition retains stable identity; effective ranges do not overlap; one currently effective Published KPI Version. |
-| **KPI Period Plan** aggregate | KPI Period, exact version selections, review decision, amendments, resolved activations. | Planner cannot self-approve; dates/selections freeze at approval; cadence and duplicate-definition rules; no illegal overlap; state transitions are explicit. |
+| **KPI Period Plan** aggregate | KPI Period, exact version selections, review decision, immutable Amendment effective revisions, resolved activations. | Planner cannot self-approve; dates/selections freeze at approval; Rejected content stays read-only until Planner return; only Scheduled periods can add an approved effective revision; cadence and duplicate-definition rules; no illegal overlap; state transitions are explicit. |
 | **KPI Period Activation evaluation stream** | KPI Period Activation, immutable KPI Evaluation attempts and Current pointer/flag. | Official evaluation only when Active; every attempt immutable; only successful attempt becomes Current; Superseding Evaluation keeps predecessor, full new input snapshot, diff and reason. |
 | **Audit Record** append-only stream | Audit Record facts keyed to company/entity/action/correlation. | No update/delete behavior; every governed state change has actor, time, event, context and required reason. |
 | **Organization/Actor** references | One seeded company and capability-bearing actors. | Company scope is always retained; demo personas are an adapter input, not production identity. |
@@ -184,7 +184,8 @@ KPI Period: Draft -> InReview -> Scheduled -> Active -> Closed
 - `ReconcileKpiLifecycle` is the only Application orchestration seam for due lifecycle work. It invokes Version effectivity/predecessor retirement and Period scheduled-to-active/active-to-closed policy together; the hosted worker only invokes this seam and contains no lifecycle policy.
 - Publishing a successor closes the predecessor range at the successor start; lifecycle reconciliation retires the predecessor at that instant. The hand-off is one transaction.
 - Approval delegates can decide but cannot edit submitted content; a Period Planner cannot approve their own plan.
-- Approved Period selections are immutable. An amendment is a separate reviewed proposal; it never overwrites the approved plan.
+- Rejection moves a Period to Rejected and records decision evidence; only its Planner may return it to Draft for revision and resubmission.
+- Approved Period selections are immutable. Only a Scheduled period may receive an Amendment; approval creates a new immutable effective revision, never overwrites the original approved plan or earlier revisions, and activation resolves the latest approved revision.
 - Closing blocks ordinary evaluation but permits a governed correction of an existing successful evaluation with the same KPI Version, complete new inputs and mandatory reason.
 
 ## Important Data Flows
@@ -196,7 +197,8 @@ KPI Period: Draft -> InReview -> Scheduled -> Active -> Closed
 | Define formula and variables | Web editor → formula validation seam → Draft command → Formula module → store | Variable uniqueness/order/default type; declared result type; source span diagnostics; client AST never trusted. |
 | Validate/Test Run | Web/API → Formula compile/evaluate → response | Formula safety limits; non-null inputs/defaults; Test Run returns result only, opens no evaluation/audit transaction. |
 | Review/publish/effect version | Web/API → Application actor check → Definition aggregate → transaction + audit | Not self-editing; approver role; approved-only publish; range exclusion; predecessor hand-off. |
-| Create/approve period | Web/API → Application → Period aggregate → transaction + audit | Cadence/version eligibility, no duplicate definition, no illegal overlap, planner/approver separation, freeze at approval. |
+| Create/review period | Web/API → Application → Period aggregate → transaction + audit | Cadence/version eligibility, no duplicate definition, no illegal overlap, planner/approver separation, freeze at approval, explicit Rejected state and Planner-only return to Draft. |
+| Amend Scheduled period | Web/API → Application → Period aggregate → transaction + audit | Scheduled-only proposal, separate Approver review, immutable effective revision, overlap/eligibility revalidation, original plan preservation. |
 | Reconcile KPI lifecycle | Hosted trigger/future scheduler → `ReconcileKpiLifecycle` → Version and Period policy → store transaction + audit | State-qualified Version and Period transitions; atomically create activations; idempotent repeat/downtime catch-up. |
 | Official KPI Evaluation | Web/API → Application → Formula engine + evaluation stream → transaction + audit relation | Active activation, complete inputs/defaults, exact Formula Document/version snapshot, success/failure immutable, Current only on success. |
 | Correct/Supersede evaluation | Web/API → Application → evaluation stream → transaction + audit relation | Existing successful evaluation, same KPI Version, mandatory reason, full new input snapshot, server-derived diff, predecessor retained. |
@@ -212,7 +214,7 @@ Keep governance facts relational:
 
 - `organizations`, `actors`;
 - `kpi_definitions`, `kpi_versions`;
-- `kpi_periods`, `kpi_period_activations`, `kpi_period_amendments`;
+- `kpi_periods`, `kpi_period_activations`, `kpi_period_amendments` with immutable effective-revision ordering;
 - `kpi_evaluations`;
 - `audit_records`.
 
@@ -230,6 +232,7 @@ JSONB object-key formatting is not a round-trip guarantee. Exact source remains 
 - unique `(organization_id, kpi_code)`;
 - unique `(kpi_definition_id, version_number)`;
 - unique `(kpi_period_id, kpi_definition_id)` activation;
+- unique `(kpi_period_id, amendment_revision_number)`; the latest approved effective revision is resolved under the Period lock;
 - foreign keys that retain Version, Activation, Evaluation and predecessor history;
 - partial unique index: at most one successful `Current KPI Evaluation` per activation;
 - exclusion constraint over half-open effective ranges for each KPI Definition;
@@ -244,7 +247,7 @@ The same-KPI-Definition-across-overlapping-Period rule spans activation and peri
 One explicit transaction includes the business transition and its Audit Record for:
 
 - create/edit/submit/review/publish/retire/archive/restore/ownership transfer;
-- period plan change/review/approval/cancellation/amendment;
+- period plan change/review/rejection/Planner return-to-Draft/approval/cancellation and Amendment proposal/review/effective-revision creation;
 - scheduled→active and active→closed reconciliation;
 - official evaluation, correction, Current replacement, and diff creation.
 
@@ -262,7 +265,7 @@ Formula and Evaluation snapshots store Decimal as invariant strings so the entir
 |---|---|
 | Concurrent Draft change | PostgreSQL `xmin` optimistic concurrency token on editable Definition metadata, Draft Version and Draft Period; stale token returns `CONCURRENCY_CONFLICT` and no overwrite. |
 | Concurrent version review/publish | Lock Definition row and execute at serializable/repeatable-read boundary; effective-range exclusion constraint is the final guard. |
-| Concurrent period approval/activation | Lock Period row; conditional state update ensures only one caller transitions/reports audit; range constraints reject overlap. |
+| Concurrent period approval/Amendment/activation | Lock Period row; conditional state/revision update ensures only one caller approves or transitions/reports audit; range and revision constraints reject overlap or stale Amendment review. |
 | Same Definition in overlapping periods | Definition-scoped lock plus eligibility query in the approval transaction; integration test runs two approvals concurrently. |
 | Simultaneous evaluation/correction | Lock Activation/current-success row; insert attempts immutably; partial unique index ensures one Current success; failure never changes Current. |
 | Multiple corrections of same evaluation | Correction command locks the target activation and validates the predecessor/current chain, then inserts a distinct successor with correlation/audit facts. |
@@ -286,7 +289,7 @@ Stable failure families include formula source/parse/bind/type, input/default, D
 
 ## Authorization and Governance
 
-All Application commands receive an `ActorContext` and enforce capabilities before invoking state transition methods. This makes the browser/UI incapable of granting authority by itself.
+All Application commands receive an `ActorContext` and enforce capabilities before invoking state transition methods. This makes the browser/UI incapable of granting authority by itself. Production authentication, sessions, identity-provider integration and deployment policy adapters remain outside the MVP; a future identity adapter supplies actor context but cannot bypass command checks.
 
 - KPI Creator: creates Definitions and owns/edits Draft Version content.
 - KPI Policy Approver: approves/rejects Versions and transfers ownership, but does not edit submitted content.
@@ -327,7 +330,7 @@ The Web host exposes the minimum HTTP surface needed for the spec: formula valid
 
 ### Migrations and configuration
 
-- Migrations are additive vertical slices, not one full-schema initial migration. The target logical model remains [data-model.md](data-model.md), while the migration sequence is: (1) test-database infrastructure only; (2) Definition/Version persistence plus the minimal `audit_records` protection needed by Draft authoring; (3) effective-range constraints and Version-governance enforcement; (4) Period/Activation persistence and constraints; (5) Evaluation/Current/Supersession persistence and constraints; (6) audit query, permissions, and cross-slice integrity proof. Each applied migration is forward-only and immutable history is never rewritten.
+- Migrations are additive vertical slices, not one full-schema initial migration. After test-database safety setup, the six forward-only product migrations are: (1) `202608090001_DraftAuthoring` for Definition/Version Draft persistence and minimal `audit_records` protection; (2) `202608090002_VersionGovernance` for effective ranges and predecessor enforcement; (3) `202608090003_DefinitionRetention` for archive/tombstone durability; (4) `202608090004_PeriodActivation` for Periods, frozen selections and Activations; (5) `202608090005_PeriodAmendments` for immutable Amendment effective revisions; and (6) `202608090006_Evaluations` for Evaluation/Current/Supersession integrity. Audit query, permissions and cross-slice proof consume this schema without introducing a replacement migration. Each applied migration is immutable and later behavior uses a new forward-only migration rather than rewriting history.
 - Schema migrations contain schema, constraints, triggers, indexes, and any unavoidable static production reference data only. For this MVP they contain no product or demo data.
 - `Development` composition provides an idempotent development-only seeder for the company, six personas, and sample KPI. It is not a migration, never runs in Production, and does not require production data to exist.
 - Formula language/AST schema versions allow old snapshots to remain readable. Decimal JSON snapshots retain the canonical invariant strings; no relational numeric projection is introduced in the MVP.
@@ -347,7 +350,7 @@ The Web host exposes the minimum HTTP surface needed for the spec: formula valid
 ### Tests mapped to boundaries
 
 - Formula unit tests: token spans, grammar/precedence, variable/type rules, Decimal policy, every operator/function, short circuit, limits, diagnostics, source/AST serialization.
-- Domain/application tests: all lifecycle paths, self-approval rejection, effective hand-off, period eligibility/freeze/amendment, Current selection, correction diff and no-Test-Run-persistence behavior using fake actor/clock.
+- Domain/application tests: all lifecycle paths, self-approval rejection, effective hand-off, Period Rejected-to-Draft recovery, eligibility/freeze/Scheduled Amendment effective revisions, Current selection, correction diff and no-Test-Run-persistence behavior using fake actor/clock.
 - PostgreSQL integration tests: migration from empty database, JSONB semantic round trip, exact Decimal strings, range/unique/foreign-key invariants, `xmin` stale writes, transactional audit, append-only role/trigger behavior, and concurrent command races.
 - Web integration tests: transport validation, localized error mapping, no client AST authority, persona safety, and visible state/history contracts.
 - Browser test: one persona-separated author → review → publish → period → activate → evaluate → correct → audit/archive/restore path.
@@ -363,6 +366,8 @@ The harness is extended, never bypassed:
 | `check` | Contract check, locked bootstrap, lint, and test in that order; the Windows definition of done and the command CI invokes. |
 
 No command is added outside `.harness/harness.json`; CI continues to execute the PowerShell harness entrypoint. The one-time lockfile initialization is a bootstrap transition, not a user-facing parallel verification command; after reviewed lockfiles exist, bootstrap must never rewrite them.
+
+The task decomposition must name observable bootstrap work for all three recurring prerequisites rather than hiding them behind “test setup”: pinned Playwright browser provisioning when absent, required non-secret local/test configuration validation, and safe application of declared local/test migrations. The first end-to-end discovery witness depends on browser provisioning, and every persistence migration slice extends the same migration manifest consumed by bootstrap.
 
 ## Dependencies and Technology Choices
 
@@ -384,9 +389,9 @@ These are planning slices only; `$speckit-tasks` will turn the approved plan int
 
 1. **Scaffold and harness proof** — pin SDK/packages, create solution/module/test boundaries and architecture ADR, initialize reviewed package lockfiles through `bootstrap`, switch recurring bootstrap to locked restore, wire `lint`/`test`/`check` to the intended projects, and prove the canonical harness executes them. Only then introduce the first behavior RED test.
 2. **Formula and Draft authoring** — Formula Variable validation, tokenizer, parser, typed AST, serialization and deterministic evaluator; Definition/Version Draft persistence in the second additive migration; Draft create/update audit in the same transaction; then source-authoritative validation/Test Run delivery and editor behavior.
-3. **Version governance and effectivity** — submit/reject/return/approve/publish, archive/restore/delete and ownership transfer, with their audit facts; third additive migration adds effective ranges, constraints and predecessor hand-off enforcement; `ReconcileKpiLifecycle` performs the due effectivity/retirement transition.
-4. **Period planning and activation** — fourth additive migration adds Period/Activation persistence; Period lifecycle, exact version selection, separation of duty, overlap rules and amendments, all with audit; the same lifecycle seam handles scheduled-to-active/active-to-closed work and atomically creates activations.
-5. **Official Evaluation and correction** — fifth additive migration adds Evaluation/Current/Supersession persistence; official evaluation, immutable outcomes, Current selection, correction diffs/reasons and audit; Test Run stays transient.
+3. **Version governance, effectivity and retention** — submit/reject/return/approve/publish plus ownership transfer; migration `002` adds effective ranges, constraints and predecessor hand-off enforcement; `ReconcileKpiLifecycle` performs due effectivity/retirement; a focused retention slice then uses migration `003` for archive/restore/delete tombstone durability without rewriting Version governance.
+4. **Period planning and activation** — migration `004` adds Period/Activation persistence; Period lifecycle includes explicit Rejected state and Planner-only return to Draft, exact version selection, separation of duty and overlap rules. A subsequent Scheduled-only Amendment slice uses migration `005` to create immutable effective revisions; the same lifecycle seam resolves the latest approved revision when it atomically activates selections.
+5. **Official Evaluation and correction** — migration `006` adds Evaluation/Current/Supersession persistence; official evaluation, immutable outcomes, Current selection, correction diffs/reasons and audit; Test Run stays transient.
 6. **Audit completion and durable integrity** — final additive audit slice supplies audit/history query/UI authorization, database-role/trigger verification, concurrency and cross-slice transaction evidence. It verifies the audit protections introduced with the first governed mutation; it does not introduce audit late.
 7. **Shared delivery foundation and screens** — establish development-only persona safety and authoritative capability enforcement before persona-dependent HTTP/MVC/browser work; then add localized contracts and the authoring, governance, period, evaluation/correction, and audit screens in the order behavior becomes available.
 8. **Acceptance and operational finish** — add a delivery-level end-to-end workflow only after each component behavior is green; complete harness/CI parity, integration guide, measurable acceptance evidence, and the required final constitution recheck.

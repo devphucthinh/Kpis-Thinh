@@ -16,8 +16,8 @@
 |---|---|
 | Formula | validate source; Test Run without persistence. |
 | KPI Definitions | list/get/create/update Draft metadata; archive/restore; transfer ownership; delete only eligible unused Draft content. |
-| KPI Versions | list/get/create Draft/update Draft/clone/submit/approve/reject/publish/retire/diff. |
-| KPI Periods | list/get/create/update Draft; manage selections; submit/approve/reject/cancel/amend; read resolved activations/state. |
+| KPI Versions | list/get/create Draft/update Draft/clone/submit/approve/reject/return Rejected to Draft/publish/retire/diff. |
+| KPI Periods | list/get/create/update Draft; manage selections; submit/approve/reject/return Rejected to Draft/cancel; propose/review Scheduled Amendments; read original plan, immutable effective revisions, resolved activations and state. |
 | KPI Evaluations | create official attempt; list history; read Current; create correction. |
 | Audit Records | read ordered records filtered by entity, actor, type and date. |
 
@@ -26,6 +26,7 @@
 | Result | HTTP outcome |
 |---|---|
 | Malformed transport | 400 |
+| Missing or conflicting capability | 403 |
 | Missing resource | 404 |
 | Stale or lifecycle/governance/range conflict | 409 |
 | Formula/business validation failure | 422 |
@@ -33,4 +34,4 @@
 
 ## Public read guarantees
 
-Formula reads expose exact source, generated AST, formula-language version and AST-schema version. Evaluation/history reads expose the exact Version identity, ordered input snapshot, outcome, Current/superseded relationship and correction diff. Audit reads never expose credentials or sensitive configuration.
+Formula reads expose exact source, generated AST, formula-language version and AST-schema version. Period reads expose original frozen plan, ordered Amendment decisions, latest approved effective revision and the revision used by each Activation. Evaluation/history reads expose the exact Version identity, ordered input snapshot, outcome, Current/superseded relationship and correction diff. Audit reads never expose credentials or sensitive configuration.
