@@ -3,6 +3,7 @@ using Kpi.Application;
 using Kpi.Application.Common;
 using Kpi.Domain.Formula;
 using Microsoft.AspNetCore.Mvc;
+using Kpi.Web.Errors;
 
 namespace Kpi.Web.Api.V1;
 
@@ -11,7 +12,7 @@ namespace Kpi.Web.Api.V1;
 public sealed class KpiEvaluationsController(KpiOperations kpis, EvaluationOperations evaluations, ICurrentActor actor) : ControllerBase
 {
     [HttpGet("{definitionId:guid}")]
-    public IActionResult History(Guid definitionId) => Ok(new { current = evaluations.Current(definitionId), history = evaluations.History(definitionId) });
+    public IActionResult History(Guid definitionId) => Ok(new { current = evaluations.Current(definitionId, actor.Current.OrganizationId), history = evaluations.History(definitionId, actor.Current.OrganizationId) });
 
     [HttpPost("{definitionId:guid}/{versionId:guid}")]
     public IActionResult Evaluate(Guid definitionId, Guid versionId, [FromBody] EvaluateRequest request)
@@ -19,8 +20,8 @@ public sealed class KpiEvaluationsController(KpiOperations kpis, EvaluationOpera
         var definition = kpis.List().FirstOrDefault(x => x.Id == definitionId); var version = definition?.Versions.FirstOrDefault(x => x.Id == versionId);
         if (version is null) return NotFound(new { code = "RESOURCE_NOT_FOUND", message = "KPI Version was not found." });
         var inputs = request.Inputs.ToDictionary(x => x.Key, x => Parse(x.Value));
-        var result = evaluations.Evaluate(actor.Current, definitionId, versionId, version.Formula, version.Variables, inputs);
-        return result.IsSuccess ? Ok(new { persisted = true, evaluation = result.Value, current = evaluations.Current(definitionId) }) : StatusCode(result.Error!.Status, result.Error);
+        var result = evaluations.Evaluate(actor.Current, definitionId, versionId, request.ActivationId, version.Formula, version.Variables, inputs);
+        return result.IsSuccess ? Ok(new { persisted = true, evaluation = result.Value, current = evaluations.Current(definitionId, actor.Current.OrganizationId) }) : ProblemDetailsMapper.ToResult(result.Error!, actor.Current.CorrelationId);
     }
 
     [HttpPost("{definitionId:guid}/correct")]
@@ -29,12 +30,12 @@ public sealed class KpiEvaluationsController(KpiOperations kpis, EvaluationOpera
         var definition = kpis.List().FirstOrDefault(x => x.Id == definitionId); var version = definition?.Versions.FirstOrDefault(x => x.Id == request.VersionId);
         if (version is null) return NotFound(new { code = "RESOURCE_NOT_FOUND", message = "KPI Version was not found." });
         var inputs = request.Inputs.ToDictionary(x => x.Key, x => Parse(x.Value));
-        var result = evaluations.Correct(actor.Current, definitionId, request.PredecessorId, request.VersionId, version.Formula, version.Variables, inputs, request.Reason);
-        return result.IsSuccess ? Ok(new { persisted = true, evaluation = result.Value, current = evaluations.Current(definitionId) }) : StatusCode(result.Error!.Status, result.Error);
+        var result = evaluations.Correct(actor.Current, definitionId, request.ActivationId, request.PredecessorId, request.VersionId, version.Formula, version.Variables, inputs, request.Reason);
+        return result.IsSuccess ? Ok(new { persisted = true, evaluation = result.Value, current = evaluations.Current(definitionId, actor.Current.OrganizationId) }) : ProblemDetailsMapper.ToResult(result.Error!, actor.Current.CorrelationId);
     }
 
     private static FormulaValue Parse(JsonElement value) => value.ValueKind is JsonValueKind.True or JsonValueKind.False ? FormulaValue.Boolean(value.GetBoolean()) : FormulaValue.Decimal(value.ValueKind == JsonValueKind.String ? decimal.Parse(value.GetString()!, System.Globalization.CultureInfo.InvariantCulture) : value.GetDecimal());
 }
 
-public sealed record EvaluateRequest(IReadOnlyDictionary<string, JsonElement> Inputs);
-public sealed record CorrectEvaluationRequest(Guid PredecessorId, Guid VersionId, IReadOnlyDictionary<string, JsonElement> Inputs, string Reason);
+public sealed record EvaluateRequest(Guid ActivationId, IReadOnlyDictionary<string, JsonElement> Inputs);
+public sealed record CorrectEvaluationRequest(Guid ActivationId, Guid PredecessorId, Guid VersionId, IReadOnlyDictionary<string, JsonElement> Inputs, string Reason);

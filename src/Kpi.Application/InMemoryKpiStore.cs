@@ -20,9 +20,29 @@ public sealed class InMemoryKpiStore
     public KpiDefinition AddDefinition(KpiDefinition definition, AuditRecord audit) { lock (_gate) { _definitions.Add(definition); _audit.Add(audit); return definition; } }
     public void AddAudit(AuditRecord audit) { lock (_gate) _audit.Add(audit); }
     public KpiDefinition? Find(Guid id) { lock (_gate) return _definitions.FirstOrDefault(x => x.Id == id); }
-    public KpiDefinition? FindByCode(string code) { lock (_gate) return _definitions.FirstOrDefault(x => string.Equals(x.Code.Value, code, StringComparison.OrdinalIgnoreCase)); }
+    public KpiDefinition? FindByCode(string code, Guid? organizationId = null) { lock (_gate) return _definitions.FirstOrDefault(x => string.Equals(x.Code.Value, code, StringComparison.OrdinalIgnoreCase) && (organizationId is null || x.OrganizationId == organizationId.Value)); }
     public EvaluationStream Stream(Guid definitionId) { lock (_gate) { if (!_streams.TryGetValue(definitionId, out var stream)) _streams[definitionId] = stream = new EvaluationStream(); return stream; } }
-    public KpiPeriod AddPeriod(KpiPeriod period, AuditRecord audit) { lock (_gate) { _periods.Add(period); _audit.Add(audit); return period; } }
+    public KpiPeriod AddPeriod(KpiPeriod period, AuditRecord audit) { lock (_gate) { _periods.Add(period); if (_audit.All(x => x.Id != audit.Id)) _audit.Add(audit); return period; } }
     public KpiPeriod? FindPeriod(Guid id) { lock (_gate) return _periods.FirstOrDefault(x => x.Id == id); }
+    public (KpiPeriod Period, KpiPeriodActivation Activation)? FindActivation(Guid activationId)
+    {
+        lock (_gate)
+        {
+            foreach (var period in _periods)
+            {
+                var activation = period.Activations.FirstOrDefault(x => x.Id == activationId);
+                if (activation is not null) return (period, activation);
+            }
+            return null;
+        }
+    }
     public void Clear() { lock (_gate) { _definitions.Clear(); _periods.Clear(); _audit.Clear(); _streams.Clear(); } }
+    public void ReplaceDefinitions(IEnumerable<KpiDefinition> definitions)
+    {
+        lock (_gate)
+        {
+            _definitions.Clear();
+            _definitions.AddRange(definitions);
+        }
+    }
 }

@@ -11,7 +11,9 @@ public static class FormulaEvaluator
         if (!FormulaInputResolver.TryResolve(variables, inputs, out var resolved, out var missing)) return missing!;
         var budget = new EvaluationBudget();
         try { return EvaluateNode(formula.Ast, resolved, budget); }
-        catch (OverflowException) { return new EvaluationFailure("FORMULA_OVERFLOW", "The calculation exceeded Decimal limits."); }
+        catch (OverflowException) { return new EvaluationFailure("FORMULA_OVERFLOW", "The calculation exceeded Decimal limits.", new SourceSpan(0, formula.Source.Length)); }
+        catch (InvalidOperationException ex) when (ex.Message is "FORMULA_NODE_LIMIT" or "FORMULA_TIME_LIMIT")
+        { return new EvaluationFailure(ex.Message, ex.Message == "FORMULA_NODE_LIMIT" ? "The formula evaluated too many AST nodes." : "The formula exceeded the evaluation time limit.", new SourceSpan(0, formula.Source.Length)); }
     }
 
     private static EvaluationOutcome EvaluateNode(FormulaNode node, IReadOnlyDictionary<string, FormulaValue> inputs, EvaluationBudget budget)

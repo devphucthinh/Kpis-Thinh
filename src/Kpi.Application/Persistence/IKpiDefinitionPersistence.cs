@@ -6,4 +6,5 @@ namespace Kpi.Application.Persistence;
 public interface IKpiDefinitionPersistence
 {
     void Save(KpiDefinition definition);
+    IReadOnlyList<KpiDefinition> LoadAll(Guid? organizationId = null);
 }

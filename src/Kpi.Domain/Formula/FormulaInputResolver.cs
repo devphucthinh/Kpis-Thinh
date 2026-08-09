@@ -16,8 +16,13 @@ public static class FormulaInputResolver
                 continue;
             }
             if (variable.DefaultValue is not null) { resolved[variable.Code] = variable.DefaultValue; continue; }
-            failure = new("FORMULA_INPUT_MISSING", $"Required input '{variable.Code}' is missing.");
-            return false;
+            if (variable.Required)
+            {
+                failure = new("FORMULA_INPUT_MISSING", $"Required input '{variable.Code}' is missing.");
+                return false;
+            }
+            // Optional variables are absent from the resolved snapshot. If the AST
+            // references one, the evaluator returns a stable missing-input failure.
         }
         failure = null;
         return true;

@@ -12,6 +12,7 @@ public enum AuditEventType
     Retired,
     Archived,
     Restored,
+    Deleted,
     Evaluated,
     Corrected,
     PeriodChanged

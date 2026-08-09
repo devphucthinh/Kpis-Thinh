@@ -1,6 +1,7 @@
 using Kpi.Application;
 using Kpi.Application.Common;
 using Kpi.Domain.Formula;
+using Kpi.Web.Errors;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Kpi.Web.Api.V1;
@@ -16,7 +17,7 @@ public sealed class KpiDefinitionsController(KpiOperations operations, ICurrentA
     public IActionResult Create([FromBody] CreateKpiRequest request)
     {
         var result = operations.CreateDefinition(actor.Current, request.Code, request.Name, request.Description);
-        return result.IsSuccess ? Created($"/api/v1/kpis/{result.Value!.Id}", result.Value) : StatusCode(result.Error!.Status, new { code = result.Error.Code, message = result.Error.Message });
+        return result.IsSuccess ? Created($"/api/v1/kpis/{result.Value!.Id}", result.Value) : ProblemDetailsMapper.ToResult(result.Error!, actor.Current.CorrelationId);
     }
 
     [HttpPost("{id:guid}/versions")]
@@ -24,7 +25,14 @@ public sealed class KpiDefinitionsController(KpiOperations operations, ICurrentA
     {
         var variables = request.Variables.Select((v, i) => FormulaVariableDefinition.Create(v.Code, v.DisplayName ?? v.Code, ParseType(v.Type), v.Required, v.DefaultValue, i, v.Description)).ToArray();
         var result = operations.CreateVersion(actor.Current, id, request.Name, request.Description, request.Source, variables, ParseResultType(request.ResultType), request.ChangeSummary);
-        return result.IsSuccess ? Ok(result.Value) : StatusCode(result.Error!.Status, new { code = result.Error.Code, message = result.Error.Message });
+        return result.IsSuccess ? Ok(result.Value) : ProblemDetailsMapper.ToResult(result.Error!, actor.Current.CorrelationId);
+    }
+
+    [HttpPut("{id:guid}/versions/{versionId:guid}/draft")]
+    public IActionResult UpdateDraft(Guid id, Guid versionId, [FromBody] UpdateDraftRequest request)
+    {
+        var variables = request.Variables.Select((v, i) => FormulaVariableDefinition.Create(v.Code, v.DisplayName ?? v.Code, ParseType(v.Type), v.Required, v.DefaultValue, i, v.Description)).ToArray();
+        return ToAction(operations.UpdateDraft(actor.Current, id, versionId, request.Name, request.Description, request.Source, variables, new ConcurrencyToken(request.ConcurrencyToken)));
     }
 
     [HttpPost("{id:guid}/versions/{versionId:guid}/submit")]
@@ -39,7 +47,13 @@ public sealed class KpiDefinitionsController(KpiOperations operations, ICurrentA
     public IActionResult Restore(Guid id) => ToAction(operations.Restore(actor.Current, id));
     [HttpPost("{id:guid}/transfer")]
     public IActionResult Transfer(Guid id, [FromBody] TransferRequest request) => ToAction(operations.TransferOwnership(actor.Current, id, request.NewOwnerId, request.Reason));
-    private IActionResult ToAction<T>(ApplicationResult<T> result) => result.IsSuccess ? Ok(result.Value) : StatusCode(result.Error!.Status, result.Error);
+    [HttpPost("{id:guid}/versions/{versionId:guid}/return-to-draft")]
+    public IActionResult ReturnToDraft(Guid id, Guid versionId) => ToAction(operations.ReturnVersionToDraft(actor.Current, id, versionId));
+    [HttpPost("{id:guid}/versions/{versionId:guid}/clone")]
+    public IActionResult Clone(Guid id, Guid versionId, [FromBody] CloneVersionRequest request) => ToAction(operations.CloneVersion(actor.Current, id, versionId, request.ChangeSummary));
+    [HttpDelete("{id:guid}/versions/{versionId:guid}")]
+    public IActionResult DeleteDraft(Guid id, Guid versionId, [FromQuery] string concurrencyToken) => ToAction(operations.DeleteDraft(actor.Current, id, versionId, new ConcurrencyToken(concurrencyToken)));
+    private IActionResult ToAction<T>(ApplicationResult<T> result) => result.IsSuccess ? Ok(result.Value) : ProblemDetailsMapper.ToResult(result.Error!, actor.Current.CorrelationId);
     private static FormulaValueType ParseType(string type) => string.Equals(type, "Boolean", StringComparison.OrdinalIgnoreCase) ? FormulaValueType.Boolean : FormulaValueType.Decimal;
     private static FormulaResultType ParseResultType(string type) => string.Equals(type, "Boolean", StringComparison.OrdinalIgnoreCase) ? FormulaResultType.Boolean : FormulaResultType.Decimal;
 }
@@ -50,3 +64,5 @@ public sealed record FormulaVariableInput(string Code, string? DisplayName, stri
 public sealed record ReviewRequest(bool Approve, string Comment);
 public sealed record PublishRequest(DateTimeOffset EffectiveFrom);
 public sealed record TransferRequest(Guid NewOwnerId, string Reason);
+public sealed record UpdateDraftRequest(string Name, string Description, string Source, IReadOnlyList<FormulaVariableInput> Variables, string ConcurrencyToken);
+public sealed record CloneVersionRequest(string ChangeSummary);
