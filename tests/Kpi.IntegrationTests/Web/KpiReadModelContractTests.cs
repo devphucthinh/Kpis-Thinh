@@ -23,7 +23,7 @@ public sealed class KpiReadModelContractTests
         };
         AssertSuccess(operations.CreateVersion(actor, definition.Id, "Version 1", "First version", "gross_revenue - discount", variables, FormulaResultType.Decimal, "Initial"));
 
-        var page = new KpiWebReadModelService(operations).GetWorkbench(actor, definition.Id);
+        var page = new KpiWebReadModelService(operations, new PeriodOperations(store, new FixedClock()), new EvaluationOperations(store, new FixedClock())).GetWorkbench(actor, definition.Id);
 
         Assert.NotNull(page);
         var draft = page.Draft;

@@ -31,8 +31,17 @@ public sealed class EvaluationOperations(InMemoryKpiStore store, IClock clock, P
         return ApplicationResult<KpiEvaluation>.Success(evaluation);
     }
 
-    public IReadOnlyList<KpiEvaluation> History(Guid definitionId, Guid? organizationId = null) => organizationId is null || store.Find(definitionId)?.OrganizationId == organizationId.Value ? store.Stream(definitionId).Attempts : [];
-    public KpiEvaluation? Current(Guid definitionId, Guid? organizationId = null) => organizationId is null || store.Find(definitionId)?.OrganizationId == organizationId.Value ? store.Stream(definitionId).Current : null;
+    public IReadOnlyList<KpiEvaluation> History(Guid definitionId, Guid? organizationId = null)
+    {
+        RefreshFromPersistence(definitionId, organizationId);
+        return organizationId is null || store.Find(definitionId)?.OrganizationId == organizationId.Value ? store.Stream(definitionId).Attempts : [];
+    }
+
+    public KpiEvaluation? Current(Guid definitionId, Guid? organizationId = null)
+    {
+        RefreshFromPersistence(definitionId, organizationId);
+        return organizationId is null || store.Find(definitionId)?.OrganizationId == organizationId.Value ? store.Stream(definitionId).Current : null;
+    }
 
     public ApplicationResult<KpiEvaluation> Correct(ActorContext actor, Guid definitionId, Guid activationId, Guid predecessorId, Guid versionId, FormulaDocument formula, IReadOnlyList<FormulaVariableDefinition> variables, IReadOnlyDictionary<string, FormulaValue> inputs, string reason)
     {
@@ -62,5 +71,12 @@ public sealed class EvaluationOperations(InMemoryKpiStore store, IClock clock, P
         if (_persistence is null) { store.AddAudit(audit); return; }
         _persistence.ExecuteInTransaction(() => { _persistence.SaveEvaluation(actor.OrganizationId, evaluation); _persistence.SaveAudit(audit); });
         store.AddAudit(audit);
+    }
+
+    private void RefreshFromPersistence(Guid definitionId, Guid? organizationId)
+    {
+        if (_persistence is null || organizationId is null) return;
+        var loaded = _persistence.LoadEvaluations(organizationId.Value, definitionId);
+        if (loaded.Count > 0) store.ReplaceEvaluations(definitionId, loaded);
     }
 }

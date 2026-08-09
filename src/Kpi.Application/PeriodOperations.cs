@@ -87,7 +87,15 @@ public sealed class PeriodOperations(InMemoryKpiStore store, IClock clock, Persi
         catch (KpiDomainException ex) { return ApplicationResult<KpiPeriod>.Failure("LIFECYCLE_CONFLICT", ex.Message, 409); }
     }
 
-    public IReadOnlyList<KpiPeriod> List(Guid? organizationId = null) => organizationId is null ? store.Periods : store.Periods.Where(x => x.OrganizationId == organizationId.Value).ToArray();
+    public IReadOnlyList<KpiPeriod> List(Guid? organizationId = null)
+    {
+        if (organizationId is not null && _persistence is not null)
+        {
+            var loaded = _persistence.LoadPeriods(organizationId.Value);
+            if (loaded.Count > 0) store.ReplacePeriods(loaded);
+        }
+        return organizationId is null ? store.Periods : store.Periods.Where(x => x.OrganizationId == organizationId.Value).ToArray();
+    }
 
     public ApplicationResult<KpiPeriod> Reject(ActorContext actor, Guid periodId, string comment)
     {

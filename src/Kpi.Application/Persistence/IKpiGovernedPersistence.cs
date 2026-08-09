@@ -12,4 +12,9 @@ public interface IKpiGovernedPersistence
     void SavePeriod(KpiPeriod period);
     void SaveEvaluation(Guid organizationId, KpiEvaluation evaluation);
     void SaveAudit(AuditRecord record);
+    IReadOnlyList<KpiPeriod> LoadPeriods(Guid organizationId) => [];
+    IReadOnlyList<KpiEvaluation> LoadEvaluations(Guid organizationId, Guid definitionId) => [];
+    IReadOnlyList<AuditRecord> LoadAudit(AuditQuery query) => [];
 }
+
+public sealed record AuditQuery(Guid OrganizationId, string? EntityType = null, Guid? EntityId = null, Guid? ActorId = null, AuditEventType? EventType = null, DateTimeOffset? From = null, DateTimeOffset? To = null);

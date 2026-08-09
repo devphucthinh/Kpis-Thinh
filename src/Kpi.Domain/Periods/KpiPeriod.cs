@@ -151,4 +151,11 @@ public sealed class KpiPeriodAmendment(Guid id, Guid periodId, int revisionNumbe
     public DateTimeOffset? ReviewedAt { get; private set; }
     public string? ReviewComment { get; private set; }
     public void Decide(Guid reviewer, bool approved, string comment, DateTimeOffset at) { Status = approved ? KpiPeriodAmendmentStatus.Approved : KpiPeriodAmendmentStatus.Rejected; ReviewedBy = reviewer; ReviewedAt = at; ReviewComment = comment; }
+    public static KpiPeriodAmendment Rehydrate(Guid id, Guid periodId, int revisionNumber, int baseRevisionNumber, DateTimeOffset proposedStartsAt, DateTimeOffset proposedEndsAt, IReadOnlyDictionary<Guid, Guid> proposedSelections, string reason, Guid proposedBy, DateTimeOffset proposedAt, KpiPeriodAmendmentStatus status, Guid? reviewedBy, DateTimeOffset? reviewedAt, string? reviewComment)
+    {
+        var amendment = new KpiPeriodAmendment(id, periodId, revisionNumber, baseRevisionNumber, proposedStartsAt, proposedEndsAt, proposedSelections, reason, proposedBy, proposedAt);
+        if (status != KpiPeriodAmendmentStatus.InReview && reviewedBy is not null && reviewedAt is not null)
+            amendment.Decide(reviewedBy.Value, status == KpiPeriodAmendmentStatus.Approved, reviewComment ?? string.Empty, reviewedAt.Value);
+        return amendment;
+    }
 }

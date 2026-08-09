@@ -17,6 +17,11 @@ public sealed class EvaluationStream
     private readonly List<KpiEvaluation> _attempts = [];
     public IReadOnlyList<KpiEvaluation> Attempts => _attempts;
     public KpiEvaluation? Current => _attempts.LastOrDefault(x => x.IsSuccessful && _attempts.All(y => !y.IsSuccessful || y.SupersedesId != x.Id));
+    public void Replace(IEnumerable<KpiEvaluation> evaluations)
+    {
+        _attempts.Clear();
+        _attempts.AddRange(evaluations.OrderBy(x => x.EvaluatedAt));
+    }
 
     public KpiEvaluation Evaluate(Guid definitionId, Guid versionId, FormulaDocument formula, IReadOnlyList<FormulaVariableDefinition> variables, IReadOnlyDictionary<string, FormulaValue> inputs, DateTimeOffset at, Guid? activationId = null, Guid? evaluatorActorId = null)
     {

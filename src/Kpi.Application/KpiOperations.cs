@@ -63,8 +63,15 @@ public sealed class KpiOperations
         RefreshFromPersistence(organizationId);
         return organizationId is null ? _store.Definitions : _store.Definitions.Where(x => x.OrganizationId == organizationId.Value).ToArray();
     }
-    public IReadOnlyList<AuditRecord> Audit(Guid? organizationId = null, string? entityType = null, Guid? entityId = null, DateTimeOffset? from = null, DateTimeOffset? to = null)
-        => _store.Audit.Where(x => (organizationId is null || x.OrganizationId == organizationId.Value) && (entityType is null || string.Equals(x.EntityType, entityType, StringComparison.OrdinalIgnoreCase)) && (entityId is null || x.EntityId == entityId.Value) && (from is null || x.OccurredAt >= from.Value) && (to is null || x.OccurredAt <= to.Value)).ToArray();
+    public IReadOnlyList<AuditRecord> Audit(Guid? organizationId = null, string? entityType = null, Guid? entityId = null, DateTimeOffset? from = null, DateTimeOffset? to = null, Guid? actorId = null, AuditEventType? eventType = null)
+    {
+        if (organizationId is not null && _governedPersistence is not null)
+        {
+            var persisted = _governedPersistence.LoadAudit(new Persistence.AuditQuery(organizationId.Value, entityType, entityId, actorId, eventType, from, to));
+            if (persisted.Count > 0) return persisted;
+        }
+        return _store.Audit.Where(x => (organizationId is null || x.OrganizationId == organizationId.Value) && (entityType is null || string.Equals(x.EntityType, entityType, StringComparison.OrdinalIgnoreCase)) && (entityId is null || x.EntityId == entityId.Value) && (actorId is null || x.ActorId == actorId.Value) && (eventType is null || x.EventType == eventType.Value) && (from is null || x.OccurredAt >= from.Value) && (to is null || x.OccurredAt <= to.Value)).ToArray();
+    }
     public ApplicationResult<KpiVersion> SubmitVersion(ActorContext actor, Guid definitionId, Guid versionId)
     {
         RefreshFromPersistence(actor.OrganizationId);

@@ -64,6 +64,104 @@ public sealed class PostgresGovernedStore(KpiDbContext context) : IKpiGovernedPe
         context.SaveChanges();
     }
 
+    public IReadOnlyList<KpiPeriod> LoadPeriods(Guid organizationId)
+    {
+        var rows = context.Periods.Where(x => x.OrganizationId == organizationId).ToList();
+        return rows.Select(row =>
+        {
+            var selections = JsonSerializer.Deserialize<Dictionary<Guid, Guid>>(row.SelectionsJson) ?? [];
+            var revisions = JsonSerializer.Deserialize<List<KpiPeriodEffectiveRevision>>(row.RevisionsJson) ?? [];
+            var amendments = context.PeriodAmendments.Where(x => x.PeriodId == row.Id).ToList().Select(amendment => KpiPeriodAmendment.Rehydrate(
+                amendment.Id,
+                amendment.PeriodId,
+                amendment.RevisionNumber,
+                amendment.BaseRevisionNumber,
+                amendment.ProposedStartsAt,
+                amendment.ProposedEndsAt,
+                JsonSerializer.Deserialize<Dictionary<Guid, Guid>>(amendment.ProposedSelectionsJson) ?? [],
+                amendment.Reason,
+                amendment.ProposedBy,
+                amendment.ProposedAt,
+                Enum.Parse<KpiPeriodAmendmentStatus>(amendment.Status),
+                amendment.ReviewedBy,
+                amendment.ReviewedAt,
+                amendment.ReviewComment)).ToArray();
+            var activations = context.PeriodActivations.Where(x => x.PeriodId == row.Id).ToList().Select(activation =>
+            {
+                var result = new KpiPeriodActivation(activation.Id, activation.PeriodId, activation.DefinitionId, activation.VersionId, activation.EffectiveRevisionNumber, activation.ActivatedAt);
+                if (activation.ClosedAt is not null) result.Close(activation.ClosedAt.Value);
+                return result;
+            }).ToArray();
+            return KpiPeriod.Rehydrate(row.Id, row.OrganizationId, row.Code, row.Name, row.Description, Enum.Parse<KpiCadence>(row.Cadence), row.StartsAt, row.EndsAt, row.PlannerId, row.ApproverId, Enum.Parse<KpiPeriodStatus>(row.Status), null, row.Revision, row.LatestEffectiveRevision, selections, revisions, amendments, activations);
+        }).ToArray();
+    }
+
+    public IReadOnlyList<KpiEvaluation> LoadEvaluations(Guid organizationId, Guid definitionId)
+    {
+        var rows = (from evaluation in context.Evaluations
+                    join version in context.Versions on evaluation.VersionId equals version.Id
+                    join definition in context.Definitions on version.DefinitionId equals definition.Id
+                    where definition.OrganizationId == organizationId && definition.Id == definitionId
+                    select new { evaluation, definition }).ToList();
+        return rows.Select(item =>
+        {
+            var row = item.evaluation;
+            var formula = ReadFormula(row.FormulaJson);
+            return new KpiEvaluation(
+                row.Id,
+                item.definition.Id,
+                row.VersionId,
+                row.EvaluatedAt,
+                ReadInputs(row.InputsJson),
+                ReadOutcome(row.OutcomeJson),
+                row.SupersedesId,
+                row.CorrectionReason,
+                row.ActivationId,
+                formula,
+                row.EvaluatorActorId == Guid.Empty ? null : row.EvaluatorActorId,
+                string.IsNullOrWhiteSpace(row.CorrectionDiffJson) ? null : JsonSerializer.Deserialize<EvaluationCorrectionDiff>(row.CorrectionDiffJson));
+        }).OrderBy(x => x.EvaluatedAt).ToArray();
+    }
+
+    public IReadOnlyList<AuditRecord> LoadAudit(AuditQuery query)
+    {
+        var rows = context.AuditRecords.Where(x => x.OrganizationId == query.OrganizationId);
+        if (query.EntityType is not null) rows = rows.Where(x => x.EntityType == query.EntityType);
+        if (query.EntityId is not null) rows = rows.Where(x => x.EntityId == query.EntityId.Value);
+        if (query.ActorId is not null) rows = rows.Where(x => x.ActorId == query.ActorId.Value);
+        if (query.EventType is not null) rows = rows.Where(x => x.EventType == query.EventType.Value.ToString());
+        if (query.From is not null) rows = rows.Where(x => x.OccurredAt >= query.From.Value);
+        if (query.To is not null) rows = rows.Where(x => x.OccurredAt <= query.To.Value);
+        return rows.OrderByDescending(x => x.OccurredAt).ToList().Select(row => new AuditRecord(row.Id, row.OrganizationId, row.ActorId, row.EntityType, row.EntityId, Enum.Parse<AuditEventType>(row.EventType), row.OccurredAt, row.CorrelationId, row.Reason, ReadSummary(row.SummaryJson))).ToArray();
+    }
+
+    private static FormulaDocument? ReadFormula(string json) => string.IsNullOrWhiteSpace(json) || json == "{}" ? null : FormulaDocumentSerializer.Deserialize(json);
+
+    private static IReadOnlyDictionary<string, FormulaValue> ReadInputs(string json)
+    {
+        var values = JsonSerializer.Deserialize<Dictionary<string, PersistedValue>>(json) ?? [];
+        return values.ToDictionary(x => x.Key, x => x.Value.ToFormulaValue());
+    }
+
+    private static EvaluationOutcome ReadOutcome(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+        var root = document.RootElement;
+        var kind = root.GetProperty("kind").GetString();
+        if (string.Equals(kind, "Success", StringComparison.OrdinalIgnoreCase))
+        {
+            var value = JsonSerializer.Deserialize<PersistedValue>(root.GetProperty("value").GetRawText()) ?? new PersistedValue("Null", null, null);
+            return new EvaluationSuccess(value.ToFormulaValue());
+        }
+        return new EvaluationFailure(root.GetProperty("code").GetString() ?? "EVALUATION_FAILED", root.GetProperty("message").GetString() ?? "Evaluation failed.");
+    }
+
+    private static string? ReadSummary(string json)
+    {
+        try { return JsonDocument.Parse(json).RootElement.TryGetProperty("Summary", out var summary) ? summary.GetString() : null; }
+        catch (JsonException) { return null; }
+    }
+
     private static string SerializeOutcome(EvaluationOutcome outcome) => outcome switch
     {
         EvaluationSuccess success => JsonSerializer.Serialize(new { kind = "Success", value = PersistedValue.From(success.Value) }),
@@ -74,5 +172,11 @@ public sealed class PostgresGovernedStore(KpiDbContext context) : IKpiGovernedPe
     private sealed record PersistedValue(string Type, string? Decimal, bool? Boolean)
     {
         public static PersistedValue From(FormulaValue value) => value switch { DecimalFormulaValue d => new("Decimal", d.Value.ToString(CultureInfo.InvariantCulture), null), BooleanFormulaValue b => new("Boolean", null, b.Value), _ => new("Null", null, null) };
+        public FormulaValue ToFormulaValue() => Type switch
+        {
+            "Decimal" when System.Decimal.TryParse(Decimal, NumberStyles.Number, CultureInfo.InvariantCulture, out var value) => FormulaValue.Decimal(value),
+            "Boolean" when Boolean is not null => FormulaValue.Boolean(Boolean.Value),
+            _ => FormulaValue.Null
+        };
     }
 }

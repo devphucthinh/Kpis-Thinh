@@ -45,4 +45,23 @@ public sealed class InMemoryKpiStore
             _definitions.AddRange(definitions);
         }
     }
+
+    public void ReplacePeriods(IEnumerable<KpiPeriod> periods)
+    {
+        lock (_gate)
+        {
+            _periods.Clear();
+            _periods.AddRange(periods);
+        }
+    }
+
+    public void ReplaceEvaluations(Guid definitionId, IEnumerable<KpiEvaluation> evaluations)
+    {
+        lock (_gate)
+        {
+            var stream = new EvaluationStream();
+            stream.Replace(evaluations);
+            _streams[definitionId] = stream;
+        }
+    }
 }
