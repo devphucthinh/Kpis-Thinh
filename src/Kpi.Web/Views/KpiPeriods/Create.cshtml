@@ -1,3 +1,22 @@
-@model Kpi.Web.Controllers.CreatePeriodModel
-@{ Layout = "_Layout"; }
-<h1>Tạo kỳ KPI</h1><form method="post">@Html.AntiForgeryToken()<div asp-validation-summary="All"></div><label>Mã kỳ <input asp-for="Code" /></label><label>Bắt đầu <input asp-for="StartsAt" type="datetime-local" /></label><label>Kết thúc <input asp-for="EndsAt" type="datetime-local" /></label><button class="button" type="submit">Lưu Draft</button></form>
+@model Kpi.Web.ViewModels.CreatePeriodModel
+@{ Layout = "_Layout"; ViewData["Title"] = "Tạo kỳ KPI"; ViewData["ActiveNav"] = "periods"; }
+
+<div class="page-title"><div><div class="muted">KPI PERIOD PLAN</div><h1>Tạo kỳ KPI</h1><p class="subtitle">Định nghĩa thời gian và cadence trước khi chọn KPI Version.</p></div><a class="button secondary" href="/KpiPeriods">Quay lại</a></div>
+<div class="card" style="max-width:880px;">
+    <form method="post">
+        @Html.AntiForgeryToken()
+        <div asp-validation-summary="All" class="validation-summary" role="alert"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+            <label>Code kỳ <input asp-for="Code" placeholder="2026-08" /></label>
+            <label>Cadence <select asp-for="Cadence"><option value="Monthly">Monthly</option><option value="Quarterly">Quarterly</option><option value="Yearly">Yearly</option></select></label>
+        </div>
+        <label>Tên kỳ <input asp-for="Name" placeholder="Tháng 08/2026" /></label>
+        <label>Mô tả <textarea asp-for="Description" placeholder="Mục tiêu và phạm vi của kỳ"></textarea></label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+            <label>Thời điểm bắt đầu <input asp-for="StartsAt" type="datetime-local" /></label>
+            <label>Thời điểm kết thúc <input asp-for="EndsAt" type="datetime-local" /></label>
+        </div>
+        <div class="panel" style="margin:16px 0;"><strong>Quy trình</strong><p class="subtitle">Sau khi tạo Draft, chọn KPI Version Published phù hợp rồi gửi cho <strong>KPI Period Approver</strong>. Người lập kỳ không được tự duyệt.</p></div>
+        <button class="button" type="submit">Tạo Draft Period Plan</button>
+    </form>
+</div>

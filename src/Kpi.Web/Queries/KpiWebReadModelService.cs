@@ -3,11 +3,12 @@ using Kpi.Application.Common;
 using Kpi.Domain.Formula;
 using Kpi.Domain.Formula.Serialization;
 using Kpi.Domain.Kpis;
+using Kpi.Domain.Periods;
 using Kpi.Web.ViewModels;
 
 namespace Kpi.Web.Queries;
 
-public sealed class KpiWebReadModelService(KpiOperations kpis)
+public sealed class KpiWebReadModelService(KpiOperations kpis, PeriodOperations periods)
 {
     public KpiIndexPageVm GetKpiIndex(ActorContext actor, string? query = null, KpiVersionStatus? status = null)
     {
@@ -51,6 +52,63 @@ public sealed class KpiWebReadModelService(KpiOperations kpis)
         var definition = kpis.List(actor.OrganizationId).FirstOrDefault(x => x.Id == definitionId);
         var version = definition?.Versions.FirstOrDefault(x => x.Id == versionId);
         return definition is null || version is null ? null : ToEditor(actor, definition, version);
+    }
+
+    public IReadOnlyList<KpiPeriodListItemVm> GetPeriodIndex(ActorContext actor) => periods.List(actor.OrganizationId)
+        .OrderByDescending(period => period.StartsAt)
+        .Select(period => new KpiPeriodListItemVm(period.Id, period.Code, period.Name, period.Cadence, period.StartsAt, period.EndsAt, period.Status, period.SelectedVersions.Count, period.Activations.Count, true))
+        .ToArray();
+
+    public KpiPeriodDetailsVm? GetPeriodDetails(ActorContext actor, Guid periodId, string? notice = null)
+    {
+        var period = periods.List(actor.OrganizationId).FirstOrDefault(x => x.Id == periodId);
+        if (period is null) return null;
+        var definitions = kpis.List(actor.OrganizationId).OrderBy(x => x.Code.Value, StringComparer.OrdinalIgnoreCase).ToArray();
+        var selections = definitions.Select(definition => new KpiPeriodSelectionVm(
+            definition.Id,
+            definition.Code.Value,
+            definition.Name,
+            period.SelectedVersions.TryGetValue(definition.Id, out var selected) ? selected : null,
+            definition.Versions
+                .OrderByDescending(version => version.VersionNumber)
+                .Select(version => ToVersionOption(period, version))
+                .ToArray())).ToArray();
+        var planner = period.PlannerId == actor.ActorId;
+        var canApprove = period.Status == KpiPeriodStatus.InReview && actor.Can(KpiCapability.ApprovePeriod) && period.PlannerId != actor.ActorId;
+        return new(
+            period.Id,
+            period.Code,
+            period.Name,
+            period.Description,
+            period.Cadence,
+            period.StartsAt,
+            period.EndsAt,
+            period.PlannerId,
+            period.ApproverId,
+            period.Status,
+            period.RejectionComment,
+            period.Revision,
+            period.Revision.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            selections,
+            period.Activations.Select(activation => new KpiPeriodActivationVm(activation.Id, activation.DefinitionId, activation.VersionId, activation.EffectiveRevisionNumber, activation.ActivatedAt, activation.ClosedAt)).ToArray(),
+            period.Amendments,
+            planner && actor.Can(KpiCapability.PlanPeriod) && period.Status == KpiPeriodStatus.Draft,
+            planner && actor.Can(KpiCapability.PlanPeriod) && period.Status == KpiPeriodStatus.Draft && period.SelectedVersions.Count > 0,
+            canApprove,
+            planner && actor.Can(KpiCapability.PlanPeriod) && period.Status == KpiPeriodStatus.Scheduled,
+            period.Status == KpiPeriodStatus.Scheduled,
+            period.Status == KpiPeriodStatus.Active,
+            notice);
+    }
+
+    private static KpiPeriodVersionOptionVm ToVersionOption(KpiPeriod period, KpiVersion version)
+    {
+        string? reason = null;
+        if (version.Status != KpiVersionStatus.Published) reason = "Version phải Published.";
+        else if (version.Cadence != period.Cadence) reason = "Cadence của Version không khớp với kỳ.";
+        else if (version.EffectiveFrom is null || version.EffectiveFrom > period.StartsAt) reason = "Version chưa có hiệu lực tại thời điểm bắt đầu kỳ.";
+        else if (version.EffectiveTo is not null && version.EffectiveTo < period.EndsAt) reason = "Version hết hiệu lực trước khi kỳ kết thúc.";
+        return new(version.Id, version.VersionNumber, version.Name, version.Status, version.Cadence, version.EffectiveFrom, version.EffectiveTo, reason is null, reason);
     }
 
     private static KpiIndexItemVm ToIndexItem(KpiDefinition definition)

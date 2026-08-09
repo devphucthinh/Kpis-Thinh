@@ -41,6 +41,32 @@ public sealed class PeriodOperations(InMemoryKpiStore store, IClock clock, Persi
         catch (KpiDomainException ex) { return ApplicationResult<KpiPeriod>.Failure("LIFECYCLE_CONFLICT", ex.Message, 409); }
     }
 
+    /// <summary>Validates and applies a complete Draft selection set without partial mutation.</summary>
+    public ApplicationResult<KpiPeriod> SelectMany(ActorContext actor, Guid periodId, IReadOnlyDictionary<Guid, Guid> selections, ConcurrencyToken? token = null)
+    {
+        var period = FindOwned(actor, periodId, KpiCapability.PlanPeriod, "Only the Planner can edit this Period.");
+        if (!period.IsSuccess) return period;
+        var planned = period.Value!;
+        if (!Matches(planned, token)) return ApplicationResult<KpiPeriod>.Failure("CONCURRENCY_CONFLICT", "The Period changed; reload before selecting Versions.", 409);
+        if (selections.Count == 0) return ApplicationResult<KpiPeriod>.Failure("PERIOD_SELECTION_REQUIRED", "Select at least one KPI Version.");
+
+        foreach (var selection in selections)
+        {
+            var definition = store.Find(selection.Key);
+            var version = definition?.Versions.FirstOrDefault(x => x.Id == selection.Value);
+            if (definition is null || definition.OrganizationId != actor.OrganizationId || definition.OrganizationId != planned.OrganizationId || version is null || !IsEligible(planned, version))
+                return ApplicationResult<KpiPeriod>.Failure("PERIOD_ELIGIBILITY_CONFLICT", "Every selected Version must be Published, same-cadence, same-company and effective for this Period.", 409);
+        }
+
+        try
+        {
+            foreach (var selection in selections) planned.Select(selection.Key, selection.Value);
+            Save(planned, Audit(actor, planned, AuditEventType.PeriodChanged, summary: "Selections updated"));
+            return ApplicationResult<KpiPeriod>.Success(planned);
+        }
+        catch (KpiDomainException ex) { return ApplicationResult<KpiPeriod>.Failure("LIFECYCLE_CONFLICT", ex.Message, 409); }
+    }
+
     public ApplicationResult<KpiPeriod> Submit(ActorContext actor, Guid periodId, ConcurrencyToken? token = null)
     {
         var period = FindOwned(actor, periodId, KpiCapability.PlanPeriod, "Only the Planner can submit this Period.");

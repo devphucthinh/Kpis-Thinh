@@ -1,0 +1,47 @@
+@using System.Text.Json
+@model Kpi.Web.ViewModels.KpiPeriodDetailsVm
+@{ Layout = "_Layout"; ViewData["Title"] = $"Kỳ {Model.Code}"; ViewData["ActiveNav"] = "periods"; }
+
+<div class="page-title"><div><div class="muted">KPI PERIOD PLAN / @Model.Code</div><h1>@Model.Name @await Html.PartialAsync("_StatusBadge", Model.Status.ToString())</h1><p class="subtitle">@Model.StartsAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm") — @Model.EndsAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm") · @Model.Cadence</p></div><a class="button secondary" href="/KpiPeriods">Danh sách kỳ</a></div>
+
+<div class="card" data-period-stepper style="margin-bottom:18px;"><div class="muted">PERIOD LIFECYCLE</div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;">@foreach (var status in new[] { Kpi.Domain.Periods.KpiPeriodStatus.Draft, Kpi.Domain.Periods.KpiPeriodStatus.InReview, Kpi.Domain.Periods.KpiPeriodStatus.Scheduled, Kpi.Domain.Periods.KpiPeriodStatus.Active, Kpi.Domain.Periods.KpiPeriodStatus.Closed }) { var reached = (int)status <= (int)Model.Status; <span style="opacity:@(reached ? "1" : ".45")"><span class="status-badge status-@status.ToString().ToLowerInvariant()">@status</span></span>@if(status != Kpi.Domain.Periods.KpiPeriodStatus.Closed){<span class="muted" aria-hidden="true">→</span>} }</div></div>
+
+<div class="card">
+    <div class="muted">KPI SELECTIONS</div><h2>Chọn chính xác KPI Version</h2><p class="subtitle">Chỉ Version Published, đúng cadence và còn hiệu lực trong toàn bộ kỳ mới được chọn. Danh sách sắp xếp mới đến cũ.</p>
+    @if (Model.CanEdit)
+    {
+        <form method="post" action="/KpiPeriods/SaveSelections" id="period-selection-form">
+            @Html.AntiForgeryToken()<input type="hidden" name="periodId" value="@Model.Id" /><input type="hidden" name="concurrencyToken" value="@Model.ConcurrencyToken" /><input type="hidden" name="selectionsJson" id="period-selections-json" value="@JsonSerializer.Serialize(Model.Selections.Where(x => x.SelectedVersionId is not null).ToDictionary(x => x.DefinitionId, x => x.SelectedVersionId!.Value))" />
+            <div style="display:grid;gap:12px;">
+            @foreach (var selection in Model.Selections)
+            {
+                <div class="panel" data-definition-id="@selection.DefinitionId"><div style="display:flex;justify-content:space-between;gap:12px;align-items:center;"><div><strong>@selection.Code</strong><div class="muted">@selection.Name</div></div><select data-period-selection="@selection.DefinitionId" aria-label="Version cho @selection.Code"><option value="">— Không chọn —</option>@foreach (var version in selection.Versions) { <option value="@version.VersionId" selected="@(version.VersionId == selection.SelectedVersionId)" disabled="@(!version.IsEligible)">v@version.VersionNumber · @version.VersionName · @version.Status @(!version.IsEligible ? $" — {version.IneligibilityReason}" : "")</option> }</select></div></div>
+            }
+            </div>
+            <button class="button" type="submit" style="margin-top:14px;">Lưu lựa chọn KPI</button>
+        </form>
+    }
+    else
+    {
+        <div class="panel"><strong>Kế hoạch đã đóng băng.</strong> Các thay đổi sau Scheduled phải đi qua Amendment và KPI Period Approver.</div>
+        <ul>@foreach (var selection in Model.Selections.Where(x => x.SelectedVersionId is not null)) { var selected = selection.Versions.First(x => x.VersionId == selection.SelectedVersionId); <li>@selection.Code — v@selected.VersionNumber @await Html.PartialAsync("_StatusBadge", selected.Status.ToString())</li> }</ul>
+    }
+</div>
+
+<div class="card" style="margin-top:18px;"><div class="muted">GOVERNANCE ACTIONS</div><h2>Gửi duyệt và kích hoạt</h2>
+    @if (Model.CanSubmit) { <form method="post" action="/KpiPeriods/Submit" style="display:inline">@Html.AntiForgeryToken()<input type="hidden" name="periodId" value="@Model.Id" /><input type="hidden" name="concurrencyToken" value="@Model.ConcurrencyToken" /><button class="button" type="submit">Gửi KPI Period Approver</button></form> }
+    @if (Model.CanApprove) { <form method="post" action="/KpiPeriods/Approve" style="display:inline">@Html.AntiForgeryToken()<input type="hidden" name="periodId" value="@Model.Id" /><button class="button" type="submit">Approve kỳ</button></form><form method="post" action="/KpiPeriods/Reject" style="margin-top:12px">@Html.AntiForgeryToken()<input type="hidden" name="periodId" value="@Model.Id" /><label>Nhận xét Reject <textarea name="comment" required></textarea></label><button class="button danger" type="submit">Reject kỳ</button></form> }
+    @if (Model.CanActivate) { <form method="post" action="/KpiPeriods/Activate" style="display:inline">@Html.AntiForgeryToken()<input type="hidden" name="periodId" value="@Model.Id" /><button class="button" type="submit">Kích hoạt kỳ</button></form> }
+    @if (Model.CanClose) { <form method="post" action="/KpiPeriods/Close" style="display:inline">@Html.AntiForgeryToken()<input type="hidden" name="periodId" value="@Model.Id" /><button class="button secondary" type="submit">Đóng kỳ</button></form> }
+</div>
+
+@if (Model.Activations.Count > 0) { <div class="card" style="margin-top:18px;"><div class="muted">KPI PERIOD ACTIVATION</div><h2>Selections đã hiệu lực</h2><table><thead><tr><th>Definition</th><th>Version</th><th>Activated at</th><th>Closed at</th></tr></thead><tbody>@foreach (var activation in Model.Activations) { <tr><td><code>@activation.DefinitionId</code></td><td><code>@activation.VersionId</code></td><td>@activation.ActivatedAt.ToLocalTime()</td><td>@activation.ClosedAt?.ToLocalTime()</td></tr> }</tbody></table></div> }
+
+@section Scripts { <script>
+const form = document.getElementById('period-selection-form');
+form?.addEventListener('submit', () => {
+  const selections = {};
+  document.querySelectorAll('[data-period-selection]').forEach(select => { if (select.value) selections[select.dataset.periodSelection] = select.value; });
+  document.getElementById('period-selections-json').value = JSON.stringify(selections);
+});
+</script> }
