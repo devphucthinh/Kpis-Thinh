@@ -329,7 +329,7 @@ Nếu bug làm thay đổi yêu cầu, quay lại bước sớm nhất bị vô 
 6. CẬP NHẬT HAI BỘ SKILL
 -------------------------
 
-Luôn cập nhật trên một branch riêng và đọc diff trước khi merge.
+Luôn làm việc và push trực tiếp trên main. Không tạo branch local hoặc remote có chữ "codex"; đọc diff và chạy .\harness.cmd check trước khi commit hoặc push.
 
 Spec Kit:
 
@@ -368,4 +368,3 @@ Nguồn cài đặt:
 
   https://github.com/github/spec-kit
   https://github.com/mattpocock/skills
-

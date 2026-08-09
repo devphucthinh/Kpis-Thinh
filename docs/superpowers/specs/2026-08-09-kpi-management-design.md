@@ -236,6 +236,8 @@ Draft → InReview → Approved → Published → Retired
 
 Only Draft content is editable. Approvers approve or reject with comments and never edit submitted content. Published content is immutable. Retired versions remain visible and cannot be selected for a new period.
 
+Publication assigns `effective_from`. A Definition has at most one currently effective Published version. Publishing a successor closes the predecessor's effective range at the successor's `effective_from`; when that instant is reconciled, the predecessor becomes Retired and the successor becomes the current version. Effective ranges may not overlap, and reconciliation is idempotent and catches up after downtime.
+
 An unused Draft version that has never been submitted or activated may be hard-deleted with an audit tombstone. Every other version remains as immutable history.
 
 To reuse retired behavior, a creator clones the old version into a new Draft, supplies a change summary, and repeats approval.
@@ -538,6 +540,7 @@ Queryable identity, status, ownership, version number, cadence, dates, current p
 - append-only audit table permissions;
 - foreign keys preserve version, activation, evaluation, and predecessor history;
 - optimistic concurrency token on editable definitions, Draft versions, and Draft period plans.
+- non-overlapping effective ranges for Published versions of the same KPI Definition, enforced transactionally together with successor publication.
 
 Cross-row period overlap and state-transition rules are enforced transactionally in Application/Domain and covered by PostgreSQL integration tests.
 
@@ -658,7 +661,7 @@ Every behavior slice begins with a failing test, verifies the intended failure, 
 - precedence and associativity;
 - every operator/function and type rule;
 - short-circuit behavior;
-- precision, scale, percentage, MOD, ABS, and half-up ROUND;
+- precision, scale, percentage, MOD, ABS, and midpoint-away-from-zero ROUND;
 - every structured failure;
 - complexity limits;
 - lifecycle transitions and forbidden transitions;
@@ -749,7 +752,7 @@ The first release is accepted only when all statements below are demonstrably tr
 3. The approved language parses, validates, type-checks, and evaluates deterministically without arbitrary execution.
 4. Source, typed AST, version metadata, inputs, successful result or failure, and audit history round-trip through PostgreSQL without semantic change.
 5. Draft Test Runs do not create database rows.
-6. Published KPI Versions and approved periods enforce every lifecycle and separation-of-duty rule.
+6. Published KPI Versions and approved periods enforce every lifecycle and separation-of-duty rule; each Definition has at most one currently effective Published version, and a due successor retires its predecessor.
 7. A period activates and closes at the correct configured time, including catch-up after downtime.
 8. Official evaluations are immutable; corrections preserve both attempts, changed fields, result delta, and reason.
 9. A failed later attempt does not replace the latest successful Current result.
@@ -763,11 +766,11 @@ The first release is accepted only when all statements below are demonstrably tr
 
 ## 20. Delivery and Git
 
-Implementation work remains on a `codex/` branch. Before delivery:
+Implementation work remains directly on `main`. No local or remote-tracking branch may contain `codex`; the repository harness enforces both rules. Before delivery:
 
 - preserve unrelated existing workspace changes;
 - review the complete diff against this spec and repository standards;
 - run the full harness with fresh evidence;
 - commit only intended files with configured author identity;
-- push the implementation branch to the configured Git remote;
+- fetch and verify that `origin/main` has no commits absent locally, then push `main` to the configured Git remote;
 - report any missing remote, credentials, or authorization instead of inventing them.
