@@ -24,14 +24,36 @@ public sealed class KpisController(KpiOperations operations, ICurrentActor actor
     }
 
     [HttpGet]
-    public IActionResult Edit(Guid id) => View(new EditKpiModel { DefinitionId = id, Definition = operations.List(actor.Current.OrganizationId).FirstOrDefault(x => x.Id == id) });
+    public IActionResult Edit(Guid id)
+    {
+        var definition = operations.List(actor.Current.OrganizationId).FirstOrDefault(x => x.Id == id);
+        return definition is null ? NotFound() : View(new EditKpiModel { DefinitionId = id, Definition = definition });
+    }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     public IActionResult AddVersion(EditKpiModel model)
     {
-        var result = operations.CreateVersion(actor.Current, model.DefinitionId, model.VersionName, model.VersionDescription, model.Source, ParseVariables(model.Variables), FormulaResultType.Decimal, model.ChangeSummary);
-        if (!result.IsSuccess) ModelState.AddModelError(string.Empty, result.Error!.Message);
+        IReadOnlyList<FormulaVariableDefinition> variables;
+        try
+        {
+            variables = ParseVariables(model.Variables);
+        }
+        catch (ArgumentException ex)
+        {
+            ModelState.AddModelError(nameof(model.Variables), ex.Message);
+            model.Definition = operations.List(actor.Current.OrganizationId).FirstOrDefault(x => x.Id == model.DefinitionId);
+            return View(nameof(Edit), model);
+        }
+
+        var result = operations.CreateVersion(actor.Current, model.DefinitionId, model.VersionName, model.VersionDescription, model.Source, variables, FormulaResultType.Decimal, model.ChangeSummary);
+        if (!result.IsSuccess)
+        {
+            ModelState.AddModelError(string.Empty, result.Error!.Message);
+            model.Definition = operations.List(actor.Current.OrganizationId).FirstOrDefault(x => x.Id == model.DefinitionId);
+            return View(nameof(Edit), model);
+        }
+
         return RedirectToAction(nameof(Edit), new { id = model.DefinitionId });
     }
 
