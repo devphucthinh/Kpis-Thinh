@@ -29,6 +29,8 @@ public sealed class KpiWorkbenchPageTests : IClassFixture<WebApplicationFactory<
         Assert.Contains("data-variable-type=\"Decimal\"", html, StringComparison.Ordinal);
         Assert.Contains("name=\"VariablesJson\"", html, StringComparison.Ordinal);
         Assert.Contains("formula-ast", html, StringComparison.Ordinal);
+        Assert.Contains("formula-suggestions-panel", html, StringComparison.Ordinal);
+        Assert.Contains("formula-syntax-helper", html, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -41,5 +43,9 @@ public sealed class KpiWorkbenchPageTests : IClassFixture<WebApplicationFactory<
         Assert.Contains("parseVariableRows", javascript, StringComparison.Ordinal);
         Assert.Contains("autocomplete", javascript, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("variablesJson", javascript, StringComparison.Ordinal);
+        Assert.Contains("supportedOperations", javascript, StringComparison.Ordinal);
+        Assert.Contains("ArrowDown", javascript, StringComparison.Ordinal);
+        Assert.Contains("ArrowUp", javascript, StringComparison.Ordinal);
+        Assert.Contains("formula-syntax-helper", javascript, StringComparison.Ordinal);
     }
 }

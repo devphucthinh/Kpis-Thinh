@@ -1,3 +1,25 @@
+const fallbackCatalog = {
+  formulaLanguageVersion: 1,
+  astSchemaVersion: 1,
+  operators: [
+    { name: "+", kind: "operator", signature: "left + right", description: "Cộng hai Decimal.", example: "revenue + bonus", insertText: " + " },
+    { name: "-", kind: "operator", signature: "left - right", description: "Trừ hai Decimal.", example: "revenue - discount", insertText: " - " },
+    { name: "*", kind: "operator", signature: "left * right", description: "Nhân hai Decimal.", example: "units * price", insertText: " * " },
+    { name: "/", kind: "operator", signature: "left / right", description: "Chia hai Decimal.", example: "revenue / target", insertText: " / " },
+    { name: "%", kind: "operator", signature: "value%", description: "Phần trăm postfix.", example: "discount%", insertText: "%" },
+    { name: "MOD", kind: "operator", signature: "left MOD right", description: "Phần dư Decimal.", example: "worked MOD 7", insertText: " MOD " },
+    { name: "AND", kind: "operator", signature: "left AND right", description: "AND giữa hai Boolean.", example: "active AND approved", insertText: " AND " },
+    { name: "OR", kind: "operator", signature: "left OR right", description: "OR giữa hai Boolean.", example: "manual OR automatic", insertText: " OR " },
+    { name: "NOT", kind: "operator", signature: "NOT value", description: "Đảo Boolean.", example: "NOT archived", insertText: "NOT " }
+  ],
+  functions: [
+    { name: "IF", kind: "function", signature: "IF(condition, whenTrue, whenFalse)", description: "Chọn một trong hai nhánh.", example: "IF(active, revenue, 0)", insertText: "IF()" },
+    { name: "ROUND", kind: "function", signature: "ROUND(value, decimals)", description: "Làm tròn Decimal.", example: "ROUND(revenue / target * 100, 2)", insertText: "ROUND()" },
+    { name: "ABS", kind: "function", signature: "ABS(value)", description: "Giá trị tuyệt đối.", example: "ABS(actual - target)", insertText: "ABS()" },
+    { name: "MOD", kind: "function", signature: "MOD(left, right)", description: "Dạng hàm của phần dư.", example: "MOD(worked, 7)", insertText: "MOD()" }
+  ]
+};
+
 export function insertAtSelection(textarea, text) {
   const start = textarea.selectionStart;
   const end = textarea.selectionEnd;
@@ -23,12 +45,51 @@ export function parseVariableRows(variableInput, variablesJson) {
   return parseVariableCodes(variableInput?.value || "");
 }
 
-const functionSuggestions = ["AND", "OR", "NOT", "IF", "ROUND", "ABS", "MOD", "%"];
+const functionSuggestions = ["IF", "ROUND", "ABS", "MOD", "AND", "OR", "NOT", "%"];
 
-export function attachFormulaEditor(source, variableInput, diagnostics, astPreview, testInputs, testButton, testResult, variableRows = null, variablesJson = null) {
+function normalizeCatalog(value) {
+  return value && Array.isArray(value.operators) && Array.isArray(value.functions) ? value : fallbackCatalog;
+}
+
+async function loadCatalog(url) {
+  if (!url) return fallbackCatalog;
+  try {
+    const response = await fetch(url, { headers: { Accept: "application/json" } });
+    if (!response.ok) return fallbackCatalog;
+    const data = await response.json();
+    return normalizeCatalog(data.supportedOperations || data);
+  } catch {
+    return fallbackCatalog;
+  }
+}
+
+function tokenRange(textarea) {
+  const cursor = textarea.selectionStart;
+  const before = textarea.value.slice(0, cursor);
+  const match = before.match(/[A-Za-z_][A-Za-z0-9_]*$/);
+  return match ? { start: cursor - match[0].length, end: cursor, query: match[0] } : { start: cursor, end: cursor, query: "" };
+}
+
+function variableSuggestions(rows) {
+  return rows.filter(row => row.code).map(row => ({
+    name: row.code,
+    kind: "variable",
+    signature: row.code,
+    description: row.description || `${row.type || "Decimal"} formula variable`,
+    example: row.code,
+    insertText: row.code
+  }));
+}
+
+export function attachFormulaEditor(source, variableInput, diagnostics, astPreview, testInputs, testButton, testResult, variableRows = null, variablesJson = null, suggestionsPanel = null, syntaxHelper = null) {
   if (!source || !variableInput || !diagnostics || !astPreview || !testInputs || !testButton || !testResult) return;
+  const panel = suggestionsPanel || document.getElementById("formula-suggestions-panel");
+  const helper = syntaxHelper || document.getElementById("formula-syntax-helper");
   let timer;
   let rows = parseVariableRows(variableInput, variablesJson);
+  let catalog = fallbackCatalog;
+  let activeSuggestions = [];
+  let activeIndex = -1;
 
   const syncLegacyFields = () => {
     variableInput.value = rows.map(row => row.code).join("\n");
@@ -51,21 +112,23 @@ export function attachFormulaEditor(source, variableInput, diagnostics, astPrevi
   const renderRows = () => {
     if (!variableRows) return;
     variableRows.replaceChildren();
-    rows.forEach((row, index) => {
+    rows.forEach(row => {
       const card = document.createElement("div");
       card.className = "panel formula-variable-row";
       card.dataset.variableRow = "true";
-      card.innerHTML = `
-        <div style="display:grid;grid-template-columns:1.2fr 1.2fr .8fr;gap:8px;align-items:end;">
-          <label>Code<input data-variable-field="code" value="" autocomplete="off"></label>
-          <label>Tên hiển thị<input data-variable-field="displayName" value=""></label>
-          <label>Kiểu<select data-variable-field="type"><option value="Decimal">Decimal</option><option value="Boolean">Boolean</option></select></label>
-        </div>
-        <div style="display:grid;grid-template-columns:auto 1fr 2fr;gap:8px;align-items:end;">
-          <label><input data-variable-field="required" type="checkbox"> Bắt buộc</label>
-          <label>Default<input data-variable-field="defaultValue" value=""></label>
-          <label>Mô tả<input data-variable-field="description" value=""></label>
-        </div>`;
+      const top = document.createElement("div");
+      top.className = "formula-variable-grid";
+      top.innerHTML = `
+        <label>Code<input data-variable-field="code" autocomplete="off"></label>
+        <label>Tên hiển thị<input data-variable-field="displayName"></label>
+        <label>Kiểu<select data-variable-field="type"><option value="Decimal">Decimal</option><option value="Boolean">Boolean</option></select></label>`;
+      const bottom = document.createElement("div");
+      bottom.className = "formula-variable-grid formula-variable-grid-secondary";
+      bottom.innerHTML = `
+        <label><input data-variable-field="required" type="checkbox"> Bắt buộc</label>
+        <label>Default<input data-variable-field="defaultValue"></label>
+        <label>Mô tả<input data-variable-field="description"></label>`;
+      card.append(top, bottom);
       card.querySelector("[data-variable-field='code']").value = row.code || "";
       card.querySelector("[data-variable-field='displayName']").value = row.displayName || row.code || "";
       card.querySelector("[data-variable-field='type']").value = row.type || "Decimal";
@@ -79,7 +142,9 @@ export function attachFormulaEditor(source, variableInput, diagnostics, astPrevi
   const syncRows = () => {
     rows = readRowsFromDom();
     syncLegacyFields();
+    syncTestInputs();
     scheduleValidation();
+    renderSuggestions();
   };
 
   const syncTestInputs = () => {
@@ -97,6 +162,80 @@ export function attachFormulaEditor(source, variableInput, diagnostics, astPrevi
       label.append(input);
       testInputs.append(label);
     }
+  };
+
+  const renderSyntaxHelper = item => {
+    if (!helper) return;
+    helper.replaceChildren();
+    const signature = document.createElement("strong");
+    signature.textContent = item ? item.signature : "Cú pháp hỗ trợ";
+    const description = document.createElement("span");
+    description.textContent = item ? ` — ${item.description}` : " — Chọn một phép toán để xem tham số.";
+    const example = document.createElement("code");
+    example.textContent = item ? `Ví dụ: ${item.example}` : "";
+    helper.append(signature, description, example);
+  };
+
+  const markActiveSuggestion = () => {
+    if (!panel) return;
+    Array.from(panel.querySelectorAll("[role='option']")).forEach((option, index) => {
+      const selected = index === activeIndex;
+      option.setAttribute("aria-selected", selected ? "true" : "false");
+      if (selected) option.scrollIntoView({ block: "nearest" });
+    });
+    if (activeSuggestions[activeIndex]) renderSyntaxHelper(activeSuggestions[activeIndex]);
+  };
+
+  const hideSuggestions = () => {
+    if (!panel) return;
+    panel.hidden = true;
+    panel.replaceChildren();
+    activeSuggestions = [];
+    activeIndex = -1;
+  };
+
+  const selectSuggestion = item => {
+    const range = tokenRange(source);
+    const insert = item.insertText || item.name;
+    source.setRangeText(insert, range.start, range.end, "end");
+    const caret = item.kind === "function" ? range.start + insert.length - 1 : range.start + insert.length;
+    source.setSelectionRange(caret, caret);
+    renderSyntaxHelper(item);
+    hideSuggestions();
+    source.dispatchEvent(new Event("input", { bubbles: true }));
+  };
+
+  function renderSuggestions() {
+    if (!panel) return;
+    const range = tokenRange(source);
+    if (!range.query) { hideSuggestions(); return; }
+    const query = range.query.toUpperCase();
+    const operations = [...(catalog.operators || []), ...(catalog.functions || []), ...variableSuggestions(rows)];
+    activeSuggestions = operations.filter(item => item.name.toUpperCase().startsWith(query)).slice(0, 10);
+    if (activeSuggestions.length === 0) { hideSuggestions(); return; }
+    panel.replaceChildren();
+    activeIndex = 0;
+    activeSuggestions.forEach((item, index) => {
+      const option = document.createElement("button");
+      option.type = "button";
+      option.role = "option";
+      option.setAttribute("aria-selected", index === 0 ? "true" : "false");
+      option.className = "formula-suggestion-option";
+      option.textContent = `${item.name} · ${item.signature}`;
+      option.addEventListener("mouseenter", () => { activeIndex = index; markActiveSuggestion(); });
+      option.addEventListener("click", () => selectSuggestion(item));
+      panel.append(option);
+    });
+    panel.hidden = false;
+    renderSyntaxHelper(activeSuggestions[0]);
+  }
+
+  const handleSuggestionKeydown = event => {
+    if (!panel || panel.hidden || activeSuggestions.length === 0) return;
+    if (event.key === "ArrowDown") { event.preventDefault(); activeIndex = (activeIndex + 1) % activeSuggestions.length; markActiveSuggestion(); }
+    else if (event.key === "ArrowUp") { event.preventDefault(); activeIndex = (activeIndex - 1 + activeSuggestions.length) % activeSuggestions.length; markActiveSuggestion(); }
+    else if (event.key === "Enter") { event.preventDefault(); selectSuggestion(activeSuggestions[activeIndex]); }
+    else if (event.key === "Escape") { event.preventDefault(); hideSuggestions(); }
   };
 
   const showTestResult = data => {
@@ -137,14 +276,17 @@ export function attachFormulaEditor(source, variableInput, diagnostics, astPrevi
       const data = await response.json();
       diagnostics.textContent = (data.diagnostics || []).map(d => `${d.code}: ${d.message}`).join("\n");
       astPreview.textContent = data.formula ? JSON.stringify(data.formula.ast, null, 2) : "";
+      if (data.supportedOperations) catalog = normalizeCatalog(data.supportedOperations);
+      renderSuggestions();
     }, 250);
   };
 
-  source.setAttribute("list", "formula-suggestions");
   source.setAttribute("autocomplete", "off");
   source.dataset.autocomplete = functionSuggestions.join(",");
-  variableInput.addEventListener("input", () => { rows = parseVariableCodes(variableInput.value); renderRows(); syncTestInputs(); scheduleValidation(); });
-  source.addEventListener("input", scheduleValidation);
+  source.addEventListener("input", () => { scheduleValidation(); renderSuggestions(); });
+  source.addEventListener("focus", renderSuggestions);
+  source.addEventListener("keydown", handleSuggestionKeydown);
+  variableInput.addEventListener("input", () => { rows = parseVariableCodes(variableInput.value); renderRows(); syncTestInputs(); scheduleValidation(); renderSuggestions(); });
   variableRows?.addEventListener("input", syncRows);
   document.getElementById("formula-add-variable")?.addEventListener("click", () => {
     rows = [...readRowsFromDom(), { code: "", displayName: "", type: "Decimal", required: true, defaultValue: null, description: null, displayOrder: rows.length }];
@@ -155,5 +297,7 @@ export function attachFormulaEditor(source, variableInput, diagnostics, astPrevi
   renderRows();
   syncLegacyFields();
   syncTestInputs();
+  renderSyntaxHelper(null);
+  loadCatalog(source.dataset.formulaCapabilitiesUrl).then(loaded => { catalog = loaded; renderSuggestions(); });
   scheduleValidation();
 }
