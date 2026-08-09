@@ -1,0 +1,6 @@
+@model string?
+@{
+    var value = string.IsNullOrWhiteSpace(Model) ? "Unknown" : Model;
+    var css = value.ToLowerInvariant().Replace(" ", "-");
+}
+<span class="status-badge status-@css">@value</span>

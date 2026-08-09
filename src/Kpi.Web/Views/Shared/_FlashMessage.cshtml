@@ -1,0 +1,7 @@
+@{
+    var notice = ViewData["Notice"] as string ?? Context.Request.Query["notice"].FirstOrDefault();
+}
+@if (!string.IsNullOrWhiteSpace(notice))
+{
+    <div class="flash-message" role="status">@notice</div>
+}

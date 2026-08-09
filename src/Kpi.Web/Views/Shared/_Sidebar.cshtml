@@ -1,0 +1,15 @@
+@{
+    var path = Context.Request.Path.Value ?? "/";
+    var active = ViewData["ActiveNav"] as string ?? (path.StartsWith("/Kpis", StringComparison.OrdinalIgnoreCase) ? "kpis" : path.StartsWith("/KpiPeriods", StringComparison.OrdinalIgnoreCase) ? "periods" : path.StartsWith("/KpiEvaluations", StringComparison.OrdinalIgnoreCase) ? "evaluations" : path.StartsWith("/Audit", StringComparison.OrdinalIgnoreCase) ? "audit" : "overview");
+}
+<aside class="app-sidebar" aria-label="Điều hướng chính">
+    <div class="sidebar-label">WORKSPACE</div>
+    <a class="sidebar-link @(active == "overview" ? "active" : "")" href="/" aria-current="@(active == "overview" ? "page" : null)"><span aria-hidden="true">▦</span> Tổng quan</a>
+    <a class="sidebar-link @(active == "kpis" ? "active" : "")" href="/Kpis" aria-current="@(active == "kpis" ? "page" : null)"><span aria-hidden="true">◈</span> KPIs</a>
+    <a class="sidebar-link @(active == "periods" ? "active" : "")" href="/KpiPeriods" aria-current="@(active == "periods" ? "page" : null)"><span aria-hidden="true">◷</span> Kỳ KPI</a>
+    <a class="sidebar-link @(active == "evaluations" ? "active" : "")" href="/KpiEvaluations/History" aria-current="@(active == "evaluations" ? "page" : null)"><span aria-hidden="true">✓</span> Đánh giá</a>
+    <a class="sidebar-link @(active == "audit" ? "active" : "")" href="/Audit" aria-current="@(active == "audit" ? "page" : null)"><span aria-hidden="true">⌁</span> Audit</a>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-label">DEVELOPMENT PERSONA</div>
+    <p class="sidebar-help">Persona chỉ mô phỏng quyền trong môi trường Development.</p>
+</aside>

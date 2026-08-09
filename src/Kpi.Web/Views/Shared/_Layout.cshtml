@@ -1,5 +1,28 @@
 <!doctype html>
-<html lang="vi">
-<head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>KPI Management</title><link rel="stylesheet" href="~/css/site.css" /></head>
-<body><header class="navbar"><a href="/">KPI Management</a><nav><a href="/Kpis">Danh sách KPI</a><a href="/Kpis/Create">Tạo KPI</a></nav></header><main class="container">@RenderBody()</main></body>
+<html lang="vi" data-theme="light">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>@(ViewData["Title"] ?? "KPI Control Center")</title>
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+    <header class="app-topbar">
+        <a class="brand" href="/" aria-label="KPI Control Center - Trang tổng quan">KPI Control Center</a>
+        <div class="topbar-actions">
+            <span class="persona-chip">Persona: @(Context.Request.Query["persona"].FirstOrDefault() ?? "creator")</span>
+            <button type="button" class="theme-toggle" data-theme-toggle aria-label="Chuyển chế độ sáng tối">◐ <span data-theme-label>Dark mode</span></button>
+        </div>
+    </header>
+    <div class="app-shell">
+        <partial name="_Sidebar" />
+        <main class="app-main" id="main-content">
+            <partial name="_FlashMessage" />
+            @RenderBody()
+        </main>
+    </div>
+    <script src="~/js/theme.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
 </html>
