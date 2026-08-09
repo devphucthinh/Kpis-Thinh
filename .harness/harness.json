@@ -11,7 +11,8 @@
     "scripts/harness.ps1",
     "scripts/branch-policy.ps1",
     "tests/harness/branch-policy.tests.ps1",
-    "tests/harness/migration-command.tests.ps1"
+    "tests/harness/migration-command.tests.ps1",
+    "tests/harness/runtime-profile-isolation.tests.ps1"
   ],
   "gitPolicy": {
     "workingBranch": "main",
@@ -82,6 +83,17 @@
           "Bypass",
           "-File",
           "tests/harness/migration-command.tests.ps1"
+        ]
+      },
+      {
+        "name": "Runtime profile isolation contract",
+        "command": "powershell.exe",
+        "args": [
+          "-NoProfile",
+          "-ExecutionPolicy",
+          "Bypass",
+          "-File",
+          "tests/harness/runtime-profile-isolation.tests.ps1"
         ]
       }
     ],

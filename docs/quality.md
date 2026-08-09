@@ -23,6 +23,10 @@ PostgreSQL migration tests are opt-in and target only `kpi_lab_test`:
 `KPI_POSTGRES_TESTS=1` plus `ConnectionStrings__KpiMigration` enables the
 ledger/transaction suite. Without that profile, the tests report deterministic
 skips and do not open PostgreSQL; the default harness remains credential-free.
+When a developer has a durable runtime profile configured, the harness scopes
+its Web contract tests to `InMemoryTest` and restores the process environment;
+this keeps UI contract tests deterministic without disabling the opt-in
+PostgreSQL migration suite.
 
 The KPI feature extends the harness with locked .NET restore, formatting,
 analyzer build, all test projects, the explicit migration command, and the

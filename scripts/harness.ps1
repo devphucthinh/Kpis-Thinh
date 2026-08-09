@@ -125,6 +125,17 @@ function Invoke-HarnessSteps {
         return
     }
 
+    $testEnvironmentSnapshot = $null
+    if ($Name -eq 'Test') {
+        $testEnvironmentSnapshot = @{
+            RuntimeConnection = [Environment]::GetEnvironmentVariable('ConnectionStrings__KpiRuntime', 'Process')
+            PersistenceProfile = [Environment]::GetEnvironmentVariable('Kpi__PersistenceProfile', 'Process')
+        }
+        [Environment]::SetEnvironmentVariable('ConnectionStrings__KpiRuntime', $null, 'Process')
+        [Environment]::SetEnvironmentVariable('Kpi__PersistenceProfile', 'InMemoryTest', 'Process')
+    }
+
+    try {
     foreach ($step in $Steps) {
         if ([string]::IsNullOrWhiteSpace($step.name) -or [string]::IsNullOrWhiteSpace($step.command)) {
             throw "$Name contains a step without a name or command."
@@ -160,6 +171,13 @@ function Invoke-HarnessSteps {
         }
         finally {
             Pop-Location
+        }
+    }
+    }
+    finally {
+        if ($null -ne $testEnvironmentSnapshot) {
+            [Environment]::SetEnvironmentVariable('ConnectionStrings__KpiRuntime', $testEnvironmentSnapshot.RuntimeConnection, 'Process')
+            [Environment]::SetEnvironmentVariable('Kpi__PersistenceProfile', $testEnvironmentSnapshot.PersistenceProfile, 'Process')
         }
     }
 }
