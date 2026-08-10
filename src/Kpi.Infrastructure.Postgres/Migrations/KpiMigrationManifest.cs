@@ -10,7 +10,8 @@ public static class KpiMigrationManifest
         new("202608090003_DefinitionRetention", DefinitionRetentionSql),
         new("202608090004_PeriodActivation", PeriodActivationSql),
         new("202608090005_PeriodAmendments", PeriodAmendmentsSql),
-        new("202608090006_Evaluations", EvaluationsSql)
+        new("202608090006_Evaluations", EvaluationsSql),
+        new("202608100001_RuntimePrivileges", RuntimePrivilegesSql)
     ];
 
     public static IReadOnlyList<string> ProductMigrations => Scripts.Select(x => x.Id).ToArray();
@@ -180,6 +181,27 @@ public static class KpiMigrationManifest
         CREATE UNIQUE INDEX IF NOT EXISTS kpi_evaluations_one_current_success_idx
             ON kpi_evaluations (activation_id) WHERE is_current_success;
         CREATE INDEX IF NOT EXISTS kpi_evaluations_history_idx ON kpi_evaluations (activation_id, evaluated_at, id);
+        """;
+
+    private const string RuntimePrivilegesSql = """
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'kpi_runtime') THEN
+                GRANT USAGE ON SCHEMA public TO kpi_runtime;
+                GRANT SELECT, INSERT, UPDATE, DELETE ON
+                    organizations,
+                    actors,
+                    kpi_definitions,
+                    kpi_versions,
+                    kpi_periods,
+                    kpi_period_activations,
+                    kpi_period_amendments,
+                    kpi_evaluations
+                TO kpi_runtime;
+                GRANT SELECT, INSERT ON audit_records TO kpi_runtime;
+                REVOKE UPDATE, DELETE, TRUNCATE ON audit_records FROM kpi_runtime;
+            END IF;
+        END $$;
         """;
 }
 

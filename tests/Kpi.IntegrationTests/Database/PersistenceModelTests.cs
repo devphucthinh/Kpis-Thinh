@@ -36,14 +36,16 @@ public sealed class PersistenceModelTests
     [Fact]
     public void Product_migration_manifest_is_forward_only_and_has_sql_for_every_slice()
     {
-        Assert.Equal(6, KpiMigrationManifest.ProductMigrations.Count);
+        Assert.Equal(7, KpiMigrationManifest.ProductMigrations.Count);
         Assert.Equal(KpiMigrationManifest.ProductMigrations.Count, KpiMigrationManifest.Scripts.Count);
         Assert.All(KpiMigrationManifest.Scripts, migration =>
         {
             Assert.False(string.IsNullOrWhiteSpace(migration.Id));
-            Assert.Contains("CREATE", migration.Sql, StringComparison.OrdinalIgnoreCase);
+            Assert.False(string.IsNullOrWhiteSpace(migration.Sql));
         });
         Assert.Contains("audit_records", KpiMigrationManifest.Scripts[0].Sql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("GRANT SELECT, INSERT, UPDATE, DELETE", KpiMigrationManifest.Scripts[^1].Sql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("REVOKE UPDATE, DELETE, TRUNCATE ON audit_records", KpiMigrationManifest.Scripts[^1].Sql, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("kpi_period_activations", KpiMigrationManifest.Scripts[3].Sql, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("kpi_evaluations", KpiMigrationManifest.Scripts[5].Sql, StringComparison.OrdinalIgnoreCase);
     }
