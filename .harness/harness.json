@@ -101,7 +101,7 @@
       {
         "name": "Apply declared PostgreSQL migrations",
         "command": "dotnet",
-        "args": ["run", "--project", "src/Kpi.Migrator/Kpi.Migrator.csproj", "--no-restore", "--configuration", "Release"]
+        "args": ["run", "--project", "src/Kpi.Migrator/Kpi.Migrator.csproj", "--no-build", "--configuration", "Release"]
       }
     ]
   }

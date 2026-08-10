@@ -1,0 +1,22 @@
+{
+  "profiles": {
+    "Kpi.Web": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:56845;http://localhost:56846"
+    },
+    "Thinh-KPI-TEST": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:5080",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "Kpi__PersistenceProfile": "Postgres"
+      }
+    }
+  }
+}
