@@ -6,12 +6,12 @@
 
 **Architecture:** Implement a modular ASP.NET Core monolith with Domain and Application independent of ASP.NET/EF Core, PostgreSQL behind task-focused persistence interfaces, and MVC/API adapters in Web. The Formula module is a deep module with `Compile` and `Evaluate` as its public interface; all AST construction, typing, limits, and execution stay internal.
 
-**Tech Stack:** .NET SDK 10.0.302, C# 14, ASP.NET Core MVC 10.0, Bootstrap 5.3.8, EF Core 10.0.10, Npgsql EF Core 10.0.3, PostgreSQL 18.4, xUnit 2.9.3, Microsoft.NET.Test.Sdk 18.8.1, xunit.runner.visualstudio 3.1.5, Playwright 1.61.0.
+**Tech Stack:** .NET SDK 9.0.315, C# preview language mode, ASP.NET Core MVC 9.0.16, Bootstrap 5.3.8, EF Core 9.0.16, Npgsql EF Core 9.0.4, PostgreSQL 18.4, xUnit v3 3.0.0, Microsoft.NET.Test.Sdk 18.0.1, xunit.runner.visualstudio 3.1.4, Playwright 1.55.0.
 
 ## Global Constraints
 
 - Work and push directly on `main`; the harness rejects other active branches and every branch name containing `codex`.
-- Use .NET 10 LTS pinned to SDK `10.0.302` in `global.json`; do not use .NET 11 preview packages.
+- Use .NET 9 pinned to SDK `9.0.315` in `global.json`; do not use .NET 10 or .NET 11 packages.
 - Decimal behavior is `System.Decimal`, maximum precision 28, maximum scale 10, invariant string JSON, and midpoint rounding away from zero.
 - Formula execution is constrained: no `eval`, Roslyn scripting, reflection, recursion, loops, file, process, database, or network access.
 - Formula limits are 100 variables, 10,000 source characters, AST depth 32, 10,000 evaluated nodes, and 500 ms elapsed evaluation.
@@ -96,19 +96,18 @@ If analysis finds a conflict, the approved written design is authoritative; upda
 
 **Interfaces:**
 - Consumes: repository harness and approved design spec.
-- Produces: compilable `net10.0` solution, central package versions, project references, and canonical restore/format/build/test commands.
+- Produces: compilable `net9.0` solution, central package versions, project references, and canonical restore/format/build/test commands.
 
-- [ ] **Step 1: Verify tool absence and install SDK 10.0.302**
+- [ ] **Step 1: Verify the pinned SDK 9.0.315**
 
 Run:
 
 ```powershell
-dotnet --version
-winget install --id Microsoft.DotNet.SDK.10 --exact --version 10.0.302 --source winget --accept-package-agreements --accept-source-agreements
+dotnet --list-sdks
 dotnet --version
 ```
 
-Expected: the first command is absent in the current baseline; the final command prints `10.0.302`. If Winget does not expose that exact build, use the official .NET 10.0.302 Windows x64 installer and verify the same output before continuing.
+Expected: the installed SDK list contains `9.0.315` and the final command prints `9.0.315`.
 
 - [ ] **Step 2: Pin SDK and central build settings**
 
@@ -117,14 +116,14 @@ Create `global.json`:
 ```json
 {
   "sdk": {
-    "version": "10.0.302",
+    "version": "9.0.315",
     "rollForward": "latestPatch",
     "allowPrerelease": false
   }
 }
 ```
 
-Create `Directory.Build.props` with `TargetFramework=net10.0`, `LangVersion=14.0`, nullable enabled, implicit usings enabled, deterministic builds, and warnings as errors outside generated migration files.
+Create `Directory.Build.props` with `TargetFramework=net9.0`, preview language mode, nullable enabled, implicit usings enabled, deterministic builds, and warnings as errors outside generated migration files.
 
 - [ ] **Step 3: Pin packages centrally**
 
@@ -136,13 +135,13 @@ Create `Directory.Packages.props` with central package management and these exac
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup>
-    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.10" />
-    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10" />
-    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
-    <PackageVersion Include="xunit" Version="2.9.3" />
-    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
-    <PackageVersion Include="Microsoft.Playwright.Xunit" Version="1.61.0" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="9.0.16" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.16" />
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
+    <PackageVersion Include="xunit.v3" Version="3.0.0" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <PackageVersion Include="Microsoft.Playwright" Version="1.55.0" />
   </ItemGroup>
 </Project>
 ```

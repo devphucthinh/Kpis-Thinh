@@ -12,7 +12,7 @@ lifecycle rules must remain independent of delivery and persistence concerns.
 
 ## Decision
 
-Use one .NET 10 ASP.NET Core MVC host with four production boundaries:
+Use one .NET 9 ASP.NET Core MVC host with four production boundaries:
 
 - `Kpi.Domain` owns formula compilation/evaluation and KPI lifecycle invariants;
 - `Kpi.Application` owns commands, actor capabilities, clock, transactions, and

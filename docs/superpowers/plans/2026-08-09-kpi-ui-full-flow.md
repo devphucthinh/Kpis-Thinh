@@ -6,7 +6,7 @@
 
 **Architecture:** Keep Razor MVC as the primary rendering boundary and reuse the existing Application operations and `/api/v1` contracts. Add focused Web read-model/projection services and view models so controllers do not traverse Domain graphs for display, while small JavaScript modules provide formula validation, AST/Test Run, theme switching, and progressive enhancement. Add only the persistence/read seams required to display durable Period, Evaluation, and Audit facts when the Postgres profile is selected.
 
-**Tech Stack:** .NET 10 ASP.NET Core MVC, Razor `.cshtml`, existing Application/Domain operations, PostgreSQL adapter, vanilla browser JavaScript, CSS design tokens with Bootstrap 5-compatible markup, xUnit integration tests, Playwright end-to-end tests, and the repository `harness.cmd`.
+**Tech Stack:** .NET 9 ASP.NET Core MVC, Razor `.cshtml`, existing Application/Domain operations, PostgreSQL adapter, vanilla browser JavaScript, CSS design tokens with Bootstrap 5-compatible markup, xUnit integration tests, Playwright end-to-end tests, and the repository `harness.cmd`.
 
 ## Global Constraints
 

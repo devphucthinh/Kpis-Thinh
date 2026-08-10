@@ -57,7 +57,8 @@ public sealed class KpiVersion
             Status = status,
             EffectiveFrom = effectiveFrom,
             EffectiveTo = effectiveTo,
-            ReviewComment = reviewComment, Revision = revision
+            ReviewComment = reviewComment,
+            Revision = revision
         };
     }
 

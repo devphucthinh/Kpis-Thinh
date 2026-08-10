@@ -13,7 +13,7 @@ This repository starts with a small, deterministic engineering harness for Codex
 
 On macOS or Linux, use `pwsh ./scripts/harness.ps1 <action>`.
 
-The repository uses the approved .NET 10 ASP.NET Core MVC and PostgreSQL KPI
+The repository uses the approved .NET 9 ASP.NET Core MVC and PostgreSQL KPI
 stack. The harness runs commands directly from argument arrays and never
 evaluates shell strings. `migrate` is explicit and is the only action that can
 write schema; `bootstrap` and `check` remain safe with respect to PostgreSQL

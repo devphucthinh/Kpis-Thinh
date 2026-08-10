@@ -40,10 +40,10 @@ Phân biệt dữ liệu:
 2. KIỂM TRA TRƯỚC KHI COPY
 --------------------------------
 
-Project lớn nên dùng .NET SDK 10.0.302, ASP.NET Core MVC, PostgreSQL,
-Npgsql/EF Core và identity/SSO thật. Source hiện target net10.0. Nếu project
+Project lớn nên dùng .NET SDK 9.0.315, ASP.NET Core MVC, PostgreSQL,
+Npgsql/EF Core và identity/SSO thật. Source hiện target net9.0. Nếu project
 lớn đang net8.0/net9.0, phải port hoặc nâng framework trước; không tham chiếu
-trực tiếp net10.0 từ runtime cũ.
+trực tiếp net9.0 từ runtime khác.
 
 Tại repository nguồn:
 
@@ -148,11 +148,11 @@ tạo implementation thứ hai.
 
 Các package chính của source:
 
-    Microsoft.EntityFrameworkCore 10.0.2
-    Npgsql.EntityFrameworkCore.PostgreSQL 10.0.0
-    Microsoft.Extensions.Configuration 10.0.2
-    Microsoft.Extensions.Configuration.EnvironmentVariables 10.0.2
-    Microsoft.Extensions.Configuration.Json 10.0.2
+    Microsoft.EntityFrameworkCore 9.0.16
+    Npgsql.EntityFrameworkCore.PostgreSQL 9.0.4
+    Microsoft.Extensions.Configuration 9.0.16
+    Microsoft.Extensions.Configuration.EnvironmentVariables 9.0.16
+    Microsoft.Extensions.Configuration.Json 9.0.16
 
 Infrastructure.csproj cần:
 

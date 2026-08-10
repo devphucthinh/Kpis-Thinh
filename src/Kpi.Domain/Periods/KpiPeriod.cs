@@ -40,7 +40,11 @@ public sealed class KpiPeriod
     {
         var period = new KpiPeriod(id, organizationId, code.Trim(), name.Trim(), description.Trim(), cadence, starts, ends, plannerId)
         {
-            ApproverId = approverId, Status = status, RejectionComment = rejectionComment, Revision = revision, LatestEffectiveRevision = latestEffectiveRevision
+            ApproverId = approverId,
+            Status = status,
+            RejectionComment = rejectionComment,
+            Revision = revision,
+            LatestEffectiveRevision = latestEffectiveRevision
         };
         foreach (var selection in selections) period.SelectedVersions[selection.Key] = selection.Value;
         period.EffectiveRevisions.AddRange(effectiveRevisions);

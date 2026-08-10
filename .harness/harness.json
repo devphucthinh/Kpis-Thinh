@@ -25,12 +25,12 @@
       {
         "name": "Locked dependency restore",
         "command": "dotnet",
-        "args": ["restore", "KpiManagement.slnx", "--locked-mode"]
+        "args": ["restore", "KpiManagement.slnx", "--locked-mode", "--disable-parallel", "-m:1", "-p:BuildInParallel=false"]
       },
       {
         "name": "Build Playwright driver",
         "command": "dotnet",
-        "args": ["build", "KpiManagement.slnx", "--no-restore", "--configuration", "Release"]
+        "args": ["build", "KpiManagement.slnx", "--no-restore", "--configuration", "Release", "-m:1", "-p:BuildInParallel=false"]
       },
       {
         "name": "Provision pinned Playwright Chromium",
@@ -49,14 +49,14 @@
       {
         "name": "Build solution with analyzers",
         "command": "dotnet",
-        "args": ["build", "KpiManagement.slnx", "--no-restore", "--configuration", "Release"]
+        "args": ["build", "KpiManagement.slnx", "--no-restore", "--configuration", "Release", "-m:1", "-p:BuildInParallel=false"]
       }
     ],
     "test": [
       {
         "name": "All .NET test projects",
         "command": "dotnet",
-        "args": ["test", "KpiManagement.slnx", "--no-restore", "--configuration", "Release"]
+        "args": ["test", "KpiManagement.slnx", "--no-restore", "--configuration", "Release", "-m:1", "-p:BuildInParallel=false"]
       },
       {
         "name": "Integration guide contract",

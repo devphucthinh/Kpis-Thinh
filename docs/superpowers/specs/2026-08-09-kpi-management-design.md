@@ -83,7 +83,7 @@ This would add independent deployment, authentication between services, distribu
 
 ## 4. Technology decisions
 
-- Runtime: supported .NET 10 LTS SDK, pinned with `global.json` after installation.
+- Runtime: .NET 9 SDK 9.0.315, pinned with `global.json` and aligned with the integrated BSC repositories.
 - Web: ASP.NET Core MVC with Razor Views (`.cshtml`).
 - Styling: Bootstrap 5, compatible markup, and small vanilla JavaScript modules.
 - Persistence: PostgreSQL 18.x through EF Core and Npgsql migrations.
@@ -94,7 +94,7 @@ This would add independent deployment, authentication between services, distribu
 - Browser smoke tests: Playwright for .NET.
 - Localization: ASP.NET Core localization with `.resx` resources; `vi-VN` default and `en-US` included for core text.
 
-The repository currently has PostgreSQL 18.4 running locally but no .NET SDK or Docker. Implementation installs .NET 10, uses the existing PostgreSQL service, and does not require Docker.
+The repository uses the installed .NET SDK 9.0.315 and the existing PostgreSQL 18.4 service; Docker is not required.
 
 ## 5. Architecture
 
@@ -724,7 +724,7 @@ forward-only slice and rejects changed applied SQL before committing.
 
 ## 16. Local environment and database
 
-- Install the supported .NET 10 SDK and pin it with `global.json`.
+- Use the installed .NET SDK 9.0.315 and pin it with `global.json`.
 - Use the existing PostgreSQL 18 service.
 - Provision a dedicated `kpi_lab` database and least-privilege user without writing credentials to the repository.
 - Use .NET user-secrets for interactive local configuration and environment variables for automated runs.

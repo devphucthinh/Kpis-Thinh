@@ -12,7 +12,7 @@ The design deliberately uses neither microservices nor a generic workflow/event-
 
 ## Technical Context
 
-**Language/Version**: C# 14 on .NET 10 LTS, pinned by `global.json` after bootstrap.
+**Language/Version**: C# preview language mode on .NET 9, pinned by `global.json`.
 
 **Primary Dependencies**: ASP.NET Core MVC for server-rendered UI and minimal HTTP delivery; a small .NET console migrator using the same Infrastructure boundary; Entity Framework Core plus Npgsql for persistence; System.Text.Json for explicit formula serialization; Bootstrap-compatible markup and small vanilla JavaScript modules; xUnit, ASP.NET Core integration-test host, and Playwright for verification.
 
@@ -437,7 +437,7 @@ The task decomposition must name observable work for all four recurring prerequi
 
 | Dependency | Why it is needed | Requirement enabled | Simpler alternative rejected |
 |---|---|---|---|
-| .NET 10 / C# 14 | Matches the approved future host direction and provides the web/runtime platform. | Interactive journey, localization, hosted reconciliation, maintainable extraction. | A second runtime would create an unnecessary integration boundary. |
+| .NET 9 / C# preview | Matches the integrated BSC repositories and provides the web/runtime platform. | Interactive journey, localization, hosted reconciliation, maintainable extraction. | A second runtime would create an unnecessary integration boundary. |
 | ASP.NET Core MVC | Server-rendered pages plus minimal HTTP interface in one host. | Local interactive UX, machine-readable reads, localized errors. | Separate SPA/API adds two deployable surfaces without MVP value. |
 | PostgreSQL 18.x | Enforceable range/partial/foreign-key constraints, JSONB snapshots and transactions. | Immutable history, effective/period integrity, audit protection. | In-memory or fake storage cannot prove durable invariants. |
 | EF Core + Npgsql | Migrations, mappings, transactions and PostgreSQL integration with the chosen host. | Persistence ports and reproducible schema evolution. | Raw SQL everywhere duplicates mapping/transaction plumbing. |

@@ -6,7 +6,7 @@
 
 **Architecture:** Add one immutable `FormulaLanguageCatalog` in the Web/Application delivery boundary containing the public operation metadata. The Formula API serializes that catalog for discovery and includes it in validation/Test Run responses. The existing server Formula Engine remains authoritative; browser JavaScript only filters and inserts snippets.
 
-**Tech Stack:** .NET 10 ASP.NET Core MVC, C# records, System.Text.Json, Razor `.cshtml`, vanilla browser JavaScript, xUnit integration tests, Playwright smoke tests, repository `harness.cmd`.
+**Tech Stack:** .NET 9 ASP.NET Core MVC, C# records, System.Text.Json, Razor `.cshtml`, vanilla browser JavaScript, xUnit integration tests, Playwright smoke tests, repository `harness.cmd`.
 
 ## Global Constraints
 
