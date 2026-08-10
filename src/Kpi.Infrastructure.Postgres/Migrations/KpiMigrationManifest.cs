@@ -11,7 +11,8 @@ public static class KpiMigrationManifest
         new("202608090004_PeriodActivation", PeriodActivationSql),
         new("202608090005_PeriodAmendments", PeriodAmendmentsSql),
         new("202608090006_Evaluations", EvaluationsSql),
-        new("202608100001_RuntimePrivileges", RuntimePrivilegesSql)
+        new("202608100001_RuntimePrivileges", RuntimePrivilegesSql),
+        new("202608100002_PeriodPersistenceColumns", PeriodPersistenceColumnsSql)
     ];
 
     public static IReadOnlyList<string> ProductMigrations => Scripts.Select(x => x.Id).ToArray();
@@ -202,6 +203,15 @@ public static class KpiMigrationManifest
                 REVOKE UPDATE, DELETE, TRUNCATE ON audit_records FROM kpi_runtime;
             END IF;
         END $$;
+        """;
+
+    private const string PeriodPersistenceColumnsSql = """
+        ALTER TABLE kpi_periods
+            ADD COLUMN IF NOT EXISTS latest_effective_revision integer NOT NULL DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS selections_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+            ADD COLUMN IF NOT EXISTS revisions_json jsonb NOT NULL DEFAULT '[]'::jsonb;
+        CREATE UNIQUE INDEX IF NOT EXISTS kpi_periods_organization_code_uq
+            ON kpi_periods (organization_id, code);
         """;
 }
 
