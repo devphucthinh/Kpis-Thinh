@@ -59,9 +59,11 @@ That workflow is the product-owner-approved exception to direct-main work: use
 `BSC-KPIs-API` plus `BSC-KPIs` read-only until its explicit target-port gate is
 released.
 
-Before the first BSC–KPI `$speckit-specify` run, read
-`docs/porting/bsc-kpis/speckit-specify-agent-prompt.md` and create exactly the
-single feature named there. Stop at the specification review gate; specification
+For the first BSC–KPI specification, the external requirements bot must read
+`docs/porting/bsc-kpis/speckit-input-agent-prompt.md` and return only its
+structured input package. The primary repository agent then reads
+`docs/porting/bsc-kpis/speckit-specify-agent-prompt.md`, runs exactly one
+`$speckit-specify`, and stops at the specification review gate. Specification
 approval does not release either target repository.
 
 ## Change discipline

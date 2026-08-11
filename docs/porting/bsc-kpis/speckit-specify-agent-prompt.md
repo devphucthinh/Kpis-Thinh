@@ -1,11 +1,14 @@
-# Agent Prompt: Specify the Organization and Authorization Foundation
+# Primary Agent Prompt: Run Speckit Specify from an Approved Input Package
 
-## Purpose
+## Role boundary
 
-Use this prompt with the agent that owns the first `$speckit-specify` run for
-the BSC–KPI reference program. This run creates one business specification. It
-does not implement product code, produce a technical plan, or unlock either
-target repository.
+The primary repository agent owns the first `$speckit-specify` run. An external
+requirements bot owns the interview and supplies a product-owner-approved
+`SPECKIT_INPUT_PACKAGE`. The external bot does not run Specify or modify this
+repository.
+
+Do not start this workflow until the product owner has pasted the complete input
+package into the current task.
 
 ## Required repository state
 
@@ -15,12 +18,12 @@ target repository.
 - `BSC-KPIs-API` and `BSC-KPIs` remain read-only.
 
 If the active branch differs, stop and report the mismatch. Preserve every
-unrelated working-tree change. Do not create another Git branch for this
-Specify run.
+unrelated working-tree change. Use the active reference branch; this Specify run
+does not create another Git branch.
 
-## Read before writing
+## Read before execution
 
-Read these sources in order and treat them as progressively more specific:
+Read these sources in order:
 
 1. `AGENTS.md`
 2. `.specify/memory/constitution.md`
@@ -32,128 +35,86 @@ Read these sources in order and treat them as progressively more specific:
 8. `docs/plans/2026-08-11-bsc-kpi-reference-first-delivery.md`, especially
    Tasks 1 and 2
 9. `docs/porting/bsc-kpis/implementation-agent-prompt.md`
+10. The complete `SPECKIT_INPUT_PACKAGE` supplied in the current task
 
-The lifecycle specification is the source of truth for approved product
-decisions. The implementation plan supplies phase boundaries, not additional
-business scope. Record any material contradiction between sources instead of
-silently choosing one.
+The lifecycle specification remains the source of truth for already approved
+product decisions. The input package may make an unresolved feature detail more
+specific, but it cannot silently reverse an approved program decision.
 
-## Invoke Specify
+## Input gate
 
-Run `$speckit-specify` for exactly one feature and set:
+Before invoking `$speckit-specify`, verify that the input package contains:
 
-```text
-SPECIFY_FEATURE_DIRECTORY=specs/002-organization-authorization
-```
+- the exact `# SPECKIT_INPUT_PACKAGE` marker;
+- the expected feature name, directory, and source branch;
+- business purpose, actors, approved scope, journeys, negative scenarios,
+  exclusions, assumptions, measurable outcomes, and raw Specify input;
+- a `Source contradictions` section containing only `- None`; and
+- a `Deferred or unresolved decisions` section containing only `- None`.
 
-Use the feature description below as the command input.
+If a required section is missing, ask the product owner to return the package to
+the external bot for completion. If the package contradicts an approved source,
+show the conflicting statements and wait for a product-owner decision. Do not
+repair, expand, or guess a rejected input package.
 
----
+## Run Specify
 
-Create the Organization and Authorization Foundation for the BSC–KPI reference
-system.
+After the input gate passes:
 
-The organization must be established and approved before users can define an
-operational strategic plan, Annual BSC plan, KPI plan, cascade, or evaluation.
-The product is intended to support multiple companies, while the first release
-operates one company and keeps the company boundary explicit for future use.
+1. Check `.specify/extensions.yml` and process enabled hooks exactly as required
+   by the local `$speckit-specify` skill.
+2. Run `$speckit-specify` for exactly one feature.
+3. Set:
 
-An authorized administrator must be able to define an effective-dated,
-generic organization-unit hierarchy rather than a fixed department model. The
-system must detect invalid parent relationships and cycles, explain the exact
-problem, and prevent approval of an invalid hierarchy. The administrator must
-also define positions, employees, reporting relationships, and effective-dated
-position assignments. One employee may hold multiple positions, with exactly
-one primary position whenever an active assignment requires a primary
-position. A person's employment status and sign-in account status are governed
-independently.
+   ```text
+   SPECIFY_FEATURE_DIRECTORY=specs/002-organization-authorization
+   ```
 
-The completed structure becomes an approved Organization Structure Baseline.
-Until that baseline is approved, downstream BSC–KPI planning and operation are
-blocked with a clear explanation. Changes after approval create a traceable new
-revision or effective-dated amendment and do not rewrite the baseline used by
-existing governed plans.
-
-Authorization uses a fixed catalog of atomic KPI Capabilities and separates
-capabilities from role names. An authorized security administrator can create
-Organization-specific Custom KPI Roles by selecting any capability combination.
-Potentially dangerous or conflicting combinations are allowed at design time
-with visible warnings. A role's capability bundle is immutable after use;
-changing the bundle creates a new role version so existing assignments remain
-explainable.
-
-Role assignments are effective-dated and scoped to the Organization, an
-Organization Unit subtree, assigned business responsibilities, or the actor's
-own data. Viewing and acting on data require both the applicable capability and
-data scope. Creating or editing a role does not grant its capabilities to the
-editor. Privileged role assignment and role elevation require independent
-approval. Runtime separation of duty prevents a person from approving their
-own submission, elevation, exception, or other governed action even when a
-custom role contains both maker and approver capabilities.
-
-Approver selection follows governed organization data and may resolve a direct
-manager, unit head, position holder, named person or group, or an actor with a
-required capability and scope. The resolved approval route is snapshotted when
-submitted so later organization changes do not rewrite history. Effective-dated
-delegation may temporarily substitute an approver within an explicit scope and
-period while preserving the original and delegated identities.
-
-Authorized users must be able to understand role warnings, assignment impact,
-approval decisions, delegation, and rejected self-elevation from the product
-interface. Audit and approval timelines are visible only when the viewer's
-capability and organization scope allow access. Every accepted or rejected
-governed action preserves who acted, on whose behalf, when, within which scope,
-the reason, and the affected revision.
-
-The primary acceptance journey is: define the company structure, create units
-and positions, register employees and reporting lines, approve a structure
-baseline, create a custom role, assign it within a scope, attempt and reject
-self-elevation, obtain independent approval, and confirm that the approved
-actor can perform only the actions and view only the data allowed by their
-capabilities and scope.
-
-Include negative and boundary scenarios for hierarchy cycles, overlapping or
-expired position assignments, missing primary positions, incomplete baselines,
-conflicting role warnings, unauthorized access, out-of-scope access, expired
-delegation, no eligible approver, and concurrent changes to a submitted or
-approved revision.
-
-This feature ends at the approved organization baseline and runtime
-authorization foundation. Strategic plans, perspectives, strategy maps, KPI
-definitions and versions, KPI plan items, targets, cascades, actual submissions,
-scoring, dashboards, pilots, exports, and work in `BSC-KPIs-API` or `BSC-KPIs`
-are outside this feature.
-
----
+4. Use only the package's `Raw Specify input` as the natural-language command
+   input. Use the other package sections and repository sources to validate
+   coverage and consistency.
+5. Resolve the active specification template and create:
+   - `specs/002-organization-authorization/spec.md`
+   - `specs/002-organization-authorization/checklists/requirements.md`
+6. Persist the feature directory in `.specify/feature.json` as required by the
+   local Specify workflow.
+7. Validate and revise the specification for at most three iterations using the
+   generated requirements checklist.
+8. Process enabled post-Specify hooks before reporting completion.
 
 ## Specification rules
 
-- Describe user and business outcomes: WHAT is required and WHY it matters.
-- Keep `spec.md` technology-agnostic. Architecture, framework, API, database,
-  migration, and source-file choices belong to the later planning phase.
-- Use the domain terms defined in `CONTEXT.md` consistently.
-- Make every functional requirement independently testable.
-- Define measurable, user-focused success criteria.
-- State reasonable assumptions explicitly.
-- Use at most three `[NEEDS CLARIFICATION: ...]` markers, only for decisions that
-  materially change scope, security, or user experience and have no safe
-  default in the approved sources.
-- Create and validate
-  `specs/002-organization-authorization/checklists/requirements.md` as required
-  by `$speckit-specify`.
+- Describe WHAT users need and WHY it matters.
+- Keep `spec.md` technology-agnostic.
+- Use the domain terms in `CONTEXT.md` consistently.
+- Make each functional requirement independently testable.
+- Use measurable, user-focused success criteria.
+- Distinguish approved requirements from documented assumptions.
+- Preserve the exact feature boundary; one Specify invocation creates one
+  feature only.
+- Use at most three `[NEEDS CLARIFICATION: ...]` markers and only when the
+  approved package still contains a material ambiguity that cannot be resolved
+  from repository sources.
 
-## Hard stop
+## Review gate
 
-After `spec.md` and its requirements checklist are complete:
+After `spec.md` and its checklist are complete:
 
-1. Report the exact files created or modified.
-2. Report checklist pass/fail totals and every remaining clarification.
+1. Report `SPECIFY_FEATURE_DIRECTORY` and `SPEC_FILE`.
+2. Report checklist pass/fail totals and any clarification markers.
 3. Summarize assumptions separately from approved requirements.
 4. Ask the product owner to review the specification.
-5. Stop. Do not run `$speckit-clarify`, `$speckit-plan`, `$speckit-tasks`, or an
-   implementation skill. Do not commit, push, edit application code, or change
-   either target repository.
+5. Stop at this review gate. The next workflow begins only after explicit
+   product-owner approval.
 
-Completion means the product owner can review one self-contained specification
-for the Organization and Authorization Foundation without implementation work
-having started.
+At this gate, leave application code and both target repositories unchanged.
+Do not continue to `$speckit-clarify`, `$speckit-plan`, `$speckit-tasks`, or
+implementation. Do not commit or push the generated specification until the
+product owner approves it.
+
+## Completion criterion
+
+This workflow is complete when the product owner can review one validated,
+self-contained Organization and Authorization Foundation specification created
+from the external bot's approved input package, with no implementation work
+started.
