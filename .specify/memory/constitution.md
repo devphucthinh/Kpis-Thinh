@@ -1,9 +1,9 @@
 <!--
 Sync Impact Report
-- Version change: 1.0.0 -> 1.1.0
-- Modified principles: template placeholders -> five repository principles
-- Modified sections: Repository Constraints now records the selected .NET/PostgreSQL stack and explicit migration boundary
-- Added sections: Repository Constraints; Development Workflow
+- Version change: 1.1.0 -> 1.1.1
+- Modified principles: none
+- Modified sections: Repository Constraints corrects the approved runtime from .NET 10 to .NET 9
+- Added sections: none
 - Removed sections: none
 - Follow-up TODOs: none
 -->
@@ -50,7 +50,7 @@ the relevant checks pass, and human approval gates have been met.
 
 ## Repository Constraints
 
-The repository uses the approved .NET 10 ASP.NET Core MVC host, modular Domain /
+The repository uses the approved .NET 9 ASP.NET Core MVC host, modular Domain /
 Application / Infrastructure.Postgres boundaries, and PostgreSQL persistence
 recorded in ADR 0002. Native version pins and reproducible commands live in the
 solution files and `.harness/harness.json`. PostgreSQL schema changes are made
@@ -82,4 +82,4 @@ a semantic version bump: MAJOR for incompatible principle changes, MINOR for a
 new or materially expanded principle, PATCH for clarification only. Every plan
 and review MUST check compliance before work is considered complete.
 
-**Version**: 1.1.0 | **Ratified**: 2026-08-08 | **Last Amended**: 2026-08-09
+**Version**: 1.1.1 | **Ratified**: 2026-08-08 | **Last Amended**: 2026-08-11
