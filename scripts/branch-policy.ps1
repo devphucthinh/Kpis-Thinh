@@ -3,16 +3,20 @@ function Assert-GitBranchPolicy {
     param(
         [Parameter(Mandatory)][string]$ActiveBranch,
         [Parameter(Mandatory)][string[]]$BranchNames,
-        [Parameter(Mandatory)][string]$WorkingBranch,
+        [Parameter(Mandatory)][string[]]$AllowedBranches,
         [Parameter(Mandatory)][string[]]$ForbiddenBranchFragments
     )
 
     if ([string]::IsNullOrWhiteSpace($ActiveBranch)) {
-        throw "Git policy requires an attached branch named '$WorkingBranch'."
+        throw "Git policy requires an attached branch in: $($AllowedBranches -join ', ')."
     }
 
-    if (-not $ActiveBranch.Equals($WorkingBranch, [StringComparison]::OrdinalIgnoreCase)) {
-        throw "Git policy must run on branch '$WorkingBranch'; current branch is '$ActiveBranch'."
+    $allowedMatch = @(
+        $AllowedBranches |
+            Where-Object { $ActiveBranch.Equals($_, [StringComparison]::OrdinalIgnoreCase) }
+    )
+    if ($allowedMatch.Count -eq 0) {
+        throw "Git policy must run on one of the allowed branches ($($AllowedBranches -join ', ')); current branch is '$ActiveBranch'."
     }
 
     foreach ($fragment in $ForbiddenBranchFragments) {

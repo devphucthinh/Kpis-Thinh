@@ -15,7 +15,10 @@
     "tests/harness/runtime-profile-isolation.tests.ps1"
   ],
   "gitPolicy": {
-    "workingBranch": "main",
+    "allowedBranches": [
+      "main",
+      "feature/bsc-kpi-reference-implementation"
+    ],
     "forbiddenBranchFragments": [
       "codex"
     ]

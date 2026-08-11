@@ -50,6 +50,20 @@ Before work that needs domain context, read the relevant `CONTEXT.md` and `docs/
 - Treat every local or remote-tracking branch name containing `codex` as invalid; never create one.
 - Run `./harness.cmd check` before committing or pushing. The branch policy in `.harness/harness.json` is enforced by the repository contract.
 
+### BSC–KPI reference-first exception
+
+For implementation, testing, review, or porting of the approved BSC–KPI system,
+read `docs/porting/bsc-kpis/implementation-agent-prompt.md` before changing code.
+That workflow is the product-owner-approved exception to direct-main work: use
+`feature/bsc-kpi-reference-implementation` in this repository and keep
+`BSC-KPIs-API` plus `BSC-KPIs` read-only until its explicit target-port gate is
+released.
+
+Before the first BSC–KPI `$speckit-specify` run, read
+`docs/porting/bsc-kpis/speckit-specify-agent-prompt.md` and create exactly the
+single feature named there. Stop at the specification review gate; specification
+approval does not release either target repository.
+
 ## Change discipline
 
 - Make the smallest coherent change that satisfies the request.

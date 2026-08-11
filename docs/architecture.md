@@ -78,6 +78,6 @@ evaluations and Audit Records are immutable and transactional.
 `harness.cmd` is the only setup and verification interface. It restores locked
 packages, exposes the explicit `migrate` schema action, runs
 formatting/build/static checks, executes all test projects, and enforces the
-`main` branch policy. `bootstrap` and `check` do not write PostgreSQL schema.
+approved branch policy. `bootstrap` and `check` do not write PostgreSQL schema.
 See [ADR 0002](decisions/0002-kpi-application-stack.md) and the feature plan
 for the rationale and migration sequence.

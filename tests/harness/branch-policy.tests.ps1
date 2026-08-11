@@ -28,15 +28,21 @@ function Assert-ThrowsLike {
 
 Assert-GitBranchPolicy `
     -ActiveBranch 'main' `
-    -BranchNames @('main', 'release/1.0') `
-    -WorkingBranch 'main' `
+    -BranchNames @('main', 'feature/bsc-kpi-reference-implementation', 'release/1.0') `
+    -AllowedBranches @('main', 'feature/bsc-kpi-reference-implementation') `
     -ForbiddenBranchFragments @('codex')
 
-Assert-ThrowsLike -ExpectedPattern "*must run on branch 'main'*" -Action {
+Assert-GitBranchPolicy `
+    -ActiveBranch 'feature/bsc-kpi-reference-implementation' `
+    -BranchNames @('main', 'feature/bsc-kpi-reference-implementation') `
+    -AllowedBranches @('main', 'feature/bsc-kpi-reference-implementation') `
+    -ForbiddenBranchFragments @('codex')
+
+Assert-ThrowsLike -ExpectedPattern '*must run on one of the allowed branches*' -Action {
     Assert-GitBranchPolicy `
         -ActiveBranch 'feature/kpi' `
         -BranchNames @('main', 'feature/kpi') `
-        -WorkingBranch 'main' `
+        -AllowedBranches @('main', 'feature/bsc-kpi-reference-implementation') `
         -ForbiddenBranchFragments @('codex')
 }
 
@@ -44,7 +50,7 @@ Assert-ThrowsLike -ExpectedPattern '*forbidden branch name fragment*' -Action {
     Assert-GitBranchPolicy `
         -ActiveBranch 'main' `
         -BranchNames @('main', 'archive/Codex-old-work') `
-        -WorkingBranch 'main' `
+        -AllowedBranches @('main', 'feature/bsc-kpi-reference-implementation') `
         -ForbiddenBranchFragments @('codex')
 }
 

@@ -107,7 +107,7 @@ function Test-RepositoryContract {
     Assert-GitBranchPolicy `
         -ActiveBranch $activeBranch `
         -BranchNames $branchNames `
-        -WorkingBranch $Config.gitPolicy.workingBranch `
+        -AllowedBranches @($Config.gitPolicy.allowedBranches) `
         -ForbiddenBranchFragments @($Config.gitPolicy.forbiddenBranchFragments)
 
     Write-Host 'Repository contract passed.' -ForegroundColor Green
@@ -188,7 +188,7 @@ function Show-HarnessStatus {
     Write-Section 'Harness status'
     Write-Host "Repository: $RepositoryRoot"
     Write-Host "Config version: $($Config.version)"
-    Write-Host "Working branch: $($Config.gitPolicy.workingBranch)"
+    Write-Host "Allowed branches: $(@($Config.gitPolicy.allowedBranches) -join ', ')"
     Write-Host "Forbidden branch fragments: $(@($Config.gitPolicy.forbiddenBranchFragments) -join ', ')"
 
     foreach ($name in @('bootstrap', 'format', 'lint', 'test', 'migrate')) {

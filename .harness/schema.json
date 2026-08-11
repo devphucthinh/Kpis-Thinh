@@ -16,9 +16,14 @@
     "gitPolicy": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["workingBranch", "forbiddenBranchFragments"],
+      "required": ["allowedBranches", "forbiddenBranchFragments"],
       "properties": {
-        "workingBranch": { "type": "string", "minLength": 1 },
+        "allowedBranches": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
         "forbiddenBranchFragments": {
           "type": "array",
           "minItems": 1,
