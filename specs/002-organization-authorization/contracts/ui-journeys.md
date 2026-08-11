@@ -42,6 +42,9 @@ direct URLs and POSTs still pass the authoritative Application decision.
    frozen revision hash, structure diff, selector evidence, and effective range.
 7. Approval creates the scheduled/effective baseline. The detail page becomes
    read-only and links the approval timeline and prior baseline.
+8. A successor approval preview shows the current chain tail. Approval
+   atomically closes it at the successor start and opens the successor; a gap,
+   overlap, out-of-order insertion, or stale tail is a blocking diagnostic.
 
 Required responsive behavior: the tree becomes an indented list at 390 px;
 every edit/validation/approval action remains reachable by keyboard; errors do
@@ -78,15 +81,19 @@ role creation grants the role to its creator.
 
 ## Journey 4: Route resolution and delegation
 
-1. A route owner configures ordered stages with a primary selector and explicit
-   fallbacks.
-2. Submitting an artifact shows the applicable baseline and a preview of
+1. A route owner creates a draft route version with ordered stages, a primary
+   selector, explicit fallbacks, required capability, and required scope
+   relation; validation/activation is a governed action.
+2. Editing an active/used route creates a new version with a before/after diff
+   and opaque head token. A stale editor receives a conflict and current head;
+   existing route snapshots remain on the original version.
+3. Submitting an artifact shows the applicable baseline and a preview of
    resolved candidates. No eligible primary/fallback blocks submission with the
    failed selector path.
-3. The frozen timeline shows selector, candidate evidence, resolved actor,
+4. The frozen timeline shows selector, candidate evidence, resolved actor,
    fallback, scope, and baseline revision.
-4. An original approver creates a time/scope/responsibility-limited delegation.
-5. A delegate decision displays **Thực hiện thay cho** and preserves both
+5. An original approver creates a time/scope/responsibility-limited delegation.
+6. A delegate decision displays **Thực hiện thay cho** and preserves both
    identities. Expired/out-of-scope delegation is rejected without skipping the
    stage.
 
@@ -103,6 +110,9 @@ role creation grants the role to its creator.
    exact 100% proof total.
 5. The UI does not claim that KPI results were recalculated. It links the impact
    fact that later Planning/Evaluation journeys must resolve.
+6. The baseline timeline proves predecessor applicability ends exactly when the
+   successor begins; after the first baseline start there is no ordinary empty
+   baseline state.
 
 ## Timeline visibility
 

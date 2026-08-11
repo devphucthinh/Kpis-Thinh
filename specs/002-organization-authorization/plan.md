@@ -19,8 +19,11 @@ that always evaluate capability plus KPI Data Scope; PostgreSQL adapters persist
 normalized current facts and immutable reviewed snapshots; versioned JSON
 controllers and server-rendered Razor pages exercise the complete journey. A
 baseline change creates an immutable impact fact and deterministic re-cascade
-preview. Later Planning and Evaluation features consume that fact to apply plan
-amendments and aggregate effective segments; they do not redefine its rules.
+preview. This feature behaviorally proves the baseline eligibility gate,
+gapless applicability chain, impact, preview, and Effective Segment contract.
+Later Planning and Evaluation features consume those interfaces to apply plan
+amendments and calculate official segment results; this feature does not claim
+those downstream behaviors complete.
 
 ## Technical Context
 
@@ -40,7 +43,7 @@ amendments and aggregate effective segments; they do not redefine its rules.
 
 **Constraints**: One operational Organization in the first release while every fact remains Organization-scoped; exact decimal weights; half-open UTC effective intervals interpreted using the Organization timezone; no silent authorization fallback; no schema writes from Web startup/bootstrap/check; no business-rule JavaScript; no edits to `BSC-KPIs-API` or `BSC-KPIs` before the reference approval gate.
 
-**Scale/Scope**: One active Organization initially, logically multi-Organization; design envelope of 2,000 Organization Units, 10,000 Employees, 20,000 effective Position Assignments, 500 custom role versions, and an append-only audit history. Bulk import, production identity integration, Strategy/BSC content, actual KPI re-cascade persistence, and official segment aggregation are outside this feature.
+**Scale/Scope**: One active Organization initially, logically multi-Organization; design envelope of 2,000 Organization Units, 10,000 Employees, 20,000 effective Position Assignments, 500 custom role versions, and an append-only audit history. Bulk import, production identity integration, Strategy/BSC content, actual KPI re-cascade persistence, and official segment aggregation are outside this feature; the gates and integration contracts they must consume are inside it and require executable acceptance tests.
 
 ## Constitution Check
 
@@ -70,9 +73,10 @@ No pre-design gate violation requires a complexity exception.
 | Reviewability and safety | PASS | Effective and approved facts are append-only/revisioned, stale writes use optimistic concurrency, audit is transactional, and UI visibility is explicitly non-authoritative. |
 
 The post-design gate passes. Full cross-segment KPI calculation remains owned by
-the later Planning/Evaluation feature; this foundation freezes the effective
-boundary, impact facts, and deterministic allocation/aggregation contracts that
-those modules must consume.
+the later Planning/Evaluation feature. This foundation must nevertheless prove
+the executable eligibility gate, contiguous baseline-chain transaction,
+immutable impact, deterministic allocation preview, and segment contract that
+those modules consume; document-only declarations do not satisfy those tests.
 
 ## Project Structure
 
@@ -152,12 +156,26 @@ pass-through layer is introduced.
 2. **P2 capability authorization**: fixed catalog, custom role versioning,
    security floor, scoped Role Assignment approval, runtime decision reasons,
    and denied-action audit.
-3. **P3 routing/delegation/timeline**: selector resolution from the applicable
-   baseline, immutable route snapshots, non-expanding delegation, scoped audit
-   visibility, and responsive Razor evidence.
+3. **P3 routing/delegation/timeline**: versioned route-definition API and UI,
+   selector resolution from the applicable baseline, immutable route snapshots,
+   non-expanding delegation, scoped audit visibility, and responsive Razor
+   evidence.
 4. **Mid-period contract slice**: unique effective baseline, structural impact
-   fact, deterministic largest-remainder re-cascade preview, and effective
-   segment contract for later Planning/Evaluation integration.
+   fact, deterministic largest-remainder re-cascade preview, and executable
+   effective-segment contract tests for later Planning/Evaluation integration.
+
+## Cross-feature Acceptance Boundary
+
+| Behavior | Feature 002 acceptance | Later feature obligation |
+|---|---|---|
+| Baseline dependency | Execute the allow/deny decision matrix through one Application gate before/after the first baseline. | Every Planning/Evaluation command consumes the gate. |
+| Mid-period structure change | Commit a gapless successor boundary, immutable impact, changed responsibility inputs, and unresolved downstream state. | Planning registers an approved amendment reference and applies KPI responsibility/weight changes. |
+| Weight redistribution | Execute and verify the deterministic allocation preview, including rounding and exact 100 percent total. | Planning persists the approved preview in an immutable plan/assignment revision. |
+| Effective segments | Produce and validate the exact baseline/plan/weight/policy integration key without an official result. | Evaluation calculates each segment and aggregates the official whole-period result. |
+
+Tasks for this feature must not mark downstream Planning/Evaluation obligations
+complete. Conversely, those later tasks must reuse these interfaces rather than
+reimplementing baseline, allocation, or segment rules.
 
 Each slice must prove Domain -> Application -> API -> Razor -> PostgreSQL ->
 restart before the next slice starts. Target repository work remains locked

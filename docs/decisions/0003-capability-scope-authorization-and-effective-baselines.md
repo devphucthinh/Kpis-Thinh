@@ -39,9 +39,14 @@ immutable Audit Record.
 Organization editing uses an optimistic mutable workspace. Submission freezes
 an immutable structure revision; independent approval creates an immutable
 Organization Structure Baseline with a non-overlapping half-open UTC effective
-range. Approval routes resolve from the applicable baseline and are snapshotted
-at submission. Later structure changes never rewrite earlier route, baseline,
-assignment, decision, or audit evidence.
+range. Before the first baseline begins, dependent operations are denied. From
+that instant onward baseline applicability is a gapless chain: successor
+approval locks the Organization chain, atomically closes predecessor
+applicability at the successor start, and opens the successor segment. The
+reviewed baseline content remains immutable. Approval routes have optimistic
+heads and immutable versions, resolve from the applicable baseline, and are
+snapshotted at submission. Later structure changes never rewrite earlier route,
+baseline content, assignment, decision, or audit evidence.
 
 A mid-period replacement baseline creates an immutable change-impact fact and a
 deterministic proportional re-cascade preview. Existing weights are scaled into
@@ -51,10 +56,11 @@ foundation does not mutate a KPI Plan or calculate official segment results;
 later Planning/Evaluation modules consume the frozen impact and effective
 segment contract.
 
-PostgreSQL remains the race-safe guard: range/exclusion constraints protect
-absolute non-overlap rules, `xmin` protects editable heads, immutable facts have
-no update/delete interface, and the explicit migrator remains the only schema
-writer.
+PostgreSQL remains the race-safe guard: row locking plus atomic predecessor
+close/successor insert protects continuity, range/exclusion constraints protect
+non-overlap, `xmin` protects workspace/policy/role/route/assignment heads,
+immutable facts have no update/delete interface, and the explicit migrator
+remains the only schema writer.
 
 ## Consequences
 

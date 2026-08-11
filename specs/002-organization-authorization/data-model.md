@@ -193,14 +193,38 @@ Immutable approved effective snapshot used by planning, routing, and scope.
 |---|---|---|
 | `Id`, `OrganizationId` | `Guid` | Immutable. |
 | `StructureRevisionId` | `Guid` | Exact approved revision. |
-| `EffectiveInterval` | interval | No overlap with another approved baseline for same Organization. |
+| `EffectiveFrom` | instant | First applicability instant; strictly later than the current chain tail start. |
 | `ApprovedBy`, `ApprovedAt`, `ApprovalReason` | evidence | Copied from review decision. |
 | `PreviousBaselineId` | `Guid?` | Required when superseding an earlier baseline. |
 | `ContentHash` | string | Must equal approved revision hash. |
 
-State is created as `Scheduled` when `EffectiveFrom` is future, derived as
-`Effective` while interval contains now, and `Superseded` after the next
-baseline starts. These labels never rewrite historical applicability.
+The approved baseline content and `EffectiveFrom` are immutable. Applicability
+is represented by a separate `BaselineApplicabilitySegment` so later successor
+approval can close the current open segment without mutating reviewed content.
+
+### BaselineApplicabilitySegment
+
+| Field | Type | Rule |
+|---|---|---|
+| `Id`, `OrganizationId`, `BaselineId` | `Guid` | Exactly one segment per approved baseline. |
+| `EffectiveInterval` | interval | First segment may start in the future; the chain has no gaps after that start. |
+| `ClosedBySuccessorBaselineId` | `Guid?` | Null only for the open chain tail. |
+| `ClosedAt` | instant? | Equals the successor `EffectiveFrom`; set once in the successor approval transaction. |
+
+The first approved baseline opens `[EffectiveFrom, infinity)`. Every successor
+approval locks the Organization baseline-chain owner row, requires a start
+strictly after the current tail start, closes the tail at exactly the successor
+start, and inserts the successor `[start, infinity)` segment in the same
+transaction. No command can close a segment without inserting its successor.
+The database exclusion constraint prevents overlap; serialized row locking,
+predecessor identity, and atomic close-plus-insert prevent gaps and concurrent
+branching. Before the first segment starts, baseline-dependent operations return
+`baseline_missing`; from that instant onward exactly one segment contains every
+operating instant.
+
+State is `Scheduled` before `EffectiveFrom`, `Effective` while the segment
+contains now, and `Superseded` after its successor starts. These labels are
+derived and never rewrite historical baseline content.
 
 ### BaselineChangeImpact
 
@@ -259,7 +283,11 @@ Immutable capability bundle.
 | `Warnings` | immutable warning snapshot | Risk/conflict warnings acknowledged at creation. |
 | `CreatedBy`, `CreatedAt`, `ChangeReason` | evidence | Reason required for later versions. |
 
-Creating or viewing a role/version never creates a Role Assignment.
+Creating a new version requires the role head's opaque concurrency token and
+the exact base version. Two editors starting from the same head cannot create
+implicit branches: the first commit advances `LatestVersion` and `RowVersion`;
+the second receives `role.version.stale-head` with the current head and HTTP
+409. Creating or viewing a role/version never creates a Role Assignment.
 
 ### KpiDataScope
 
@@ -354,10 +382,29 @@ projection to show actions but must call the command again to enforce it.
 
 ### ApprovalRouteDefinition
 
-Organization-scoped, versioned ordered stages for a governed artifact type.
-Each stage has one primary selector, zero or more explicit fallbacks, required
-capability, required scope relation, and decision policy. Used definitions are
-immutable; changes create a new version.
+Stable Organization-scoped route identity for one governed artifact type. Its
+mutable head has `LatestVersion`, `Status`, and `RowVersion`. Each
+`ApprovalRouteVersion` contains ordered stages with one primary selector, zero
+or more explicit fallbacks, required capability, required scope relation, and
+decision policy. Used versions are immutable; changes require the route-head
+concurrency token and create a new version. Stale heads return HTTP 409 rather
+than branching.
+
+Lifecycle: a new route begins `Draft`; successful validation permits
+`Active`; a replacement version becomes the active version atomically; `Retired`
+prevents new route snapshots while preserving historical ones. Only one active
+route version may exist for an Organization and governed artifact type.
+
+### ApprovalRouteVersion
+
+| Field | Type | Rule |
+|---|---|---|
+| `Id`, `RouteDefinitionId`, `OrganizationId` | `Guid` | Exact immutable version identity. |
+| `VersionNumber` | integer | Monotonic per route; unique with route ID. |
+| `ArtifactType` | stable string | Matches the route definition. |
+| `Stages` | ordered stage set | At least one; stage order is contiguous and unique. |
+| `Status` | `Draft/Active/Retired` | Only validated versions become active. |
+| `CreatedBy/At`, `ChangeReason` | evidence | Required. |
 
 ### ApprovalSelector
 
@@ -477,11 +524,11 @@ authorization commands must populate them.
 |---|---|---|
 | Organization/workspace | `organizations`, `organization_structure_workspaces` | unique Organization code; `xmin` on workspace |
 | Submitted revision | `organization_structure_revisions`, revision member tables | append-only after submission; content hash |
-| Baseline | `organization_structure_baselines`, baseline member projections | unique revision reference; GiST exclusion on Organization + effective range |
+| Baseline | `organization_structure_baselines`, `baseline_applicability_segments`, baseline member projections | immutable reviewed content; unique chain links/open tail; GiST exclusion on Organization + applicability range |
 | Custom role | `custom_kpi_roles`, `custom_kpi_role_versions`, `custom_kpi_role_capabilities` | unique role/version; immutable used version |
 | Policy | `organization_security_policies` | one current head per Organization; revision + `xmin` |
 | Role Assignment | `role_assignments`, `role_assignment_decisions` | exact role version; range indexes; proposal concurrency |
-| Approval | `approval_route_definitions`, `approval_route_snapshots`, `approval_stage_snapshots`, `approval_decisions` | immutable version/snapshot/decision |
+| Approval | `approval_route_definitions`, `approval_route_versions`, `approval_route_snapshots`, `approval_stage_snapshots`, `approval_decisions` | `xmin` on route head; immutable used version/snapshot/decision |
 | Delegation | `approval_delegations`, `approval_delegation_decisions` | effective range indexes; non-expansion checked Domain/Application |
 | Mid-period impact | `baseline_change_impacts` | immutable baseline pair + effective time |
 | Audit | extended `audit_records` | update/delete rejected by database trigger |
@@ -496,6 +543,9 @@ Organization mismatch as not-found/denied rather than loading cross-scope data.
 - Unique Position code and Employee number per Organization + revision.
 - GiST effective-range lookup for baselines, assignments, delegations, and
   Position Assignments.
+- Unique open baseline applicability tail per Organization, unique predecessor/
+  successor links, and a named GiST exclusion constraint on Organization plus
+  applicability range.
 - Baseline unit path index for ancestor/subtree checks.
 - Effective Role Assignment lookup by Organization + Employee + status/range.
 - Route queue lookup by Organization + resolved actor + pending stage.
@@ -505,8 +555,11 @@ Organization mismatch as not-found/denied rather than loading cross-scope data.
 ## Transaction boundaries
 
 One Application command and its Audit Record commit in one unit of work.
-Baseline approval additionally commits the approved baseline projection and
-`BaselineChangeImpact`. Role Assignment approval commits its decision and the
-scheduled/effective grant. Approval decisions commit the decision plus route
-status. A concurrency or database-constraint failure writes no partial state
-and maps to stable HTTP 409 Problem Details.
+Baseline approval takes a row lock on the Organization baseline-chain owner and
+atomically commits the approved baseline projection, closes the predecessor
+applicability segment at the exact successor start, opens the successor segment,
+and writes `BaselineChangeImpact`. Role/version and route/version creation lock
+their optimistic heads and reject stale tokens. Role Assignment approval commits
+its decision and scheduled/effective grant. Approval decisions commit the
+decision plus route status. A concurrency or database-constraint failure writes
+no partial state and maps to stable HTTP 409 Problem Details.

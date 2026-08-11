@@ -145,8 +145,12 @@ An effective-dated node in an Organization's hierarchy, classified by a business
 _Avoid_: Organization, fixed department column, free-form unit name
 
 **Organization Structure Baseline**:
-An approved effective snapshot of Organization Units, Positions, Position Assignments, reporting lines, and scoped role assignments used to plan and cascade organizational KPIs.
+An approved immutable snapshot of Organization Units, Positions, Position Assignments, reporting lines, and scoped role assignments used to plan and cascade organizational KPIs within its Baseline Applicability Segment.
 _Avoid_: Live directory view, unapproved organization draft, Annual BSC Plan
+
+**Baseline Applicability Segment**:
+The effective interval during which one approved Organization Structure Baseline governs an Organization; after the first segment begins, successor segments form a gapless, non-overlapping chain without changing previously approved baseline content.
+_Avoid_: Mutable baseline snapshot, optional calendar gap, KPI Effective Segment
 
 **Organization Structure Revision**:
 An immutable candidate snapshot frozen from the editable organization workspace when submitted for review; approval may make that exact revision an effective Organization Structure Baseline.

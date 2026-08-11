@@ -43,10 +43,12 @@ environment, run:
 
 Expected migration evidence:
 
-- Organization/workspace/revision/baseline tables exist.
-- Role, role-version, capability link, scoped assignment, policy, route,
-  delegation, impact, and extended audit tables exist.
-- The named baseline effective-range exclusion constraint rejects overlap.
+- Organization/workspace/revision/baseline/applicability tables exist.
+- Role, role-version, capability link, scoped assignment, policy, versioned
+  route, delegation, impact, and extended audit tables exist.
+- The named baseline effective-range exclusion constraint rejects overlap; the
+  unique open tail plus serialized atomic predecessor-close/successor-insert
+  path rejects gaps and concurrent branches.
 - Audit update/delete protection remains active.
 - Re-running `migrate` is idempotent through the migration ledger.
 
@@ -75,8 +77,12 @@ Expected focused behavior:
 - Application matrix tests distinguish missing capability, out-of-scope,
   expired authority, disabled account, separation of duty, and unresolved
   approver.
+- Baseline-gate matrix tests allow KPI Dictionary authoring before a baseline,
+  deny every representative baseline-dependent operation, then allow those
+  operations after the first baseline starts.
 - API tests prove stable 400/403/404/409/422 Problem Details and do not reveal
-  cross-Organization resources.
+  cross-Organization resources; route-definition and role-version stale heads
+  return stable 409 responses.
 - PostgreSQL tests prove approved baselines, role versions, assignments, route
   snapshots, delegations, impacts, and Audit Records survive a fresh DbContext
   and Web restart.
@@ -119,11 +125,22 @@ identities.
    the complete cycle path is focused/displayed.
 3. Try overlapping primary Position Assignments. Confirm both conflicting
    assignments are identified.
-4. Correct the structure, validate, submit with an effective range and reason.
-5. Attempt approval as submitter. Confirm HTTP/UI denial
+4. Query the baseline-eligibility matrix before approval. Confirm Dictionary
+   authoring is allowed and every representative dependent operation is denied
+   with `baseline_missing`.
+5. Correct the structure, validate, submit with an effective start and reason.
+6. Attempt approval as submitter. Confirm HTTP/UI denial
    `authorization.separation-of-duty` and an Audit Record.
-6. Approve as a different eligible actor. Confirm one immutable baseline and
+7. Approve as a different eligible actor. Confirm one immutable baseline and
    its route/timeline evidence.
+8. Query the matrix after the baseline start and confirm all representative
+   dependent operations are allowed with the exact baseline ID.
+9. Submit a successor whose start is after the tail start. Confirm approval
+   atomically closes the predecessor at the exact successor start and opens the
+   successor with no gap or overlap.
+10. Attempt an out-of-order successor and two concurrent approvals from the same
+    chain tail. Confirm deterministic 409/422 diagnostics and one surviving
+    contiguous chain.
 
 ### B. Custom role and scoped assignment
 
@@ -131,21 +148,28 @@ identities.
    a warning but permits creation after explicit acknowledgement.
 2. Create a second version with a changed capability bundle. Confirm existing
    assignments still reference version 1.
-3. Propose a UnitSubtree assignment for another Employee. Confirm the preview
+3. From the same role-head token, submit two competing version requests. Confirm
+   the first advances the head and the second returns
+   `role.version.stale-head` with HTTP 409 rather than branching.
+4. Propose a UnitSubtree assignment for another Employee. Confirm the preview
    explains risk/scope and requires independent approval when applicable.
-4. Attempt self-elevation, then approve using an independent actor.
-5. Execute one governed action inside the subtree and one outside it. Confirm
+5. Attempt self-elevation, then approve using an independent actor.
+6. Execute one governed action inside the subtree and one outside it. Confirm
    the first succeeds and the second returns a safe scope explanation.
 
 ### C. Route and delegation
 
-1. Submit an artifact whose route uses Direct Manager and a Position Holder
-   fallback; inspect the frozen baseline/selector evidence.
-2. Change the live manager after submission. Confirm the stored route is
+1. Create a route draft with Direct Manager primary selector, Position Holder
+   fallback, required capability, and scope relation; validate and activate it.
+2. Create a new version using `If-Match`, then retry from the stale token and
+   confirm HTTP 409 without an implicit route branch.
+3. Submit an artifact through the active route and inspect the frozen
+   baseline/selector evidence.
+4. Change the live manager after submission. Confirm the stored route is
    unchanged.
-3. Create a time/scope-limited delegation and decide as the delegate.
-4. Confirm both original and acting identities appear in the timeline.
-5. Retry outside the interval or scope; confirm denial and no stage skip.
+5. Create a time/scope-limited delegation and decide as the delegate.
+6. Confirm both original and acting identities appear in the timeline.
+7. Retry outside the interval or scope; confirm denial and no stage skip.
 
 ### D. Mid-period impact and weight preview
 
@@ -158,11 +182,16 @@ identities.
    deterministic repeat output.
 5. Run a case with fractional remainders. Confirm residual recipients follow
    largest remainder, then prior order, then stable assignment ID.
+6. Inspect the Effective Segment contract and confirm it identifies baseline,
+   downstream plan revision, weight snapshot, and Aggregation Policy version
+   without claiming an official KPI result. Record the later Planning/Evaluation
+   acceptance obligations separately.
 
 ## 6. Prove restart persistence
 
-1. Record IDs/hashes for the approved baseline, role versions, assignment,
-   route snapshot, delegation, impact, and representative Audit Records.
+1. Record IDs/hashes for the approved baseline and applicability chain, role
+   versions, route versions/snapshot, assignment, delegation, impact, and
+   representative Audit Records.
 2. Stop the Web process normally.
 3. Start the same `Thinh-KPI-TEST` profile again.
 4. Query the records through UI/API and compare IDs, revision/hash, effective

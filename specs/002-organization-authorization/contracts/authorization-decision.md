@@ -157,3 +157,41 @@ The interface is tested with matrix rows across:
 
 Tests assert outcome, stable reason, evidence minimization, and transactional
 Audit Record behavior through the same interface used by controllers.
+
+## Approved baseline gate
+
+Baseline dependency is a separate deep Application interface so later modules
+cannot invent their own interpretation:
+
+```csharp
+public interface IApprovedBaselineGate
+{
+    Task<BaselineEligibilityDecision> DecideAsync(
+        Guid organizationId,
+        BaselineDependentOperation operation,
+        DateTimeOffset effectiveAt,
+        CancellationToken cancellationToken);
+}
+```
+
+The fixed decision matrix is:
+
+| Operation | Before first/applicable baseline | With applicable baseline |
+|---|---|---|
+| KPI Dictionary authoring | Allow: `baseline_not_required` | Allow: `baseline_not_required` |
+| Annual BSC planning | Deny: `baseline_missing` | Allow: `baseline_applicable` |
+| KPI Plan submission | Deny: `baseline_missing` | Allow: `baseline_applicable` |
+| Position KPI templating | Deny: `baseline_missing` | Allow: `baseline_applicable` |
+| KPI Assignment | Deny: `baseline_missing` | Allow: `baseline_applicable` |
+| Approval-route resolution | Deny: `baseline_missing` | Allow: `baseline_applicable` |
+| Organization cascade | Deny: `baseline_missing` | Allow: `baseline_applicable` |
+| KPI operation | Deny: `baseline_missing` | Allow: `baseline_applicable` |
+
+Feature 002 executes this matrix through Domain/Application/API tests. Later
+Planning and Evaluation commands call the same interface before their own
+behavior; this feature does not implement or claim completion of those modules.
+
+Baseline lookup follows the applicability chain: before the first segment
+starts, no baseline exists; afterward one and only one contiguous segment must
+contain the requested instant. A missing segment after that first start is a
+chain-integrity failure, not an ordinary eligibility result.

@@ -205,6 +205,33 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /organizations/{organizationId}/baseline-eligibility:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: operationKind
+        in: query
+        required: true
+        schema: { $ref: '#/components/schemas/BaselineDependentOperationKind' }
+      - name: at
+        in: query
+        required: true
+        schema: { type: string, format: date-time }
+    get:
+      tags: [Organization Structure]
+      operationId: getBaselineEligibility
+      description: >-
+        Executable foundation decision used to verify the gate matrix. Later
+        business commands consume the same Application interface directly.
+      responses:
+        '200':
+          description: Stable allow or deny decision with applicable baseline evidence.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaselineEligibilityDecision'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
   /organizations/{organizationId}/baseline-impacts:
     parameters:
       - $ref: '#/components/parameters/OrganizationId'
@@ -294,6 +321,169 @@ paths:
         '422':
           $ref: '#/components/responses/Unprocessable'
 
+  /organizations/{organizationId}/approval-routes:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+    get:
+      tags: [Approval]
+      operationId: listApprovalRoutes
+      responses:
+        '200':
+          description: Versioned route definitions visible in the actor's scope.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ApprovalRouteView'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Approval]
+      operationId: createApprovalRoute
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateApprovalRouteRequest'
+      responses:
+        '201':
+          description: Route head and immutable draft version created.
+          headers:
+            ETag:
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApprovalRouteView'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+
+  /organizations/{organizationId}/approval-routes/{routeId}:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - $ref: '#/components/parameters/RouteId'
+    get:
+      tags: [Approval]
+      operationId: getApprovalRoute
+      responses:
+        '200':
+          description: Route head and immutable version history.
+          headers:
+            ETag:
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApprovalRouteView'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /organizations/{organizationId}/approval-routes/{routeId}/versions:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - $ref: '#/components/parameters/RouteId'
+    post:
+      tags: [Approval]
+      operationId: createApprovalRouteVersion
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateApprovalRouteVersionRequest'
+      responses:
+        '201':
+          description: New immutable draft route version; stale heads cannot branch.
+          headers:
+            ETag:
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApprovalRouteVersionView'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+
+  /organizations/{organizationId}/approval-routes/{routeId}/versions/{versionId}/activate:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - $ref: '#/components/parameters/RouteId'
+      - $ref: '#/components/parameters/VersionId'
+    post:
+      tags: [Approval]
+      operationId: activateApprovalRouteVersion
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReasonRequest'
+      responses:
+        '200':
+          description: Validated version becomes the only active version for its artifact type.
+          headers:
+            ETag:
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApprovalRouteView'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+
+  /organizations/{organizationId}/approval-routes/{routeId}/retire:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - $ref: '#/components/parameters/RouteId'
+    post:
+      tags: [Approval]
+      operationId: retireApprovalRoute
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReasonRequest'
+      responses:
+        '200':
+          description: Route retired for new submissions; historical snapshots remain valid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApprovalRouteView'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
   /organizations/{organizationId}/custom-roles:
     parameters:
       - $ref: '#/components/parameters/OrganizationId'
@@ -330,6 +520,8 @@ paths:
     post:
       tags: [Security]
       operationId: createCustomKpiRoleVersion
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
       requestBody:
         required: true
         content:
@@ -339,6 +531,9 @@ paths:
       responses:
         '201':
           description: New immutable capability bundle version.
+          headers:
+            ETag:
+              schema: { type: string }
           content:
             application/json:
               schema:
@@ -347,6 +542,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/Unprocessable'
 
@@ -552,6 +749,16 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    RouteId:
+      name: routeId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    VersionId:
+      name: versionId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
     IfMatch:
       name: If-Match
       in: header
@@ -744,22 +951,22 @@ components:
 
     SubmitStructureRequest:
       type: object
-      required: [expectedRevision, effectiveInterval, reason]
+      required: [expectedRevision, effectiveFrom, reason]
       properties:
         expectedRevision: { type: integer, format: int64 }
-        effectiveInterval: { $ref: '#/components/schemas/EffectiveInterval' }
+        effectiveFrom: { type: string, format: date-time }
         reason: { type: string, minLength: 1, maxLength: 2000 }
 
     SubmittedStructureRevision:
       type: object
-      required: [id, organizationId, revisionNumber, status, contentHash, effectiveInterval, routeSnapshotId]
+      required: [id, organizationId, revisionNumber, status, contentHash, effectiveFrom, routeSnapshotId]
       properties:
         id: { type: string, format: uuid }
         organizationId: { type: string, format: uuid }
         revisionNumber: { type: integer, format: int64 }
         status: { type: string, enum: [submitted, approved, rejected, superseded] }
         contentHash: { type: string }
-        effectiveInterval: { $ref: '#/components/schemas/EffectiveInterval' }
+        effectiveFrom: { type: string, format: date-time }
         routeSnapshotId: { type: string, format: uuid }
         baseline: { $ref: '#/components/schemas/BaselineSummary' }
 
@@ -774,6 +981,20 @@ components:
         status: { type: string, enum: [scheduled, effective, superseded] }
         contentHash: { type: string }
         previousBaselineId: { type: string, format: uuid, nullable: true }
+
+    BaselineDependentOperationKind:
+      type: string
+      enum: [kpiDictionaryAuthoring, annualBscPlanning, kpiPlanSubmission, positionKpiTemplating, kpiAssignment, approvalRouteResolution, organizationCascade, kpiOperation]
+
+    BaselineEligibilityDecision:
+      type: object
+      required: [operationKind, effectiveAt, outcome, reasonCode]
+      properties:
+        operationKind: { $ref: '#/components/schemas/BaselineDependentOperationKind' }
+        effectiveAt: { type: string, format: date-time }
+        outcome: { type: string, enum: [allow, deny] }
+        reasonCode: { type: string, enum: [baseline_not_required, baseline_applicable, baseline_missing] }
+        baseline: { $ref: '#/components/schemas/BaselineSummary' }
 
     BaselineChangeImpact:
       type: object
@@ -862,6 +1083,95 @@ components:
             expectedRevision: { type: integer, format: int64 }
             reason: { type: string, minLength: 1, maxLength: 2000 }
 
+    ReasonRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 1, maxLength: 2000 }
+
+    ApprovalSelectorKind:
+      type: string
+      enum: [directManager, organizationUnitHead, positionHolder, namedEmployee, namedGroup, capabilityWithinScope]
+
+    ApprovalSelectorDefinition:
+      type: object
+      required: [kind]
+      properties:
+        kind: { $ref: '#/components/schemas/ApprovalSelectorKind' }
+        organizationUnitId: { type: string, format: uuid, nullable: true }
+        positionId: { type: string, format: uuid, nullable: true }
+        employeeId: { type: string, format: uuid, nullable: true }
+        groupId: { type: string, format: uuid, nullable: true }
+        requiredCapabilityId: { type: string, nullable: true }
+        dataScope: { $ref: '#/components/schemas/KpiDataScope' }
+      description: >-
+        Selector-specific target fields are validated by kind. Resolution always
+        uses the approved baseline applicable when an artifact is submitted.
+
+    ApprovalStageDefinition:
+      type: object
+      required: [order, name, primarySelector, fallbackSelectors, requiredCapabilityId, requiredScopeRelation]
+      properties:
+        order: { type: integer, minimum: 1 }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        primarySelector: { $ref: '#/components/schemas/ApprovalSelectorDefinition' }
+        fallbackSelectors:
+          type: array
+          items: { $ref: '#/components/schemas/ApprovalSelectorDefinition' }
+        requiredCapabilityId: { type: string }
+        requiredScopeRelation:
+          type: string
+          enum: [containsResource, sameUnit, ancestorUnit, exactResponsibility]
+
+    CreateApprovalRouteRequest:
+      type: object
+      required: [name, artifactType, stages, reason]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        artifactType: { type: string, minLength: 1, maxLength: 200 }
+        stages:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/ApprovalStageDefinition' }
+        reason: { type: string, minLength: 1, maxLength: 2000 }
+
+    CreateApprovalRouteVersionRequest:
+      type: object
+      required: [baseVersionId, stages, changeReason]
+      properties:
+        baseVersionId: { type: string, format: uuid }
+        stages:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/ApprovalStageDefinition' }
+        changeReason: { type: string, minLength: 1, maxLength: 2000 }
+
+    ApprovalRouteVersionView:
+      type: object
+      required: [id, routeDefinitionId, versionNumber, artifactType, stages, status, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        routeDefinitionId: { type: string, format: uuid }
+        versionNumber: { type: integer, minimum: 1 }
+        artifactType: { type: string }
+        stages:
+          type: array
+          items: { $ref: '#/components/schemas/ApprovalStageDefinition' }
+        status: { type: string, enum: [draft, active, retired] }
+        createdAt: { type: string, format: date-time }
+
+    ApprovalRouteView:
+      type: object
+      required: [id, organizationId, name, artifactType, status, latestVersion, concurrencyToken]
+      properties:
+        id: { type: string, format: uuid }
+        organizationId: { type: string, format: uuid }
+        name: { type: string }
+        artifactType: { type: string }
+        status: { type: string, enum: [draft, active, retired] }
+        latestVersion: { $ref: '#/components/schemas/ApprovalRouteVersionView' }
+        concurrencyToken: { type: string }
+
     CreateCustomRoleRequest:
       type: object
       required: [name, description, capabilityIds, acknowledgedWarningCodes]
@@ -907,7 +1217,7 @@ components:
 
     CustomRoleView:
       type: object
-      required: [id, organizationId, name, description, status, latestVersion]
+      required: [id, organizationId, name, description, status, latestVersion, concurrencyToken]
       properties:
         id: { type: string, format: uuid }
         organizationId: { type: string, format: uuid }
@@ -915,6 +1225,7 @@ components:
         description: { type: string }
         status: { type: string, enum: [active, retired] }
         latestVersion: { $ref: '#/components/schemas/CustomRoleVersionView' }
+        concurrencyToken: { type: string }
 
     CreateRoleAssignmentRequest:
       type: object

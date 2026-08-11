@@ -89,8 +89,9 @@ impossible for an Organization configuration bug to weaken the product floor.
 
 **Decision**: Persist effective ranges as `[from, to)` instants in UTC and
 persist one IANA/Windows-mappable timezone identifier on Organization for input
-and display. An omitted end means infinity. Only one approved baseline may
-contain any instant for one Organization.
+and display. An omitted end means infinity. Before the first baseline begins,
+dependent operations are denied; after that first instant, applicability
+segments form a gapless, non-overlapping chain with one open tail.
 
 **Rationale**: Half-open intervals avoid double ownership at boundaries. UTC
 instants are unambiguous across daylight-saving changes, while the Organization
@@ -111,6 +112,8 @@ Approval creates an immutable baseline that references that exact revision and
 copies query-critical structure members into baseline-owned relational rows.
 Selector evidence, approval explanations, and exact reviewed documents are
 stored as JSONB snapshots; runtime scope and effective facts remain relational.
+The reviewed baseline content never changes; a separate applicability segment
+may be closed exactly once by the atomic successor approval transaction.
 
 **Rationale**: Reviewed content cannot drift, relational members support tree
 and scope queries, and JSONB preserves the exact explanation without turning
@@ -127,11 +130,14 @@ current authorization into an unindexed document query.
 
 ## Decision 7: Enforce cross-row temporal invariants in PostgreSQL
 
-**Decision**: Use PostgreSQL `tstzrange` for approved baseline, assignment, and
-delegation effective ranges. A GiST exclusion constraint protects non-overlap
-where the rule is absolute (especially one baseline per Organization). Domain
-validation produces friendly paths before persistence; named database
-constraints remain the race-safe final guard.
+**Decision**: Use PostgreSQL `tstzrange` for baseline applicability,
+assignment, and delegation effective ranges. A GiST exclusion constraint
+protects non-overlap. Successor-baseline approval also locks one Organization
+baseline-chain owner row and atomically closes the current open applicability
+segment at the exact successor start while inserting the new open segment. No
+standalone close operation exists. Domain validation produces friendly paths;
+the lock, predecessor link, unique open tail, and named database constraints
+remain the race-safe final guards against gaps, overlap, and branching.
 
 **Rationale**: PostgreSQL explicitly recommends `UNIQUE`, `EXCLUDE`, or foreign
 keys for cross-row constraints rather than `CHECK` expressions that inspect
@@ -143,16 +149,20 @@ other rows. Exclusion constraints are designed for non-overlapping ranges.
   observe no conflict and commit overlapping ranges.
 - Trigger-only overlap checks: rejected because a declarative named exclusion
   constraint is easier to inspect and verify.
+- Non-overlap without serialized chain continuity: rejected because it permits
+  gaps that break route, scope, and segment resolution.
 
 **Primary sources**: [PostgreSQL 18 constraints](https://www.postgresql.org/docs/18/ddl-constraints.html) and [PostgreSQL range types](https://www.postgresql.org/docs/18/rangetypes.html).
 
 ## Decision 8: Use optimistic concurrency for editable heads
 
-**Decision**: Mutable workspace heads, Organization policies, role display
-metadata, and proposed assignments use PostgreSQL `xmin` mapped to a `uint`
-row-version plus a domain revision. Immutable submissions, baselines, role
-versions, route snapshots, decisions, and audit rows are append-only and do not
-offer update/delete interfaces.
+**Decision**: Mutable workspace, Organization policy, Custom Role, Approval
+Route, and proposed-assignment heads use PostgreSQL `xmin` mapped to a `uint`
+row-version plus a domain revision. Creating a role or route version requires
+the current opaque head token and exact base version; stale requests return a
+stable HTTP 409 rather than creating branches. Immutable submissions, baseline
+content, role/route versions, route snapshots, decisions, and audit rows are
+append-only and do not offer update/delete interfaces.
 
 **Rationale**: EF Core uses concurrency tokens to detect changes after a read;
 Npgsql documents `xmin` as an automatically changing PostgreSQL concurrency
@@ -168,10 +178,13 @@ token and the repository already uses the same mapping for KPI definitions.
 
 ## Decision 9: Snapshot approval routes at submission
 
-**Decision**: Route definitions contain ordered selectors and explicit
-fallbacks. Submission resolves them using the applicable approved baseline and
-stores candidate/resolved identities, evidence, scope, and baseline revision in
-an immutable route snapshot. Later organization changes do not alter it.
+**Decision**: Route definitions have optimistic mutable heads and immutable
+versions containing ordered selectors and explicit fallbacks. Versioned JSON
+contracts support create, read, validate/activate, and create-new-version
+operations with stale-head HTTP 409 behavior. Submission resolves the active
+version using the applicable approved baseline and stores candidate/resolved
+identities, evidence, scope, and baseline revision in an immutable route
+snapshot. Later organization changes do not alter it.
 
 **Rationale**: A decision must remain explainable from the facts visible at
 submission time. Re-resolving from the current structure would silently change
@@ -245,10 +258,11 @@ this feature. Keeping it pure makes the interface reusable and testable.
 
 **Decision**: Baseline approval writes a `BaselineChangeImpact` containing old
 and new baseline IDs, effective instant, changed unit/position/employee/
-assignment IDs, and `RequiresRecascade`. The contract defines immutable
-effective segments keyed by baseline/plan revision. Planning later attaches
-actual KPI responsibility changes; Evaluation later combines segment outcomes
-only through the approved KPI Aggregation Policy.
+assignment IDs, and `RequiresRecascade`. This feature executes the approved-
+baseline gate, chain-continuity, impact, allocation-preview, and immutable
+Effective Segment contract tests. Planning later attaches and applies actual
+KPI responsibility changes; Evaluation later combines official segment
+outcomes only through the approved KPI Aggregation Policy.
 
 **Rationale**: The foundation can freeze organization causality now without
 pulling Strategy, Planning, or Evaluation implementation into this slice. It
@@ -282,6 +296,8 @@ rules authoritative, and remains portable to `BSC-KPIs`.
 All Technical Context items are resolved. The following cross-feature ownership
 is intentional rather than unresolved:
 
-- This feature creates the baseline boundary, impact fact, and weight preview.
+- This feature executes the baseline eligibility decision matrix, contiguous
+  applicability transaction, impact fact, weight preview, and segment-contract
+  validation; these are behavioral seams rather than document-only promises.
 - The later Planning feature applies a governed KPI plan amendment/re-cascade.
 - The later Evaluation feature calculates and combines official segment results.

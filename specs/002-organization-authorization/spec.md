@@ -17,6 +17,8 @@
 - Q: How should the effective baseline and downstream KPI responsibility weights change when the organization structure changes during a KPI period? → A: Keep exactly one effective baseline at each instant; an approved mid-period baseline supersedes the prior baseline from its effective time, triggers a governed re-cascade amendment, and proportionally rescales existing assignee weights to make room for fixed new-assignee weights while preserving the existing relative order and a total of exactly 100 percent.
 - Q: How must an official KPI result combine facts from before and after a mid-period baseline or weight change? → A: Split the period into immutable effective segments, evaluate each segment with its applicable baseline and weights, and combine segment outcomes using the KPI's approved Aggregation Policy; time-based proration is allowed only when that KPI policy explicitly permits it.
 - Q: How must rounding residuals be allocated when proportional weight rescaling exceeds the allowed precision? → A: Use the largest-remainder method at the configured precision, distribute residual units by descending fractional remainder, break ties by prior relative order and stable assignment identity, and never reverse the prior assignee weight order.
+- Q: Does this foundation feature itself apply KPI Plan amendments and calculate official cross-segment KPI results? → A: No; this feature owns the enforceable approved-baseline gate, immutable change impact, deterministic allocation preview, and effective-segment integration contract, while later KPI Planning and Evaluation features apply governed plan amendments and calculate official results against those contracts.
+- Q: Does “exactly one effective baseline at each instant” require continuity? → A: Yes; before the first baseline starts, baseline-dependent operations remain blocked, and from that first effective instant onward approved baselines form a gapless, non-overlapping chain in which successor approval atomically ends predecessor applicability at the successor start.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -60,6 +62,10 @@ is immutable, traceable, and recognized as the effective planning baseline.
    **When** downstream results are prepared, **Then** facts before and after the
    boundary remain in separate immutable effective segments and no segment is
    silently recalculated with the other segment's structure or weights.
+7. **Given** the first baseline has become effective, **When** a successor is
+   submitted with a start that would leave a gap, overlap, or insert before the
+   last approved successor, **Then** approval is blocked and the required
+   contiguous boundary is explained.
 
 ---
 
@@ -232,9 +238,15 @@ identity, decision reason, and scoped timeline visibility.
   final allocation cannot reverse the prior weight order.
 - A baseline submitted from a stale revision is rejected without overwriting
   the newer draft, and the user is shown which revision changed.
+- After the first baseline effective instant, a successor that would leave a
+  gap, overlap, or out-of-order chain is rejected; concurrent successor
+  approvals serialize on one tail and cannot create branches.
 - A risky Custom KPI Role combination produces a warning but remains creatable;
   self-approval and other prohibited same-artifact actions remain blocked at
   runtime.
+- Concurrent Custom Role or Approval Route version requests from the same stale
+  head reject the later request with the current head and preserve one monotonic
+  version lineage.
 - Removing a capability from a new role version does not mutate an older role
   version or the history of assignments that used it.
 - A scoped assignment whose Organization Unit is later deactivated remains
@@ -289,11 +301,17 @@ identity, decision reason, and scoped timeline visibility.
   period evidence.
 - **FR-014**: Changes after baseline approval MUST create a traceable later
   revision or effective amendment and MUST NOT overwrite the approved snapshot.
-- **FR-015**: Annual BSC planning, KPI plan submission, Position KPI templating,
-  KPI Assignment, approval-route resolution, and organization cascade MUST be
-  blocked when no applicable approved Organization Structure Baseline exists.
-- **FR-016**: KPI Dictionary authoring MAY proceed before baseline approval, but
-  it MUST NOT bypass any baseline-dependent planning or operational gate.
+- **FR-015**: The foundation MUST provide one authoritative approved-baseline
+  gate that returns an allow or stable deny decision for a requested
+  Organization and effective instant; later Annual BSC planning, KPI plan
+  submission, Position KPI templating, KPI Assignment, approval-route
+  resolution, and organization cascade operations MUST consume this gate before
+  becoming operational.
+- **FR-016**: The approved-baseline gate MUST classify KPI Dictionary authoring
+  as baseline-independent while classifying Annual BSC/KPI planning,
+  assignment, routing, cascade, and operation as baseline-dependent; this
+  feature MUST prove that decision matrix without implementing those later
+  business modules.
 - **FR-017**: The system MUST publish a fixed catalog of atomic KPI Capabilities
   representing recognizable business tasks, comparable to Microsoft 365 Admin
   Center task-oriented administration, and MUST use capability identifiers,
@@ -306,7 +324,9 @@ identity, decision reason, and scoped timeline visibility.
   risky or conflicting capability combinations while allowing the warned bundle
   to be created after acknowledgement.
 - **FR-020**: A used Custom KPI Role's capability bundle MUST remain immutable;
-  a changed bundle MUST create a separately identifiable role version.
+  a changed bundle MUST create a separately identifiable role version from the
+  current optimistic role head, and stale concurrent version creation MUST be
+  rejected without creating an implicit branch.
 - **FR-021**: Creating, editing, or viewing a Custom KPI Role MUST NOT itself
   grant any capability represented by that role.
 - **FR-022**: Every Role Assignment MUST identify the Employee, exact role
@@ -328,9 +348,12 @@ identity, decision reason, and scoped timeline visibility.
 - **FR-027**: Denied actions MUST provide an understandable reason distinguishing
   missing capability, out-of-scope data, expired authority, separation of duty,
   and missing eligible approver without exposing protected data.
-- **FR-028**: Approval selectors MUST support direct manager, Organization Unit
-  head, Position holder, named user or group, and required capability plus KPI
-  Data Scope.
+- **FR-028**: Authorized process owners MUST be able to create, read, validate,
+  activate, version, and retire Approval Route Definitions through the
+  versioned transport interface; route stages MUST support direct manager,
+  Organization Unit head, Position holder, named user or group, and required
+  capability plus KPI Data Scope selectors. Used route versions MUST remain
+  immutable and stale route-head changes MUST return a stable conflict.
 - **FR-029**: Approver resolution MUST use the applicable approved Organization
   Structure Baseline and MUST preserve the resolved selector, actors, scope,
   fallback, and route as an immutable submission snapshot.
@@ -369,14 +392,19 @@ identity, decision reason, and scoped timeline visibility.
 - **FR-041**: The system MUST define a mandatory minimum policy for business-task
   capability risk and KPI Data Scope approval thresholds; an Organization MAY
   configure stricter thresholds but MUST NOT weaken or bypass that minimum.
-- **FR-042**: An Organization MUST have no more than one effective approved
-  Organization Structure Baseline at any instant; future approved baselines MAY
-  be scheduled only with non-overlapping effective ranges and MUST supersede the
-  prior baseline when their effective time begins.
+- **FR-042**: Before an Organization's first approved baseline effective instant,
+  baseline-dependent operations MUST remain blocked; from that instant onward,
+  approved baselines MUST form one gapless and non-overlapping chain. Successor
+  approval MUST atomically close predecessor applicability at the exact
+  successor start, MUST NOT expose a standalone operation that creates a gap,
+  and MUST be serialized safely against concurrent approvals.
 - **FR-043**: When a new baseline becomes effective during an open KPI period,
-  the system MUST preserve the prior effective facts, identify every affected
-  downstream KPI responsibility, and require a governed plan amendment and
-  re-cascade before results under the new structure become official.
+  the foundation MUST preserve the prior effective facts, identify changed
+  organization responsibility inputs, create an immutable impact requiring
+  downstream resolution, and prevent that impact from being marked resolved
+  until a governed KPI Plan amendment reference is registered. The later KPI
+  Planning feature MUST identify affected KPI responsibilities and apply the
+  actual re-cascade before results under the new structure become official.
 - **FR-044**: When fixed new-assignee weights totaling `N` percent are introduced
   by a re-cascade, the remaining `100 - N` percent MUST be distributed across
   existing assignees in proportion to their prior weights using
@@ -387,10 +415,13 @@ identity, decision reason, and scoped timeline visibility.
   create an immutable effective boundary so that facts before and after the
   change remain attributable to their applicable baseline, plan revision,
   assignments, and weights.
-- **FR-046**: Each effective segment MUST be evaluated under its applicable
-  configuration, and the official whole-period result MUST combine segment
-  outcomes using the KPI's approved Aggregation Policy; time-based proration
-  MUST be used only when that policy explicitly permits it.
+- **FR-046**: The foundation MUST publish an immutable Effective Segment
+  integration contract identifying the applicable baseline, downstream plan
+  revision, assignment-weight snapshot, and Aggregation Policy version, and
+  MUST NOT calculate or claim an official KPI result. The later Evaluation
+  feature MUST evaluate and combine official segment outcomes through that
+  contract, using time-based proration only when the approved KPI Aggregation
+  Policy explicitly permits it.
 - **FR-047**: When proportional re-cascade weights exceed the configured
   precision, the system MUST round down at that precision and distribute the
   residual units by descending fractional remainder; ties MUST use prior
@@ -412,9 +443,11 @@ identity, decision reason, and scoped timeline visibility.
 - **Reporting Relationship**: Effective relationship used to explain management
   and direct-manager resolution.
 - **Organization Structure Baseline**: Approved immutable snapshot of the
-  structure and scoped responsibility facts used by downstream planning, with a
-  non-overlapping effective range that selects one applicable baseline at any
-  instant.
+  structure and scoped responsibility facts used by downstream planning.
+- **Baseline Applicability Segment**: Effective interval selecting one approved
+  baseline; after the first segment starts, segments form a gapless,
+  non-overlapping chain and successor approval closes only predecessor
+  applicability, never its reviewed content.
 - **KPI Capability**: Atomic fixed business-task authority used for
   authorization, carrying governance metadata that explains its business area,
   risk classification, and applicable scope impact.
@@ -423,6 +456,8 @@ identity, decision reason, and scoped timeline visibility.
   which a capability may be exercised.
 - **Role Assignment**: Effective and approved relationship granting one exact
   role version to an Employee within a KPI Data Scope.
+- **Approval Route Definition**: Organization-scoped route identity with
+  optimistic head and immutable versions of ordered selector/fallback stages.
 - **Approval Route Snapshot**: Resolved ordered approver route and fallback
   evidence preserved when a governed artifact is submitted.
 - **Approval Delegation**: Effective and scope-limited authority to perform
@@ -435,16 +470,21 @@ This feature ends when an Organization has an approved structure baseline and
 runtime authorization can enforce capabilities, scopes, independent approval,
 delegation, and audit visibility. Strategic Plans, Annual BSC content,
 perspectives, Strategy Maps, KPI formulas and versions, KPI Plan Items, targets,
-cascades, Actual Submissions, evaluation, scoring, dashboards, Pilot operation,
-exports, production porting, and reward calculation are outside this feature.
+cascade amendment persistence, Actual Submissions, official segment evaluation
+and aggregation, scoring, dashboards, Pilot operation, exports, production
+porting, and reward calculation are outside this feature. This feature still
+owns and behaviorally tests the approved-baseline eligibility gate, immutable
+baseline-change impact, deterministic re-cascade preview, and Effective Segment
+contract that those later features MUST consume.
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
 - **SC-001**: In acceptance testing, 100% of organization-cycle, missing-primary,
-  incomplete-baseline, and stale-revision cases are blocked before approval and
-  identify the exact conflicting facts.
+  incomplete-baseline, stale structure revision, stale Custom Role head, and
+  stale Approval Route head cases are blocked before approval/commit and
+  identify the current conflicting fact or head.
 - **SC-002**: Authorized administrators complete the representative
   organization-to-approved-baseline journey without direct data repair or
   developer assistance in at least 90% of first attempts.
@@ -457,9 +497,11 @@ exports, production porting, and reward calculation are outside this feature.
 - **SC-005**: 100% of risky capability combinations used in acceptance tests
   display a warning before role creation while remaining creatable after explicit
   acknowledgement.
-- **SC-006**: For every submitted approval case, reviewers can identify the
-  selector, resolved approver, fallback, delegation, decision, reason, scope,
-  and affected revision from the timeline without technical assistance.
+- **SC-006**: Every required selector kind can be configured and versioned
+  through the transport interface, and for every submitted approval case
+  reviewers can identify the selector, resolved approver, fallback, delegation,
+  decision, reason, scope, route version, and affected revision from the
+  timeline without technical assistance.
 - **SC-007**: After an application interruption and recovery, 100% of approved
   baselines, historical revisions, effective assignments, role versions,
   approval snapshots, delegations, and Audit Records used in acceptance testing
@@ -470,17 +512,21 @@ exports, production porting, and reward calculation are outside this feature.
 - **SC-009**: All primary journeys are operable by keyboard and at a 390-pixel
   viewport without losing required actions, warnings, validation details, or
   approval evidence.
-- **SC-010**: In acceptance testing, 100% of baseline-dependent planning,
-  assignment, routing, and cascade attempts remain blocked until an applicable
-  approved baseline exists, while KPI Dictionary authoring remains available.
+- **SC-010**: In acceptance testing, 100% of rows in the foundation's
+  baseline-dependency decision matrix return the expected stable result before
+  and after the first approved baseline: Dictionary authoring remains eligible,
+  while representative Annual BSC/KPI planning, assignment, routing, cascade,
+  and operation requests are denied until the gate finds an applicable baseline.
 - **SC-011**: In the approved mid-period re-cascade example, prior assignee
   weights of 50, 20, and 30 percent plus a fixed 20 percent new-assignee weight
   produce revised weights of 40, 16, 24, and 20 percent, preserve the original
   assignee order, and total exactly 100 percent.
-- **SC-012**: For every mid-period baseline or weight change in acceptance
-  testing, users can reproduce each segment result from its effective
-  configuration and reproduce the whole-period result from the KPI's approved
-  Aggregation Policy without retroactively changing an earlier segment.
+- **SC-012**: For every mid-period baseline change in this feature's acceptance
+  testing, users can reproduce the gapless before/after effective boundary,
+  immutable impact, allocation preview, and Effective Segment contract without
+  retroactively changing earlier facts; official segment evaluation and
+  whole-period aggregation are explicit acceptance obligations of the later
+  Evaluation feature.
 - **SC-013**: For 100% of accepted proportional re-cascade cases, including
   cases requiring rounding, repeated calculation produces the same assignment
   weights, preserves the prior assignee order, and totals exactly 100 percent at
@@ -502,10 +548,12 @@ exports, production porting, and reward calculation are outside this feature.
   calendar and timezone implementation choices belong to technical planning.
 - KPI Dictionary authoring is permitted before baseline approval, while Annual
   BSC/KPI planning, assignment, routing, cascade, and operation remain gated.
-- The Organization and Authorization Foundation identifies baseline-change
-  impact and supplies the effective baseline; detailed KPI plan amendment,
-  re-cascade execution, and cross-segment result aggregation belong to the later
-  KPI Planning and Evaluation features.
+- The Organization and Authorization Foundation behaviorally enforces the
+  approved-baseline gate, gapless applicability chain, baseline-change impact,
+  deterministic allocation preview, and Effective Segment contract. Detailed
+  KPI plan amendment/re-cascade persistence and official cross-segment result
+  aggregation belong to later KPI Planning and Evaluation features and cannot
+  be claimed complete by this feature.
 - Bulk organization or workforce import is not required for this feature's
   primary acceptance journey; future import adapters must obey the same
   validation, approval, revision, and audit rules.
