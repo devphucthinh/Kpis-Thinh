@@ -1,0 +1,1027 @@
+openapi: 3.0.3
+info:
+  title: KPI Organization and Authorization Foundation API
+  version: 1.0.0
+  description: >-
+    Reference contract for organization structure, approved baselines, atomic
+    capabilities, custom roles, scoped assignments, delegation, approval, and
+    audit. All writes are authorized again by the Application layer.
+servers:
+  - url: /api/v1
+tags:
+  - name: Organization Structure
+  - name: Security
+  - name: Approval
+  - name: Audit
+paths:
+  /capabilities:
+    get:
+      tags: [Security]
+      operationId: listKpiCapabilities
+      summary: List the fixed product capability catalog grouped by business task.
+      responses:
+        '200':
+          description: Fixed catalog visible within the actor's administrative scope.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CapabilityDefinition'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /organizations/{organizationId}/structure/workspace:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+    get:
+      tags: [Organization Structure]
+      operationId: getStructureWorkspace
+      responses:
+        '200':
+          description: Current editable structure workspace.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StructureWorkspace'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Organization Structure]
+      operationId: saveStructureWorkspace
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveStructureWorkspaceRequest'
+      responses:
+        '200':
+          description: Accepted new workspace revision.
+          headers:
+            ETag:
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StructureWorkspace'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+
+  /organizations/{organizationId}/structure/workspace/validate:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+    post:
+      tags: [Organization Structure]
+      operationId: validateStructureWorkspace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [expectedRevision]
+              properties:
+                expectedRevision: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: Complete deterministic validation result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationResult'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /organizations/{organizationId}/structure/workspace/submit:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+    post:
+      tags: [Organization Structure]
+      operationId: submitStructureRevision
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitStructureRequest'
+      responses:
+        '201':
+          description: Frozen submitted revision and approval route snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmittedStructureRevision'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+
+  /organizations/{organizationId}/structure/revisions/{revisionId}:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: revisionId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [Organization Structure]
+      operationId: getStructureRevision
+      responses:
+        '200':
+          description: Immutable submitted revision with review evidence.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmittedStructureRevision'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /organizations/{organizationId}/structure/revisions/{revisionId}/decisions:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: revisionId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [Organization Structure, Approval]
+      operationId: decideStructureRevision
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DecisionRequest'
+      responses:
+        '200':
+          description: Immutable review decision and approved baseline when approved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DecisionResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+
+  /organizations/{organizationId}/baselines/effective:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: at
+        in: query
+        required: true
+        schema: { type: string, format: date-time }
+    get:
+      tags: [Organization Structure]
+      operationId: getEffectiveBaseline
+      responses:
+        '200':
+          description: The only approved baseline applicable at the requested instant.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaselineSummary'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /organizations/{organizationId}/baseline-impacts:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: status
+        in: query
+        schema:
+          type: string
+          enum: [detected, acknowledged, resolved]
+    get:
+      tags: [Organization Structure]
+      operationId: listBaselineChangeImpacts
+      responses:
+        '200':
+          description: Baseline impacts within the actor's data scope.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BaselineChangeImpact'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /organizations/{organizationId}/recascade-previews:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+    post:
+      tags: [Organization Structure]
+      operationId: previewProportionalRecascade
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecascadePreviewRequest'
+      responses:
+        '200':
+          description: Deterministic preview; no KPI Plan is mutated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecascadePreviewResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+
+  /organizations/{organizationId}/security-policy:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+    get:
+      tags: [Security]
+      operationId: getOrganizationSecurityPolicy
+      responses:
+        '200':
+          description: System floor, Organization override, and effective policy.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityPolicyView'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    put:
+      tags: [Security]
+      operationId: updateOrganizationSecurityPolicy
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSecurityPolicyRequest'
+      responses:
+        '200':
+          description: Stricter Organization policy accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityPolicyView'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+
+  /organizations/{organizationId}/custom-roles:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+    post:
+      tags: [Security]
+      operationId: createCustomKpiRole
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCustomRoleRequest'
+      responses:
+        '201':
+          description: Role and immutable first version created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomRoleView'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+
+  /organizations/{organizationId}/custom-roles/{roleId}/versions:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: roleId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [Security]
+      operationId: createCustomKpiRoleVersion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCustomRoleVersionRequest'
+      responses:
+        '201':
+          description: New immutable capability bundle version.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomRoleVersionView'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+
+  /organizations/{organizationId}/role-assignments:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+    post:
+      tags: [Security]
+      operationId: createRoleAssignmentProposal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRoleAssignmentRequest'
+      responses:
+        '201':
+          description: Proposal with privilege preview.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleAssignmentView'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+
+  /organizations/{organizationId}/role-assignments/{assignmentId}/submit:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - $ref: '#/components/parameters/AssignmentId'
+    post:
+      tags: [Security, Approval]
+      operationId: submitRoleAssignment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [expectedRevision, reason]
+              properties:
+                expectedRevision: { type: integer, format: int64 }
+                reason: { type: string, minLength: 1, maxLength: 2000 }
+      responses:
+        '200':
+          description: Assignment is pending approval or scheduled when low risk.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleAssignmentView'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+
+  /organizations/{organizationId}/role-assignments/{assignmentId}/decisions:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - $ref: '#/components/parameters/AssignmentId'
+    post:
+      tags: [Security, Approval]
+      operationId: decideRoleAssignment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DecisionRequest'
+      responses:
+        '200':
+          description: Independent immutable assignment decision.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DecisionResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+
+  /organizations/{organizationId}/approval-delegations:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+    post:
+      tags: [Approval]
+      operationId: createApprovalDelegation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDelegationRequest'
+      responses:
+        '201':
+          description: Governed delegation proposal.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DelegationView'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+
+  /organizations/{organizationId}/approval-delegations/{delegationId}/decisions:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: delegationId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [Approval]
+      operationId: decideApprovalDelegation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DecisionRequest'
+      responses:
+        '200':
+          description: Immutable delegation approval or rejection.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DecisionResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+
+  /organizations/{organizationId}/approval-timelines/{artifactType}/{artifactId}:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: artifactType
+        in: path
+        required: true
+        schema: { type: string }
+      - name: artifactId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [Audit, Approval]
+      operationId: getApprovalTimeline
+      responses:
+        '200':
+          description: Scope-filtered explainable timeline.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TimelineEntry'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /organizations/{organizationId}/me/actions:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: resourceType
+        in: query
+        required: true
+        schema: { type: string }
+      - name: resourceId
+        in: query
+        schema: { type: string, format: uuid }
+    get:
+      tags: [Security]
+      operationId: getMyAvailableActions
+      description: Usability projection only; command authorization remains authoritative.
+      responses:
+        '200':
+          description: Reduced list of currently available atomic actions.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+components:
+  parameters:
+    OrganizationId:
+      name: organizationId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    AssignmentId:
+      name: assignmentId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      schema: { type: string }
+
+  responses:
+    BadRequest:
+      description: Malformed transport request.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    Forbidden:
+      description: Missing capability, scope, effective authority, or separation of duty.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    NotFound:
+      description: Resource is absent or not safely visible in the actor's Organization scope.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    Conflict:
+      description: Stale revision or database-protected concurrent conflict.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+    Unprocessable:
+      description: Domain validation, missing baseline/approver, or protected policy violation.
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ProblemDetails' }
+
+  schemas:
+    EffectiveInterval:
+      type: object
+      required: [from]
+      properties:
+        from: { type: string, format: date-time }
+        to: { type: string, format: date-time, nullable: true }
+
+    CapabilityDefinition:
+      type: object
+      required: [id, businessArea, displayName, description, risk, allowedScopes, conflictsWith]
+      properties:
+        id: { type: string, example: organization.baseline.approve }
+        businessArea: { type: string }
+        displayName: { type: string }
+        description: { type: string }
+        risk: { type: string, enum: [low, medium, high, critical] }
+        allowedScopes:
+          type: array
+          items: { $ref: '#/components/schemas/ScopeKind' }
+        conflictsWith:
+          type: array
+          items: { type: string }
+
+    ScopeKind:
+      type: string
+      enum: [organization, unitSubtree, assigned, self]
+
+    KpiDataScope:
+      type: object
+      required: [kind]
+      properties:
+        kind: { $ref: '#/components/schemas/ScopeKind' }
+        baselineId: { type: string, format: uuid, nullable: true }
+        organizationUnitId: { type: string, format: uuid, nullable: true }
+        responsibilityType: { type: string, nullable: true }
+        responsibilitySubjectId: { type: string, format: uuid, nullable: true }
+        employeeId: { type: string, format: uuid, nullable: true }
+
+    StructureWorkspace:
+      type: object
+      required: [id, organizationId, revision, concurrencyToken, document]
+      properties:
+        id: { type: string, format: uuid }
+        organizationId: { type: string, format: uuid }
+        revision: { type: integer, format: int64 }
+        concurrencyToken: { type: string }
+        document: { $ref: '#/components/schemas/StructureDocument' }
+
+    SaveStructureWorkspaceRequest:
+      type: object
+      required: [expectedRevision, document]
+      properties:
+        expectedRevision: { type: integer, format: int64 }
+        document: { $ref: '#/components/schemas/StructureDocument' }
+
+    StructureDocument:
+      type: object
+      required: [units, positions, employees, positionAssignments, reportingRelationships, scopedRoleAssignmentIds]
+      properties:
+        units:
+          type: array
+          items: { $ref: '#/components/schemas/OrganizationUnit' }
+        positions:
+          type: array
+          items: { $ref: '#/components/schemas/Position' }
+        employees:
+          type: array
+          items: { $ref: '#/components/schemas/Employee' }
+        positionAssignments:
+          type: array
+          items: { $ref: '#/components/schemas/PositionAssignment' }
+        reportingRelationships:
+          type: array
+          items: { $ref: '#/components/schemas/ReportingRelationship' }
+        scopedRoleAssignmentIds:
+          type: array
+          items: { type: string, format: uuid }
+
+    OrganizationUnit:
+      type: object
+      required: [id, code, name, unitType, status, effectiveInterval]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+        unitType: { type: string }
+        parentUnitId: { type: string, format: uuid, nullable: true }
+        status: { type: string, enum: [active, inactive] }
+        effectiveInterval: { $ref: '#/components/schemas/EffectiveInterval' }
+
+    Position:
+      type: object
+      required: [id, code, name, organizationUnitId, status, effectiveInterval]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+        organizationUnitId: { type: string, format: uuid }
+        status: { type: string, enum: [active, inactive] }
+        effectiveInterval: { $ref: '#/components/schemas/EffectiveInterval' }
+
+    Employee:
+      type: object
+      required: [id, employeeNumber, displayName, employmentStatus, employmentInterval, accountStatus]
+      properties:
+        id: { type: string, format: uuid }
+        employeeNumber: { type: string }
+        displayName: { type: string }
+        employmentStatus: { type: string, enum: [pending, active, leave, ended] }
+        employmentInterval: { $ref: '#/components/schemas/EffectiveInterval' }
+        accountSubjectId: { type: string, nullable: true }
+        accountStatus: { type: string, enum: [unlinked, enabled, disabled] }
+
+    PositionAssignment:
+      type: object
+      required: [id, employeeId, positionId, effectiveInterval, isPrimary, allocationPercent]
+      properties:
+        id: { type: string, format: uuid }
+        employeeId: { type: string, format: uuid }
+        positionId: { type: string, format: uuid }
+        effectiveInterval: { $ref: '#/components/schemas/EffectiveInterval' }
+        isPrimary: { type: boolean }
+        allocationPercent: { type: string, pattern: '^([0-9]+)(\\.[0-9]+)?$' }
+
+    ReportingRelationship:
+      type: object
+      required: [id, subordinatePositionId, managerPositionId, relationshipType, effectiveInterval]
+      properties:
+        id: { type: string, format: uuid }
+        subordinatePositionId: { type: string, format: uuid }
+        managerPositionId: { type: string, format: uuid }
+        relationshipType: { type: string, enum: [direct, solidLine, dottedLine] }
+        effectiveInterval: { $ref: '#/components/schemas/EffectiveInterval' }
+
+    ValidationResult:
+      type: object
+      required: [isValid, diagnostics]
+      properties:
+        isValid: { type: boolean }
+        diagnostics:
+          type: array
+          items: { $ref: '#/components/schemas/Diagnostic' }
+
+    Diagnostic:
+      type: object
+      required: [code, message, path]
+      properties:
+        code: { type: string }
+        message: { type: string }
+        path:
+          type: array
+          items: { type: string }
+        conflictingIds:
+          type: array
+          items: { type: string, format: uuid }
+
+    SubmitStructureRequest:
+      type: object
+      required: [expectedRevision, effectiveInterval, reason]
+      properties:
+        expectedRevision: { type: integer, format: int64 }
+        effectiveInterval: { $ref: '#/components/schemas/EffectiveInterval' }
+        reason: { type: string, minLength: 1, maxLength: 2000 }
+
+    SubmittedStructureRevision:
+      type: object
+      required: [id, organizationId, revisionNumber, status, contentHash, effectiveInterval, routeSnapshotId]
+      properties:
+        id: { type: string, format: uuid }
+        organizationId: { type: string, format: uuid }
+        revisionNumber: { type: integer, format: int64 }
+        status: { type: string, enum: [submitted, approved, rejected, superseded] }
+        contentHash: { type: string }
+        effectiveInterval: { $ref: '#/components/schemas/EffectiveInterval' }
+        routeSnapshotId: { type: string, format: uuid }
+        baseline: { $ref: '#/components/schemas/BaselineSummary' }
+
+    BaselineSummary:
+      type: object
+      required: [id, organizationId, structureRevisionId, effectiveInterval, status, contentHash]
+      properties:
+        id: { type: string, format: uuid }
+        organizationId: { type: string, format: uuid }
+        structureRevisionId: { type: string, format: uuid }
+        effectiveInterval: { $ref: '#/components/schemas/EffectiveInterval' }
+        status: { type: string, enum: [scheduled, effective, superseded] }
+        contentHash: { type: string }
+        previousBaselineId: { type: string, format: uuid, nullable: true }
+
+    BaselineChangeImpact:
+      type: object
+      required: [id, previousBaselineId, newBaselineId, effectiveAt, requiresRecascade, impactStatus]
+      properties:
+        id: { type: string, format: uuid }
+        previousBaselineId: { type: string, format: uuid }
+        newBaselineId: { type: string, format: uuid }
+        effectiveAt: { type: string, format: date-time }
+        changedUnitIds: { type: array, items: { type: string, format: uuid } }
+        changedPositionIds: { type: array, items: { type: string, format: uuid } }
+        changedEmployeeIds: { type: array, items: { type: string, format: uuid } }
+        changedAssignmentIds: { type: array, items: { type: string, format: uuid } }
+        requiresRecascade: { type: boolean }
+        impactStatus: { type: string, enum: [detected, acknowledged, resolved] }
+
+    RecascadeWeight:
+      type: object
+      required: [assignmentId, weight]
+      properties:
+        assignmentId: { type: string, format: uuid }
+        weight: { type: string, pattern: '^([0-9]+)(\\.[0-9]+)?$' }
+
+    RecascadePreviewRequest:
+      type: object
+      required: [existingAssignments, newAssignments, precision]
+      properties:
+        existingAssignments:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/RecascadeWeight' }
+        newAssignments:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/RecascadeWeight' }
+        precision: { type: integer, minimum: 0, maximum: 6 }
+
+    RecascadePreviewResponse:
+      type: object
+      required: [formulaVersion, precision, allocations, residualRecipientIds, total]
+      properties:
+        formulaVersion: { type: string, example: proportional-largest-remainder-v1 }
+        precision: { type: integer }
+        allocations:
+          type: array
+          items:
+            type: object
+            required: [assignmentId, priorWeight, rawWeight, finalWeight, isNew]
+            properties:
+              assignmentId: { type: string, format: uuid }
+              priorWeight: { type: string, nullable: true }
+              rawWeight: { type: string }
+              finalWeight: { type: string }
+              isNew: { type: boolean }
+        residualRecipientIds:
+          type: array
+          items: { type: string, format: uuid }
+        total: { type: string, enum: ['100'] }
+
+    SecurityPolicyView:
+      type: object
+      required: [systemFloor, organizationPolicy, effectivePolicy, revision, concurrencyToken]
+      properties:
+        systemFloor: { $ref: '#/components/schemas/SecurityPolicy' }
+        organizationPolicy: { $ref: '#/components/schemas/SecurityPolicy' }
+        effectivePolicy: { $ref: '#/components/schemas/SecurityPolicy' }
+        revision: { type: integer, format: int64 }
+        concurrencyToken: { type: string }
+
+    SecurityPolicy:
+      type: object
+      required: [approvalRiskThreshold, maximumSafeScope, alwaysApproveCapabilityIds]
+      properties:
+        approvalRiskThreshold: { type: string, enum: [low, medium, high, critical] }
+        maximumSafeScope: { $ref: '#/components/schemas/ScopeKind' }
+        alwaysApproveCapabilityIds:
+          type: array
+          items: { type: string }
+
+    UpdateSecurityPolicyRequest:
+      allOf:
+        - $ref: '#/components/schemas/SecurityPolicy'
+        - type: object
+          required: [expectedRevision, reason]
+          properties:
+            expectedRevision: { type: integer, format: int64 }
+            reason: { type: string, minLength: 1, maxLength: 2000 }
+
+    CreateCustomRoleRequest:
+      type: object
+      required: [name, description, capabilityIds, acknowledgedWarningCodes]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: string, maxLength: 2000 }
+        capabilityIds:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: { type: string }
+        acknowledgedWarningCodes:
+          type: array
+          uniqueItems: true
+          items: { type: string }
+
+    CreateCustomRoleVersionRequest:
+      type: object
+      required: [baseVersionId, capabilityIds, acknowledgedWarningCodes, changeReason]
+      properties:
+        baseVersionId: { type: string, format: uuid }
+        capabilityIds:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: { type: string }
+        acknowledgedWarningCodes:
+          type: array
+          uniqueItems: true
+          items: { type: string }
+        changeReason: { type: string, minLength: 1, maxLength: 2000 }
+
+    CustomRoleVersionView:
+      type: object
+      required: [id, roleId, versionNumber, capabilityIds, warnings, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        roleId: { type: string, format: uuid }
+        versionNumber: { type: integer }
+        capabilityIds: { type: array, items: { type: string } }
+        warnings: { type: array, items: { $ref: '#/components/schemas/Diagnostic' } }
+        createdAt: { type: string, format: date-time }
+
+    CustomRoleView:
+      type: object
+      required: [id, organizationId, name, description, status, latestVersion]
+      properties:
+        id: { type: string, format: uuid }
+        organizationId: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string }
+        status: { type: string, enum: [active, retired] }
+        latestVersion: { $ref: '#/components/schemas/CustomRoleVersionView' }
+
+    CreateRoleAssignmentRequest:
+      type: object
+      required: [employeeId, roleVersionId, dataScope, effectiveInterval, reason]
+      properties:
+        employeeId: { type: string, format: uuid }
+        roleVersionId: { type: string, format: uuid }
+        dataScope: { $ref: '#/components/schemas/KpiDataScope' }
+        effectiveInterval: { $ref: '#/components/schemas/EffectiveInterval' }
+        reason: { type: string, minLength: 1, maxLength: 2000 }
+
+    RoleAssignmentView:
+      type: object
+      required: [id, organizationId, employeeId, roleVersionId, dataScope, effectiveInterval, status, requiresIndependentApproval, revision]
+      properties:
+        id: { type: string, format: uuid }
+        organizationId: { type: string, format: uuid }
+        employeeId: { type: string, format: uuid }
+        roleVersionId: { type: string, format: uuid }
+        dataScope: { $ref: '#/components/schemas/KpiDataScope' }
+        effectiveInterval: { $ref: '#/components/schemas/EffectiveInterval' }
+        status: { type: string, enum: [draft, pendingApproval, scheduled, effective, rejected, expired, revoked] }
+        requiresIndependentApproval: { type: boolean }
+        privilegeReasons: { type: array, items: { type: string } }
+        revision: { type: integer, format: int64 }
+
+    CreateDelegationRequest:
+      type: object
+      required: [originalAuthorityEmployeeId, delegateEmployeeId, responsibilityTypes, dataScope, effectiveInterval, reason]
+      properties:
+        originalAuthorityEmployeeId: { type: string, format: uuid }
+        delegateEmployeeId: { type: string, format: uuid }
+        responsibilityTypes:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: { type: string }
+        dataScope: { $ref: '#/components/schemas/KpiDataScope' }
+        effectiveInterval: { $ref: '#/components/schemas/EffectiveInterval' }
+        reason: { type: string, minLength: 1, maxLength: 2000 }
+
+    DelegationView:
+      type: object
+      required: [id, organizationId, originalAuthorityEmployeeId, delegateEmployeeId, responsibilityTypes, dataScope, effectiveInterval, status]
+      properties:
+        id: { type: string, format: uuid }
+        organizationId: { type: string, format: uuid }
+        originalAuthorityEmployeeId: { type: string, format: uuid }
+        delegateEmployeeId: { type: string, format: uuid }
+        responsibilityTypes: { type: array, items: { type: string } }
+        dataScope: { $ref: '#/components/schemas/KpiDataScope' }
+        effectiveInterval: { $ref: '#/components/schemas/EffectiveInterval' }
+        status: { type: string, enum: [draft, pendingApproval, scheduled, effective, rejected, expired, revoked] }
+
+    DecisionRequest:
+      type: object
+      required: [decision, reason]
+      properties:
+        decision: { type: string, enum: [approve, reject] }
+        reason: { type: string, minLength: 1, maxLength: 2000 }
+        actingDelegationId: { type: string, format: uuid, nullable: true }
+
+    DecisionResponse:
+      type: object
+      required: [decisionId, decision, actorId, occurredAt, reason, artifactStatus]
+      properties:
+        decisionId: { type: string, format: uuid }
+        decision: { type: string, enum: [approve, reject] }
+        actorId: { type: string, format: uuid }
+        representedAuthorityActorId: { type: string, format: uuid, nullable: true }
+        delegationId: { type: string, format: uuid, nullable: true }
+        occurredAt: { type: string, format: date-time }
+        reason: { type: string }
+        artifactStatus: { type: string }
+        baseline: { $ref: '#/components/schemas/BaselineSummary' }
+
+    TimelineEntry:
+      type: object
+      required: [id, occurredAt, actorId, artifactType, artifactId, action, decision, reason, correlationId]
+      properties:
+        id: { type: string, format: uuid }
+        occurredAt: { type: string, format: date-time }
+        actorId: { type: string, format: uuid }
+        representedAuthorityActorId: { type: string, format: uuid, nullable: true }
+        artifactType: { type: string }
+        artifactId: { type: string, format: uuid }
+        artifactRevision: { type: integer, format: int64, nullable: true }
+        action: { type: string }
+        decision: { type: string }
+        reason: { type: string }
+        systemReasonCode: { type: string, nullable: true }
+        selectorEvidence: { type: object, additionalProperties: true }
+        scopeSummary: { type: string, nullable: true }
+        correlationId: { type: string }
+
+    ProblemDetails:
+      type: object
+      required: [type, title, status, code, correlationId]
+      properties:
+        type: { type: string, format: uri-reference }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string, format: uri-reference }
+        code: { type: string }
+        correlationId: { type: string }
+        currentRevision: { type: integer, format: int64, nullable: true }
+        diagnostics:
+          type: array
+          items: { $ref: '#/components/schemas/Diagnostic' }

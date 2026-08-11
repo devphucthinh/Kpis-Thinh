@@ -148,6 +148,18 @@ _Avoid_: Organization, fixed department column, free-form unit name
 An approved effective snapshot of Organization Units, Positions, Position Assignments, reporting lines, and scoped role assignments used to plan and cascade organizational KPIs.
 _Avoid_: Live directory view, unapproved organization draft, Annual BSC Plan
 
+**Organization Structure Revision**:
+An immutable candidate snapshot frozen from the editable organization workspace when submitted for review; approval may make that exact revision an effective Organization Structure Baseline.
+_Avoid_: Live organization tree, mutable baseline, database row version
+
+**Baseline Change Impact**:
+An immutable explanation of the Organization Units, Positions, Employees, assignments, and downstream responsibilities affected when one approved Organization Structure Baseline supersedes another from a defined effective instant.
+_Avoid_: KPI Plan Amendment, recalculated KPI result, mutable diff
+
+**Effective Segment**:
+A non-overlapping portion of a KPI Period that preserves the exact Organization Structure Baseline, plan revision, responsibility weights, and aggregation-policy version applicable to facts in that portion.
+_Avoid_: Recalculated whole period, dashboard date filter, latest organization view
+
 **Employee**:
 A person eligible to participate in organizational KPI responsibilities whose employment eligibility is governed independently from whether their system account can currently sign in.
 _Avoid_: Login status, KPI Assignment, actor role
@@ -175,6 +187,10 @@ _Avoid_: Formula Test Run, KPI Target, mutable actual value
 **Approval Workflow**:
 A configurable ordered set of approval stages for a governed KPI artifact, resolved and preserved as an immutable workflow snapshot when that artifact is submitted.
 _Avoid_: Hard-coded job-title chain, current organization hierarchy
+
+**Approval Route Snapshot**:
+The immutable selector, candidate, resolved approver, fallback, scope, and applicable Organization Structure Baseline evidence frozen for every stage when a governed artifact is submitted.
+_Avoid_: Current manager lookup, editable approval route, approver display name
 
 **Approval Delegation**:
 An effective-dated and scope-limited authority for one actor to perform specified approval stages on behalf of another while preserving both identities and separation-of-duty rules.
@@ -320,12 +336,20 @@ _Avoid_: KPI Creator, KPI Owner
 An atomic business authority to perform one governed KPI action; capabilities are assigned independently of role names and remain the authorization unit.
 _Avoid_: Hard-coded role check, menu permission
 
+**Authorization Decision**:
+The explainable allow or deny result for one actor, atomic KPI Capability, governed resource, effective time, KPI Data Scope, and any represented authority or separation-of-duty facts.
+_Avoid_: Menu visibility, role-name check, authentication result
+
+**Organization Security Policy**:
+An Organization-scoped policy that may make the system's mandatory capability-risk and KPI Data Scope approval thresholds stricter but can never weaken them.
+_Avoid_: Custom KPI Role, sign-in policy, optional security bypass
+
 **KPI Role Template**:
 A named organizational bundle of KPI Capabilities used to provision common responsibilities without making the role name itself an authorization rule.
 _Avoid_: Capability, hard-coded authorization role
 
 **Custom KPI Role**:
-A named Organization-defined bundle selected from the system's fixed KPI Capability catalog; changing its capability bundle creates a different Custom KPI Role rather than mutating the existing role.
+A named Organization-defined role whose immutable versions select bundles from the system's fixed KPI Capability catalog; changing a used capability bundle creates a new role version rather than mutating the existing version.
 _Avoid_: Custom capability, hard-coded job title, business responsibility
 
 **KPI Policy Approver**:

@@ -1,0 +1,511 @@
+# Feature Specification: Organization and Authorization Foundation
+
+**Feature Branch**: `feature/bsc-kpi-reference-implementation`
+
+**Created**: 2026-08-11
+
+**Status**: Draft
+
+**Input**: User description: "Establish the governed organization structure, workforce positions, approved structure baseline, capability-based authorization, scoped custom roles, independent privilege approval, delegation, and audit foundation required before BSC and KPI operations can begin."
+
+## Clarifications
+
+### Session 2026-08-11
+
+- Q: How must the system determine whether a Role Assignment is privileged and requires independent approval? → A: Use task-oriented atomic business capabilities, comparable to Microsoft 365 Admin Center administration; require independent approval when capability risk is high or the KPI Data Scope exceeds the configured safe threshold.
+- Q: Who may configure the capability-risk and Data Scope thresholds that require independent approval? → A: The system defines a mandatory minimum security policy; each Organization may make its policy stricter but cannot weaken the system minimum.
+- Q: How should the effective baseline and downstream KPI responsibility weights change when the organization structure changes during a KPI period? → A: Keep exactly one effective baseline at each instant; an approved mid-period baseline supersedes the prior baseline from its effective time, triggers a governed re-cascade amendment, and proportionally rescales existing assignee weights to make room for fixed new-assignee weights while preserving the existing relative order and a total of exactly 100 percent.
+- Q: How must an official KPI result combine facts from before and after a mid-period baseline or weight change? → A: Split the period into immutable effective segments, evaluate each segment with its applicable baseline and weights, and combine segment outcomes using the KPI's approved Aggregation Policy; time-based proration is allowed only when that KPI policy explicitly permits it.
+- Q: How must rounding residuals be allocated when proportional weight rescaling exceeds the allowed precision? → A: Use the largest-remainder method at the configured precision, distribute residual units by descending fractional remainder, break ties by prior relative order and stable assignment identity, and never reverse the prior assignee weight order.
+
+## User Scenarios & Testing *(mandatory)*
+
+### User Story 1 - Approve an Organization Structure Baseline (Priority: P1)
+
+An Organization Administrator defines the company, its effective-dated
+Organization Unit hierarchy, Positions, reporting relationships, Employees,
+Position Assignments, and required scoped role assignments. An independent
+approver reviews the complete structure and approves an Organization Structure
+Baseline that downstream planning can trust.
+
+**Why this priority**: Annual BSC planning, KPI assignment, approval routing,
+and cascade depend on an approved and explainable organization snapshot.
+
+**Independent Test**: Create a representative organization with multiple unit
+levels, positions, employees, reporting lines, and scoped assignments; submit
+it for independent review; approve it; then verify that the approved snapshot
+is immutable, traceable, and recognized as the effective planning baseline.
+
+**Acceptance Scenarios**:
+
+1. **Given** a complete valid organization draft, **When** an authorized actor
+   submits it and a different eligible actor approves it, **Then** an effective
+   Organization Structure Baseline is created with the reviewed revision and
+   approval evidence.
+2. **Given** an organization tree containing a cycle, **When** an administrator
+   validates or submits it, **Then** submission is blocked and the exact unit
+   path causing the cycle is explained.
+3. **Given** a baseline missing a required primary Position Assignment or
+   reporting relationship, **When** it is submitted, **Then** submission is
+   blocked and each incomplete item is identified.
+4. **Given** an approved baseline, **When** an administrator changes an
+   organization fact, **Then** the approved snapshot remains unchanged and the
+   change is prepared as a traceable later revision or effective amendment.
+5. **Given** a new baseline approved to take effect during an open KPI period,
+   **When** its effective time arrives, **Then** it becomes the only applicable
+   baseline from that time, the prior baseline remains applicable to earlier
+   facts, and affected downstream KPI responsibilities are identified for a
+   governed re-cascade amendment.
+6. **Given** an open KPI period spans a baseline effective-time boundary,
+   **When** downstream results are prepared, **Then** facts before and after the
+   boundary remain in separate immutable effective segments and no segment is
+   silently recalculated with the other segment's structure or weights.
+
+---
+
+### User Story 2 - Govern Employees, Positions, and Effective Assignments (Priority: P1)
+
+An Organization Administrator maintains Employees independently from their
+sign-in account status and records the Positions they hold over time. One
+Employee may hold multiple Positions, while the applicable active assignments
+identify exactly one primary Position.
+
+**Why this priority**: Responsibility, manager resolution, data scope, and later
+KPI assignment cannot be explained from job-title strings or current-only
+department values.
+
+**Independent Test**: Create one Employee with two non-overlapping effective
+Position Assignments, select the applicable primary Position, change the
+Employee's employment status without changing account status, and verify the
+correct historical and current relationships.
+
+**Acceptance Scenarios**:
+
+1. **Given** an active Employee, **When** the administrator records multiple
+   valid Position Assignments with exactly one applicable primary Position,
+   **Then** all assignments and their effective ranges remain visible and the
+   primary Position is unambiguous.
+2. **Given** overlapping assignments that would create two primary Positions
+   for the same applicable time, **When** the administrator submits the change,
+   **Then** the change is rejected with the conflicting assignments identified.
+3. **Given** an Employee whose employment ends while the account remains
+   enabled, **When** authorization is evaluated, **Then** employment-based KPI
+   eligibility ends without silently changing sign-in account status.
+4. **Given** an account is disabled while employment remains active, **When**
+   the Employee record is reviewed, **Then** employment history remains intact
+   and the account cannot perform interactive actions.
+
+---
+
+### User Story 3 - Define Custom Roles from Atomic Capabilities (Priority: P2)
+
+A Security Administrator creates Organization-specific Custom KPI Roles by
+selecting from the system's fixed KPI Capability catalog. The administrator can
+choose any capability combination, sees warnings for risky combinations, and
+understands that changing a used bundle creates a new role version. The
+administration experience groups permissions by recognizable business task,
+comparable to task-oriented role management in Microsoft 365 Admin Center.
+
+**Why this priority**: The product must support dynamic business roles without
+turning role names into hard-coded authorization rules.
+
+**Independent Test**: Create a Custom KPI Role with a risky maker-and-approver
+combination, confirm the warning is visible without blocking creation, assign
+the role in a limited scope, and verify that runtime separation of duty still
+blocks self-approval.
+
+**Acceptance Scenarios**:
+
+1. **Given** the fixed KPI Capability catalog, **When** a Security Administrator
+   selects any combination and acknowledges displayed warnings, **Then** a
+   Custom KPI Role is created without creating new capability names.
+2. **Given** a Custom KPI Role already used by an assignment, **When** its
+   capability bundle must change, **Then** a new role version is created and
+   existing assignments continue to reference the original bundle.
+3. **Given** an actor who can create roles, **When** the actor saves a role,
+   **Then** the actor gains no capability unless a separate governed assignment
+   is approved and becomes effective.
+4. **Given** two roles with the same display name in different Organizations,
+   **When** they are viewed, **Then** their Organization ownership, capability
+   bundles, and assignments remain distinct.
+5. **Given** a Security Administrator is composing a role, **When** the
+   capability catalog is displayed, **Then** permissions are presented as
+   business tasks with their risk and scope impact rather than as pages, menu
+   items, or role-name checks.
+
+---
+
+### User Story 4 - Assign Privilege within an Explicit Data Scope (Priority: P2)
+
+A Security Administrator proposes an effective-dated Role Assignment for an
+Employee, role version, Organization, and KPI Data Scope. Privileged assignment
+or elevation becomes effective only after an independent eligible approver
+accepts it with a reason.
+
+**Why this priority**: Capability without a data boundary creates excessive
+access, while self-approved elevation would defeat the governance model.
+
+**Independent Test**: Propose one UnitSubtree assignment, attempt self-approval,
+observe rejection, obtain independent approval, and verify that the assignee can
+act inside the subtree but is denied outside it.
+
+**Acceptance Scenarios**:
+
+1. **Given** a proposed privileged Role Assignment, **When** its requester or
+   beneficiary attempts to approve it, **Then** approval is rejected and the
+   separation-of-duty reason is recorded.
+2. **Given** an independently approved UnitSubtree assignment, **When** the
+   assignee views or acts on an in-scope resource with the required capability,
+   **Then** the action is allowed.
+3. **Given** that same assignment, **When** the assignee attempts the action on
+   a resource outside the subtree, **Then** the action is denied with an
+   understandable scope explanation and an Audit Record.
+4. **Given** an expired assignment, **When** the former assignee attempts a
+   governed action, **Then** the expired assignment grants no authority even
+   though its historical approval remains visible.
+5. **Given** an assignment whose business-task capabilities are low risk but
+   whose requested KPI Data Scope exceeds the configured safe threshold,
+   **When** the assignment is submitted, **Then** independent approval is
+   required before it becomes effective.
+6. **Given** an Organization Security Administrator changes its approval policy,
+   **When** the proposed policy is stricter than the system minimum, **Then** it
+   may govern later assignments; **When** it would weaken the system minimum,
+   **Then** the change is rejected with the protected rule identified.
+
+---
+
+### User Story 5 - Resolve Approvers, Delegation, and Audit Visibility (Priority: P3)
+
+A process owner configures approval selectors based on the approved organization
+structure. At submission, the system resolves and snapshots the eligible route.
+An effective delegate may act within the original authority's capability,
+scope, and period, while authorized participants and auditors can understand
+the complete decision timeline.
+
+**Why this priority**: Governed KPI operations require explainable approval
+routes that survive later organization changes without enabling silent skips or
+expanded delegated power.
+
+**Independent Test**: Resolve a direct manager and fallback from an approved
+baseline, submit an item, change the live manager, delegate the original
+approval within a limited period, and verify the stored route, delegated
+identity, decision reason, and scoped timeline visibility.
+
+**Acceptance Scenarios**:
+
+1. **Given** an approved baseline and an approval selector, **When** an artifact
+   is submitted, **Then** the resolved approvers, selector evidence, fallback,
+   and applicable scope are preserved as the submission's route snapshot.
+2. **Given** a later manager or Position change, **When** the submitted route is
+   reviewed, **Then** the stored route is unchanged and the later organization
+   revision remains separately traceable.
+3. **Given** a valid time- and scope-limited delegation, **When** the delegate
+   decides an eligible stage, **Then** both the original approver and delegate
+   identities, the delegation, reason, and time are recorded.
+4. **Given** an expired delegation or a delegate lacking the required scope,
+   **When** the delegate attempts approval, **Then** the action is rejected and
+   no stage is silently skipped.
+5. **Given** an actor outside the involved organization scope and without
+   applicable audit authority, **When** the actor requests the timeline,
+   **Then** protected decision details are not visible.
+
+### Edge Cases
+
+- Moving an Organization Unit beneath one of its descendants is rejected with
+  the full proposed cycle path.
+- A unit code that collides within the same Organization is rejected while the
+  same human-readable name may be allowed when its stable code is distinct.
+- Overlapping effective assignments are permitted only when they do not violate
+  the single applicable primary-Position rule or allocation constraints.
+- An Employee transfer that takes effect after an approved baseline does not
+  rewrite that baseline; later planning uses the applicable approved revision.
+- A baseline change during an open KPI period preserves the prior baseline and
+  weights for earlier effective facts, applies the new baseline from its
+  effective time, and marks affected KPI responsibilities for re-cascade rather
+  than silently rewriting either segment.
+- A time-proportional combination is rejected for a KPI whose approved
+  Aggregation Policy does not permit time-based proration; the user is shown the
+  applicable aggregation rule instead.
+- When proportional rescaling produces more decimal places than permitted,
+  residual units are allocated deterministically by largest remainder; equal
+  remainders use prior relative order and stable assignment identity, and the
+  final allocation cannot reverse the prior weight order.
+- A baseline submitted from a stale revision is rejected without overwriting
+  the newer draft, and the user is shown which revision changed.
+- A risky Custom KPI Role combination produces a warning but remains creatable;
+  self-approval and other prohibited same-artifact actions remain blocked at
+  runtime.
+- Removing a capability from a new role version does not mutate an older role
+  version or the history of assignments that used it.
+- A scoped assignment whose Organization Unit is later deactivated remains
+  historical but grants no authority outside its valid effective context.
+- When no eligible approver can be resolved, submission or stage progression is
+  blocked with the failed selector and configured fallback explained.
+- Delegation cannot expand the original authority's capabilities or KPI Data
+  Scope and cannot make a delegate eligible to approve their own artifact.
+- Timeline visibility changes with effective capability and scope, while the
+  underlying Audit Record remains immutable.
+- An enabled sign-in account does not itself prove active employment, a Position
+  Assignment, a KPI business responsibility, or authorization.
+
+## Requirements *(mandatory)*
+
+### Functional Requirements
+
+- **FR-001**: The system MUST keep every organization, workforce, authorization,
+  approval, delegation, and audit fact within one explicit Organization
+  boundary.
+- **FR-002**: The product model MUST support multiple Organizations while the
+  first operational release exposes one Organization for administration and
+  operation.
+- **FR-003**: Authorized administrators MUST be able to maintain a generic,
+  effective-dated Organization Unit tree with stable unit codes, business unit
+  types, status, and an optional parent.
+- **FR-004**: The system MUST reject self-parenting, descendant-parenting, and
+  any other organization cycle and MUST identify the complete failing path.
+- **FR-005**: Authorized administrators MUST be able to define effective-dated
+  Positions and reporting relationships without relying on free-form job-title
+  or department strings as governed identity.
+- **FR-006**: The system MUST govern Employee employment status independently
+  from sign-in account status and preserve both histories.
+- **FR-007**: An Employee MUST be able to hold multiple effective Position
+  Assignments, with exactly one applicable primary Position whenever the active
+  assignment set requires a primary Position.
+- **FR-008**: Position Assignment validation MUST identify conflicting
+  effective ranges, primary-Position conflicts, and incomplete relationships
+  before baseline submission.
+- **FR-009**: The system MUST evaluate employment eligibility, account access,
+  Position responsibility, capability, and KPI Data Scope as distinct facts.
+- **FR-010**: Authorized actors MUST be able to prepare and submit an
+  Organization Structure Baseline containing the applicable units, Positions,
+  Position Assignments, reporting lines, and scoped role assignments.
+- **FR-011**: Baseline submission MUST be blocked until required structure,
+  primary Position, reporting, and authorization relationships are complete and
+  valid.
+- **FR-012**: An Organization Structure Baseline MUST require approval by an
+  eligible actor who did not submit the same revision.
+- **FR-013**: An approved Organization Structure Baseline MUST be an immutable
+  effective snapshot with submitter, approver, reason, revision, and effective
+  period evidence.
+- **FR-014**: Changes after baseline approval MUST create a traceable later
+  revision or effective amendment and MUST NOT overwrite the approved snapshot.
+- **FR-015**: Annual BSC planning, KPI plan submission, Position KPI templating,
+  KPI Assignment, approval-route resolution, and organization cascade MUST be
+  blocked when no applicable approved Organization Structure Baseline exists.
+- **FR-016**: KPI Dictionary authoring MAY proceed before baseline approval, but
+  it MUST NOT bypass any baseline-dependent planning or operational gate.
+- **FR-017**: The system MUST publish a fixed catalog of atomic KPI Capabilities
+  representing recognizable business tasks, comparable to Microsoft 365 Admin
+  Center task-oriented administration, and MUST use capability identifiers,
+  rather than role names, pages, or menu items, as authorization units.
+- **FR-018**: Authorized Security Administrators MUST be able to create
+  Organization-scoped Custom KPI Roles by selecting any combination from the
+  fixed KPI Capability catalog grouped by business area and showing each
+  capability's risk and scope impact.
+- **FR-019**: The role-authoring experience MUST display explicit warnings for
+  risky or conflicting capability combinations while allowing the warned bundle
+  to be created after acknowledgement.
+- **FR-020**: A used Custom KPI Role's capability bundle MUST remain immutable;
+  a changed bundle MUST create a separately identifiable role version.
+- **FR-021**: Creating, editing, or viewing a Custom KPI Role MUST NOT itself
+  grant any capability represented by that role.
+- **FR-022**: Every Role Assignment MUST identify the Employee, exact role
+  version, Organization, KPI Data Scope, effective period, requester, approval
+  state, and reason.
+- **FR-023**: KPI Data Scope MUST support Organization, Organization Unit
+  subtree, assigned business responsibility, and self boundaries.
+- **FR-024**: A governed action MUST be allowed only when the actor has both the
+  required effective KPI Capability and an applicable KPI Data Scope for the
+  resource facts.
+- **FR-025**: A Role Assignment or role elevation MUST require independent
+  approval before becoming effective when any selected business-task capability
+  is classified as high risk or the requested KPI Data Scope exceeds the
+  configured safe threshold; role display names MUST NOT affect this decision.
+- **FR-026**: Runtime separation of duty MUST reject self-approval of a baseline,
+  assignment, elevation, delegation-dependent decision, exception, or other
+  governed submission even when the actor's role bundles contain both maker and
+  approver capabilities.
+- **FR-027**: Denied actions MUST provide an understandable reason distinguishing
+  missing capability, out-of-scope data, expired authority, separation of duty,
+  and missing eligible approver without exposing protected data.
+- **FR-028**: Approval selectors MUST support direct manager, Organization Unit
+  head, Position holder, named user or group, and required capability plus KPI
+  Data Scope.
+- **FR-029**: Approver resolution MUST use the applicable approved Organization
+  Structure Baseline and MUST preserve the resolved selector, actors, scope,
+  fallback, and route as an immutable submission snapshot.
+- **FR-030**: A configured approval stage MUST NOT be silently skipped; failure
+  to resolve an eligible primary or fallback approver MUST block progression and
+  explain the failed resolution.
+- **FR-031**: Approval Delegation MUST be effective-dated, scope-limited, tied to
+  specified approval responsibilities, and accepted only when it does not expand
+  the original authority or permit self-approval.
+- **FR-032**: A delegated decision MUST preserve both the original authority and
+  delegate identities together with the delegation, decision, reason, and time.
+- **FR-033**: Every accepted or rejected governed action MUST create an immutable
+  Audit Record identifying the actor, represented authority when applicable,
+  Organization, resource, revision, action, decision, reason, scope, and time.
+- **FR-034**: Approval and exception timelines MUST be visible to involved actors
+  and actors with applicable audit authority only within their permitted
+  organization-tree scope.
+- **FR-035**: Timelines MUST explain the selector, resolved approver, fallback,
+  delegation, decision, reason, affected revision, and authorization impact in a
+  form understandable without inspecting system internals.
+- **FR-036**: Concurrent changes based on a stale draft or submitted revision
+  MUST be rejected without overwriting newer facts and MUST identify the current
+  revision to the user.
+- **FR-037**: Historical baselines, role versions, assignments, delegations,
+  approval routes, and Audit Records MUST remain discoverable after they cease
+  to be current.
+- **FR-038**: Effective-date changes MUST alter current authorization and routing
+  only when their effective time is reached and MUST NOT rewrite prior decisions.
+- **FR-039**: User-facing navigation and action availability MAY reflect
+  effective capabilities for usability, but every governed action MUST be
+  authorized independently from its visibility.
+- **FR-040**: All validation and authorization rejections MUST identify the
+  affected organization fact or governed artifact closely enough for an
+  authorized user to correct the configuration without disclosing unrelated
+  protected information.
+- **FR-041**: The system MUST define a mandatory minimum policy for business-task
+  capability risk and KPI Data Scope approval thresholds; an Organization MAY
+  configure stricter thresholds but MUST NOT weaken or bypass that minimum.
+- **FR-042**: An Organization MUST have no more than one effective approved
+  Organization Structure Baseline at any instant; future approved baselines MAY
+  be scheduled only with non-overlapping effective ranges and MUST supersede the
+  prior baseline when their effective time begins.
+- **FR-043**: When a new baseline becomes effective during an open KPI period,
+  the system MUST preserve the prior effective facts, identify every affected
+  downstream KPI responsibility, and require a governed plan amendment and
+  re-cascade before results under the new structure become official.
+- **FR-044**: When fixed new-assignee weights totaling `N` percent are introduced
+  by a re-cascade, the remaining `100 - N` percent MUST be distributed across
+  existing assignees in proportion to their prior weights using
+  `new existing weight = prior weight × (100 - N) / sum of prior weights`; the
+  result MUST preserve the prior relative ordering and total exactly 100 percent
+  with the new-assignee weights.
+- **FR-045**: A baseline or approved weight change during an open KPI period MUST
+  create an immutable effective boundary so that facts before and after the
+  change remain attributable to their applicable baseline, plan revision,
+  assignments, and weights.
+- **FR-046**: Each effective segment MUST be evaluated under its applicable
+  configuration, and the official whole-period result MUST combine segment
+  outcomes using the KPI's approved Aggregation Policy; time-based proration
+  MUST be used only when that policy explicitly permits it.
+- **FR-047**: When proportional re-cascade weights exceed the configured
+  precision, the system MUST round down at that precision and distribute the
+  residual units by descending fractional remainder; ties MUST use prior
+  relative order and stable assignment identity, the prior assignee order MUST
+  NOT be reversed, and the final weights MUST total exactly 100 percent.
+
+### Key Entities
+
+- **Organization**: Company-level governance and data-isolation boundary that
+  owns structure, workforce, roles, approvals, delegations, and audit history.
+- **Organization Unit**: Effective-dated node with a stable code, type, status,
+  and optional parent in the Organization hierarchy.
+- **Position**: Stable governed responsibility location within an Organization
+  Unit, used for reporting and approver resolution.
+- **Employee**: Person eligible for organizational responsibilities, with
+  employment status governed independently from sign-in account status.
+- **Position Assignment**: Effective-dated relationship between an Employee and
+  Position, including primary-Position and applicable allocation facts.
+- **Reporting Relationship**: Effective relationship used to explain management
+  and direct-manager resolution.
+- **Organization Structure Baseline**: Approved immutable snapshot of the
+  structure and scoped responsibility facts used by downstream planning, with a
+  non-overlapping effective range that selects one applicable baseline at any
+  instant.
+- **KPI Capability**: Atomic fixed business-task authority used for
+  authorization, carrying governance metadata that explains its business area,
+  risk classification, and applicable scope impact.
+- **Custom KPI Role**: Organization-defined immutable bundle of KPI Capabilities.
+- **KPI Data Scope**: Organization, UnitSubtree, Assigned, or Self boundary in
+  which a capability may be exercised.
+- **Role Assignment**: Effective and approved relationship granting one exact
+  role version to an Employee within a KPI Data Scope.
+- **Approval Route Snapshot**: Resolved ordered approver route and fallback
+  evidence preserved when a governed artifact is submitted.
+- **Approval Delegation**: Effective and scope-limited authority to perform
+  specified approval duties on behalf of another actor.
+- **Audit Record**: Immutable explanation of a governed action and its context.
+
+### Scope Boundaries
+
+This feature ends when an Organization has an approved structure baseline and
+runtime authorization can enforce capabilities, scopes, independent approval,
+delegation, and audit visibility. Strategic Plans, Annual BSC content,
+perspectives, Strategy Maps, KPI formulas and versions, KPI Plan Items, targets,
+cascades, Actual Submissions, evaluation, scoring, dashboards, Pilot operation,
+exports, production porting, and reward calculation are outside this feature.
+
+## Success Criteria *(mandatory)*
+
+### Measurable Outcomes
+
+- **SC-001**: In acceptance testing, 100% of organization-cycle, missing-primary,
+  incomplete-baseline, and stale-revision cases are blocked before approval and
+  identify the exact conflicting facts.
+- **SC-002**: Authorized administrators complete the representative
+  organization-to-approved-baseline journey without direct data repair or
+  developer assistance in at least 90% of first attempts.
+- **SC-003**: Across the approved capability-and-scope authorization matrix,
+  100% of allowed cases succeed and 100% of missing-capability, out-of-scope,
+  expired-authority, and disabled-account cases are denied.
+- **SC-004**: 100% of tested self-approval and self-elevation attempts are
+  rejected, including attempts by actors whose Custom KPI Roles contain both
+  maker and approver capabilities.
+- **SC-005**: 100% of risky capability combinations used in acceptance tests
+  display a warning before role creation while remaining creatable after explicit
+  acknowledgement.
+- **SC-006**: For every submitted approval case, reviewers can identify the
+  selector, resolved approver, fallback, delegation, decision, reason, scope,
+  and affected revision from the timeline without technical assistance.
+- **SC-007**: After an application interruption and recovery, 100% of approved
+  baselines, historical revisions, effective assignments, role versions,
+  approval snapshots, delegations, and Audit Records used in acceptance testing
+  remain available and unchanged.
+- **SC-008**: At least 90% of representative Organization Administrators,
+  Security Administrators, approvers, and auditors complete their primary
+  journey successfully on the first guided usability attempt.
+- **SC-009**: All primary journeys are operable by keyboard and at a 390-pixel
+  viewport without losing required actions, warnings, validation details, or
+  approval evidence.
+- **SC-010**: In acceptance testing, 100% of baseline-dependent planning,
+  assignment, routing, and cascade attempts remain blocked until an applicable
+  approved baseline exists, while KPI Dictionary authoring remains available.
+- **SC-011**: In the approved mid-period re-cascade example, prior assignee
+  weights of 50, 20, and 30 percent plus a fixed 20 percent new-assignee weight
+  produce revised weights of 40, 16, 24, and 20 percent, preserve the original
+  assignee order, and total exactly 100 percent.
+- **SC-012**: For every mid-period baseline or weight change in acceptance
+  testing, users can reproduce each segment result from its effective
+  configuration and reproduce the whole-period result from the KPI's approved
+  Aggregation Policy without retroactively changing an earlier segment.
+- **SC-013**: For 100% of accepted proportional re-cascade cases, including
+  cases requiring rounding, repeated calculation produces the same assignment
+  weights, preserves the prior assignee order, and totals exactly 100 percent at
+  the configured precision.
+
+## Assumptions
+
+- The domain model remains Organization-scoped for future multi-company use,
+  while only one Organization is operationally exposed in the first release.
+- A sign-in identity capability already exists outside this feature; this
+  feature governs account status, Employee linkage, authorization outcomes, and
+  audit evidence without choosing an authentication method.
+- KPI Capability identifiers are supplied by the product and are not created by
+  Organization administrators; Custom KPI Roles only bundle those capabilities.
+- Organization Structure Baselines and other governed approvals use a
+  submit-and-independent-review pattern consistent with the approved KPI
+  governance model.
+- Effective times are interpreted consistently for the Organization; exact
+  calendar and timezone implementation choices belong to technical planning.
+- KPI Dictionary authoring is permitted before baseline approval, while Annual
+  BSC/KPI planning, assignment, routing, cascade, and operation remain gated.
+- The Organization and Authorization Foundation identifies baseline-change
+  impact and supplies the effective baseline; detailed KPI plan amendment,
+  re-cascade execution, and cross-segment result aggregation belong to the later
+  KPI Planning and Evaluation features.
+- Bulk organization or workforce import is not required for this feature's
+  primary acceptance journey; future import adapters must obey the same
+  validation, approval, revision, and audit rules.
