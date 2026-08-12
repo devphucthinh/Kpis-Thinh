@@ -12,7 +12,8 @@ public static class KpiMigrationManifest
         new("202608090005_PeriodAmendments", PeriodAmendmentsSql),
         new("202608090006_Evaluations", EvaluationsSql),
         new("202608100001_RuntimePrivileges", RuntimePrivilegesSql),
-        new("202608100002_PeriodPersistenceColumns", PeriodPersistenceColumnsSql)
+        new("202608100002_PeriodPersistenceColumns", PeriodPersistenceColumnsSql),
+        new("202608120001_OrganizationAuthorization", OrganizationAuthorizationSql)
     ];
 
     public static IReadOnlyList<string> ProductMigrations => Scripts.Select(x => x.Id).ToArray();
@@ -182,6 +183,45 @@ public static class KpiMigrationManifest
         CREATE UNIQUE INDEX IF NOT EXISTS kpi_evaluations_one_current_success_idx
             ON kpi_evaluations (activation_id) WHERE is_current_success;
         CREATE INDEX IF NOT EXISTS kpi_evaluations_history_idx ON kpi_evaluations (activation_id, evaluated_at, id);
+        """;
+
+    private const string OrganizationAuthorizationSql = """
+        ALTER TABLE organizations
+            ADD COLUMN IF NOT EXISTS code text,
+            ADD COLUMN IF NOT EXISTS time_zone_id text NOT NULL DEFAULT 'UTC',
+            ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'active',
+            ADD COLUMN IF NOT EXISTS operationally_exposed boolean NOT NULL DEFAULT false,
+            ADD COLUMN IF NOT EXISTS revision bigint NOT NULL DEFAULT 0;
+        UPDATE organizations SET code = 'ORG-' || replace(id::text, '-', '') WHERE code IS NULL;
+        ALTER TABLE organizations ALTER COLUMN code SET NOT NULL;
+        CREATE UNIQUE INDEX IF NOT EXISTS organizations_code_uq ON organizations (code);
+        CREATE TABLE IF NOT EXISTS organization_units (id uuid PRIMARY KEY, organization_id uuid NOT NULL REFERENCES organizations(id), code text NOT NULL, name text NOT NULL, parent_unit_id uuid NULL, status text NOT NULL DEFAULT 'active', effective_from timestamptz NOT NULL DEFAULT now(), effective_to timestamptz NULL, revision bigint NOT NULL DEFAULT 0, CONSTRAINT organization_units_code_uq UNIQUE (organization_id, code), CONSTRAINT organization_units_org_id_uq UNIQUE (organization_id, id), CONSTRAINT organization_units_parent_fk FOREIGN KEY (organization_id, parent_unit_id) REFERENCES organization_units(organization_id, id), CONSTRAINT organization_units_interval_ck CHECK (effective_to IS NULL OR effective_to > effective_from));
+        CREATE TABLE IF NOT EXISTS organization_positions (id uuid PRIMARY KEY, organization_id uuid NOT NULL REFERENCES organizations(id), code text NOT NULL, name text NOT NULL, organization_unit_id uuid NOT NULL, status text NOT NULL DEFAULT 'active', effective_from timestamptz NOT NULL DEFAULT now(), effective_to timestamptz NULL, revision bigint NOT NULL DEFAULT 0, CONSTRAINT organization_positions_code_uq UNIQUE (organization_id, code), CONSTRAINT organization_positions_org_id_uq UNIQUE (organization_id, id), CONSTRAINT organization_positions_unit_fk FOREIGN KEY (organization_id, organization_unit_id) REFERENCES organization_units(organization_id, id), CONSTRAINT organization_positions_interval_ck CHECK (effective_to IS NULL OR effective_to > effective_from));
+        CREATE TABLE IF NOT EXISTS organization_employees (id uuid PRIMARY KEY, organization_id uuid NOT NULL REFERENCES organizations(id), employee_number text NOT NULL, display_name text NOT NULL, employment_from timestamptz NOT NULL, employment_to timestamptz NULL, account_status text NOT NULL DEFAULT 'active', revision bigint NOT NULL DEFAULT 0, CONSTRAINT organization_employees_number_uq UNIQUE (organization_id, employee_number), CONSTRAINT organization_employees_org_id_uq UNIQUE (organization_id, id), CONSTRAINT organization_employees_interval_ck CHECK (employment_to IS NULL OR employment_to > employment_from));
+        CREATE TABLE IF NOT EXISTS organization_position_assignments (id uuid PRIMARY KEY, organization_id uuid NOT NULL REFERENCES organizations(id), employee_id uuid NOT NULL, position_id uuid NOT NULL, effective_from timestamptz NOT NULL, effective_to timestamptz NULL, allocation_weight numeric(9,6) NOT NULL DEFAULT 0, is_primary boolean NOT NULL DEFAULT false, CONSTRAINT organization_assignments_employee_fk FOREIGN KEY (organization_id, employee_id) REFERENCES organization_employees(organization_id, id), CONSTRAINT organization_assignments_position_fk FOREIGN KEY (organization_id, position_id) REFERENCES organization_positions(organization_id, id), CONSTRAINT organization_assignments_interval_ck CHECK (effective_to IS NULL OR effective_to > effective_from), CONSTRAINT organization_assignments_weight_ck CHECK (allocation_weight >= 0 AND allocation_weight <= 1));
+        CREATE TABLE IF NOT EXISTS organization_reporting_relationships (id uuid PRIMARY KEY, organization_id uuid NOT NULL REFERENCES organizations(id), subordinate_position_id uuid NOT NULL, manager_position_id uuid NOT NULL, effective_from timestamptz NOT NULL, effective_to timestamptz NULL, relationship_type text NOT NULL DEFAULT 'line', CONSTRAINT organization_reporting_subordinate_fk FOREIGN KEY (organization_id, subordinate_position_id) REFERENCES organization_positions(organization_id, id), CONSTRAINT organization_reporting_manager_fk FOREIGN KEY (organization_id, manager_position_id) REFERENCES organization_positions(organization_id, id), CONSTRAINT organization_reporting_relationships_distinct_ck CHECK (subordinate_position_id <> manager_position_id), CONSTRAINT organization_reporting_interval_ck CHECK (effective_to IS NULL OR effective_to > effective_from));
+        CREATE TABLE IF NOT EXISTS organization_baselines (id uuid PRIMARY KEY, organization_id uuid NOT NULL REFERENCES organizations(id), structure_revision bigint NOT NULL, previous_baseline_id uuid NULL, effective_from timestamptz NOT NULL, status text NOT NULL, snapshot_json jsonb NOT NULL DEFAULT '{}'::jsonb, evidence_json jsonb NOT NULL DEFAULT '{}'::jsonb, content_hash text NOT NULL, CONSTRAINT organization_baselines_org_id_uq UNIQUE (organization_id, id), CONSTRAINT organization_baselines_previous_fk FOREIGN KEY (organization_id, previous_baseline_id) REFERENCES organization_baselines(organization_id, id));
+        CREATE TABLE IF NOT EXISTS organization_baseline_applicability_segments (id uuid PRIMARY KEY, organization_id uuid NOT NULL REFERENCES organizations(id), baseline_id uuid NOT NULL, effective_from timestamptz NOT NULL, effective_to timestamptz NULL, CONSTRAINT baseline_segments_baseline_fk FOREIGN KEY (organization_id, baseline_id) REFERENCES organization_baselines(organization_id, id), CONSTRAINT baseline_segments_interval_ck CHECK (effective_to IS NULL OR effective_to > effective_from), CONSTRAINT baseline_segments_org_id_uq UNIQUE (organization_id, id));
+        CREATE INDEX IF NOT EXISTS baseline_segments_lookup_idx ON organization_baseline_applicability_segments (organization_id, effective_from);
+        CREATE EXTENSION IF NOT EXISTS btree_gist;
+        ALTER TABLE organization_baseline_applicability_segments DROP CONSTRAINT IF EXISTS baseline_segments_overlap_excl;
+        ALTER TABLE organization_baseline_applicability_segments ADD CONSTRAINT baseline_segments_overlap_excl EXCLUDE USING gist (organization_id WITH =, tstzrange(effective_from, COALESCE(effective_to, 'infinity'::timestamptz), '[)') WITH &&);
+        CREATE OR REPLACE FUNCTION reject_organization_fact_mutation() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'organization history is append-only'; END; $$;
+        DROP TRIGGER IF EXISTS organization_baselines_append_only ON organization_baselines;
+        CREATE TRIGGER organization_baselines_append_only BEFORE UPDATE OR DELETE ON organization_baselines FOR EACH ROW EXECUTE FUNCTION reject_organization_fact_mutation();
+        DROP TRIGGER IF EXISTS baseline_segments_append_only ON organization_baseline_applicability_segments;
+        CREATE TRIGGER baseline_segments_append_only BEFORE UPDATE OR DELETE ON organization_baseline_applicability_segments FOR EACH ROW EXECUTE FUNCTION reject_organization_fact_mutation();
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'kpi_runtime') THEN
+                GRANT SELECT, INSERT, UPDATE, DELETE ON
+                    organizations, organization_units, organization_positions, organization_employees,
+                    organization_position_assignments, organization_reporting_relationships,
+                    organization_baselines, organization_baseline_applicability_segments
+                TO kpi_runtime;
+                REVOKE UPDATE, DELETE, TRUNCATE ON organization_baselines, organization_baseline_applicability_segments FROM kpi_runtime;
+            END IF;
+        END $$;
         """;
 
     private const string RuntimePrivilegesSql = """

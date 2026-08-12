@@ -12,6 +12,14 @@ public sealed class KpiDbContext(DbContextOptions<KpiDbContext> options) : DbCon
     public DbSet<KpiPeriodActivationRow> PeriodActivations => Set<KpiPeriodActivationRow>();
     public DbSet<KpiPeriodAmendmentRow> PeriodAmendments => Set<KpiPeriodAmendmentRow>();
     public DbSet<AuditRecordRow> AuditRecords => Set<AuditRecordRow>();
+    public DbSet<OrganizationRow> Organizations => Set<OrganizationRow>();
+    public DbSet<OrganizationUnitRow> OrganizationUnits => Set<OrganizationUnitRow>();
+    public DbSet<OrganizationPositionRow> OrganizationPositions => Set<OrganizationPositionRow>();
+    public DbSet<OrganizationEmployeeRow> OrganizationEmployees => Set<OrganizationEmployeeRow>();
+    public DbSet<OrganizationPositionAssignmentRow> OrganizationPositionAssignments => Set<OrganizationPositionAssignmentRow>();
+    public DbSet<OrganizationReportingRelationshipRow> OrganizationReportingRelationships => Set<OrganizationReportingRelationshipRow>();
+    public DbSet<OrganizationBaselineRow> OrganizationBaselines => Set<OrganizationBaselineRow>();
+    public DbSet<BaselineApplicabilitySegmentRow> BaselineApplicabilitySegments => Set<BaselineApplicabilitySegmentRow>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -141,6 +149,86 @@ public sealed class KpiDbContext(DbContextOptions<KpiDbContext> options) : DbCon
             b.Property(x => x.SummaryJson).HasColumnName("summary_json").HasColumnType("jsonb");
             b.HasIndex(x => new { x.OrganizationId, x.OccurredAt });
         });
+        modelBuilder.Entity<OrganizationRow>(b =>
+        {
+            b.ToTable("organizations"); b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id"); b.Property(x => x.Code).HasColumnName("code").IsRequired();
+            b.Property(x => x.Name).HasColumnName("name"); b.Property(x => x.TimeZoneId).HasColumnName("time_zone_id");
+            b.Property(x => x.Status).HasColumnName("status"); b.Property(x => x.OperationallyExposed).HasColumnName("operationally_exposed");
+            b.Property(x => x.Revision).HasColumnName("revision"); b.Property(x => x.RowVersion).HasColumnName("xmin").IsRowVersion();
+            b.HasIndex(x => x.Code).IsUnique();
+        });
+        modelBuilder.Entity<OrganizationUnitRow>(b =>
+        {
+            ConfigureOrganizationScopedHead(b, "organization_units", "code");
+            b.Property(x => x.Name).HasColumnName("name"); b.Property(x => x.ParentUnitId).HasColumnName("parent_unit_id");
+            b.Property(x => x.Status).HasColumnName("status"); b.Property(x => x.EffectiveFrom).HasColumnName("effective_from"); b.Property(x => x.EffectiveTo).HasColumnName("effective_to");
+            b.HasOne<OrganizationUnitRow>().WithMany().HasForeignKey(x => new { x.OrganizationId, x.ParentUnitId }).HasPrincipalKey(x => new { x.OrganizationId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        });
+        modelBuilder.Entity<OrganizationPositionRow>(b =>
+        {
+            ConfigureOrganizationScopedHead(b, "organization_positions", "code");
+            b.Property(x => x.Name).HasColumnName("name"); b.Property(x => x.OrganizationUnitId).HasColumnName("organization_unit_id");
+            b.Property(x => x.Status).HasColumnName("status"); b.Property(x => x.EffectiveFrom).HasColumnName("effective_from"); b.Property(x => x.EffectiveTo).HasColumnName("effective_to");
+            b.HasOne<OrganizationUnitRow>().WithMany().HasForeignKey(x => new { x.OrganizationId, x.OrganizationUnitId }).HasPrincipalKey(x => new { x.OrganizationId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        });
+        modelBuilder.Entity<OrganizationEmployeeRow>(b =>
+        {
+            ConfigureOrganizationScopedHead(b, "organization_employees", "employee_number");
+            b.Property(x => x.DisplayName).HasColumnName("display_name"); b.Property(x => x.EmploymentFrom).HasColumnName("employment_from"); b.Property(x => x.EmploymentTo).HasColumnName("employment_to");
+            b.Property(x => x.AccountStatus).HasColumnName("account_status");
+        });
+        modelBuilder.Entity<OrganizationPositionAssignmentRow>(b =>
+        {
+            ConfigureOrganizationScopedFact(b, "organization_position_assignments");
+            b.Property(x => x.EmployeeId).HasColumnName("employee_id"); b.Property(x => x.PositionId).HasColumnName("position_id");
+            b.Property(x => x.EffectiveFrom).HasColumnName("effective_from"); b.Property(x => x.EffectiveTo).HasColumnName("effective_to");
+            b.Property(x => x.AllocationWeight).HasColumnName("allocation_weight"); b.Property(x => x.IsPrimary).HasColumnName("is_primary");
+            b.HasOne<OrganizationEmployeeRow>().WithMany().HasForeignKey(x => new { x.OrganizationId, x.EmployeeId }).HasPrincipalKey(x => new { x.OrganizationId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<OrganizationPositionRow>().WithMany().HasForeignKey(x => new { x.OrganizationId, x.PositionId }).HasPrincipalKey(x => new { x.OrganizationId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        });
+        modelBuilder.Entity<OrganizationReportingRelationshipRow>(b =>
+        {
+            ConfigureOrganizationScopedFact(b, "organization_reporting_relationships");
+            b.Property(x => x.SubordinatePositionId).HasColumnName("subordinate_position_id"); b.Property(x => x.ManagerPositionId).HasColumnName("manager_position_id");
+            b.Property(x => x.EffectiveFrom).HasColumnName("effective_from"); b.Property(x => x.EffectiveTo).HasColumnName("effective_to");
+            b.Property(x => x.RelationshipType).HasColumnName("relationship_type");
+            b.HasOne<OrganizationPositionRow>().WithMany().HasForeignKey(x => new { x.OrganizationId, x.SubordinatePositionId }).HasPrincipalKey(x => new { x.OrganizationId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<OrganizationPositionRow>().WithMany().HasForeignKey(x => new { x.OrganizationId, x.ManagerPositionId }).HasPrincipalKey(x => new { x.OrganizationId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        });
+        modelBuilder.Entity<OrganizationBaselineRow>(b =>
+        {
+            ConfigureOrganizationScopedFact(b, "organization_baselines");
+            b.Property(x => x.SnapshotJson).HasColumnName("snapshot_json").HasColumnType("jsonb");
+            b.Property(x => x.EffectiveFrom).HasColumnName("effective_from");
+            b.Property(x => x.Status).HasColumnName("status"); b.Property(x => x.EvidenceJson).HasColumnName("evidence_json").HasColumnType("jsonb");
+            b.Property(x => x.ContentHash).HasColumnName("content_hash"); b.Property(x => x.PreviousBaselineId).HasColumnName("previous_baseline_id");
+            b.HasOne<OrganizationBaselineRow>().WithMany().HasForeignKey(x => new { x.OrganizationId, x.PreviousBaselineId }).HasPrincipalKey(x => new { x.OrganizationId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        });
+        modelBuilder.Entity<BaselineApplicabilitySegmentRow>(b =>
+        {
+            ConfigureOrganizationScopedFact(b, "organization_baseline_applicability_segments");
+            b.Property(x => x.BaselineId).HasColumnName("baseline_id"); b.Property(x => x.EffectiveFrom).HasColumnName("effective_from");
+            b.Property(x => x.EffectiveTo).HasColumnName("effective_to");
+            b.HasIndex(x => new { x.OrganizationId, x.EffectiveFrom });
+            b.HasOne<OrganizationBaselineRow>().WithMany().HasForeignKey(x => new { x.OrganizationId, x.BaselineId }).HasPrincipalKey(x => new { x.OrganizationId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        });
+    }
+
+    private static void ConfigureOrganizationScopedHead<TEntity>(Microsoft.EntityFrameworkCore.Metadata.Builders.EntityTypeBuilder<TEntity> b, string table, string uniqueColumn)
+        where TEntity : OrganizationScopedHeadRow
+    {
+        b.ToTable(table); b.HasKey(x => x.Id); b.Property(x => x.Id).HasColumnName("id");
+        b.Property(x => x.OrganizationId).HasColumnName("organization_id"); b.Property(x => x.Code).HasColumnName(uniqueColumn).IsRequired(); b.Property(x => x.Revision).HasColumnName("revision");
+        b.Property(x => x.RowVersion).HasColumnName("xmin").IsRowVersion(); b.HasIndex(x => new { x.OrganizationId, x.Code }).IsUnique(); b.HasAlternateKey(x => new { x.OrganizationId, x.Id });
+        b.HasOne<OrganizationRow>().WithMany().HasForeignKey(x => x.OrganizationId).OnDelete(DeleteBehavior.Restrict);
+    }
+
+    private static void ConfigureOrganizationScopedFact<TEntity>(Microsoft.EntityFrameworkCore.Metadata.Builders.EntityTypeBuilder<TEntity> b, string table)
+        where TEntity : OrganizationScopedFactRow
+    {
+        b.ToTable(table); b.HasKey(x => x.Id); b.Property(x => x.Id).HasColumnName("id"); b.Property(x => x.OrganizationId).HasColumnName("organization_id"); b.HasAlternateKey(x => new { x.OrganizationId, x.Id });
+        b.HasOne<OrganizationRow>().WithMany().HasForeignKey(x => x.OrganizationId).OnDelete(DeleteBehavior.Restrict);
     }
 }
 
@@ -151,3 +239,13 @@ public sealed class KpiPeriodActivationRow { public Guid Id { get; set; } public
 public sealed class KpiPeriodAmendmentRow { public Guid Id { get; set; } public Guid PeriodId { get; set; } public int RevisionNumber { get; set; } public int BaseRevisionNumber { get; set; } public DateTimeOffset ProposedStartsAt { get; set; } public DateTimeOffset ProposedEndsAt { get; set; } public string ProposedSelectionsJson { get; set; } = "{}"; public string Reason { get; set; } = string.Empty; public Guid ProposedBy { get; set; } public DateTimeOffset ProposedAt { get; set; } public string Status { get; set; } = string.Empty; public Guid? ReviewedBy { get; set; } public DateTimeOffset? ReviewedAt { get; set; } public string? ReviewComment { get; set; } }
 public sealed class KpiEvaluationRow { public Guid Id { get; set; } public Guid ActivationId { get; set; } public Guid VersionId { get; set; } public string FormulaJson { get; set; } = "{}"; public string InputsJson { get; set; } = "{}"; public string OutcomeJson { get; set; } = "{}"; public Guid EvaluatorActorId { get; set; } public bool IsCurrent { get; set; } public Guid? SupersedesId { get; set; } public string? CorrectionReason { get; set; } public string? CorrectionDiffJson { get; set; } public DateTimeOffset EvaluatedAt { get; set; } }
 public sealed class AuditRecordRow { public Guid Id { get; set; } public Guid OrganizationId { get; set; } public Guid ActorId { get; set; } public string EntityType { get; set; } = string.Empty; public Guid EntityId { get; set; } public string EventType { get; set; } = string.Empty; public DateTimeOffset OccurredAt { get; set; } public string CorrelationId { get; set; } = string.Empty; public string? Reason { get; set; } public string SummaryJson { get; set; } = "{}"; }
+public abstract class OrganizationScopedHeadRow { public Guid Id { get; set; } public Guid OrganizationId { get; set; } public long Revision { get; set; } public uint RowVersion { get; set; } public string Code { get; set; } = string.Empty; }
+public abstract class OrganizationScopedFactRow { public Guid Id { get; set; } public Guid OrganizationId { get; set; } }
+public sealed class OrganizationRow : OrganizationScopedHeadRow { public string Name { get; set; } = string.Empty; public string TimeZoneId { get; set; } = "UTC"; public string Status { get; set; } = "active"; public bool OperationallyExposed { get; set; } }
+public sealed class OrganizationUnitRow : OrganizationScopedHeadRow { public string Name { get; set; } = string.Empty; public Guid? ParentUnitId { get; set; } public string Status { get; set; } = "active"; public DateTimeOffset EffectiveFrom { get; set; } public DateTimeOffset? EffectiveTo { get; set; } }
+public sealed class OrganizationPositionRow : OrganizationScopedHeadRow { public string Name { get; set; } = string.Empty; public Guid OrganizationUnitId { get; set; } public string Status { get; set; } = "active"; public DateTimeOffset EffectiveFrom { get; set; } public DateTimeOffset? EffectiveTo { get; set; } }
+public sealed class OrganizationEmployeeRow : OrganizationScopedHeadRow { public string DisplayName { get; set; } = string.Empty; public DateTimeOffset EmploymentFrom { get; set; } public DateTimeOffset? EmploymentTo { get; set; } public string AccountStatus { get; set; } = "active"; }
+public sealed class OrganizationPositionAssignmentRow : OrganizationScopedFactRow { public Guid EmployeeId { get; set; } public Guid PositionId { get; set; } public DateTimeOffset EffectiveFrom { get; set; } public DateTimeOffset? EffectiveTo { get; set; } public decimal AllocationWeight { get; set; } public bool IsPrimary { get; set; } }
+public sealed class OrganizationReportingRelationshipRow : OrganizationScopedFactRow { public Guid SubordinatePositionId { get; set; } public Guid ManagerPositionId { get; set; } public DateTimeOffset EffectiveFrom { get; set; } public DateTimeOffset? EffectiveTo { get; set; } public string RelationshipType { get; set; } = "line"; }
+public sealed class OrganizationBaselineRow : OrganizationScopedFactRow { public long StructureRevision { get; set; } public DateTimeOffset EffectiveFrom { get; set; } public string Status { get; set; } = string.Empty; public string SnapshotJson { get; set; } = "{}"; public string EvidenceJson { get; set; } = "{}"; public string ContentHash { get; set; } = string.Empty; public Guid? PreviousBaselineId { get; set; } }
+public sealed class BaselineApplicabilitySegmentRow : OrganizationScopedFactRow { public Guid BaselineId { get; set; } public DateTimeOffset EffectiveFrom { get; set; } public DateTimeOffset? EffectiveTo { get; set; } }
