@@ -40,8 +40,8 @@ Treat chat history as non-authoritative. Repository artifacts are the evidence.
 
 ## Review method
 
-Build a requirement traceability matrix for every `FR-001` through `FR-047`
-and `SC-001` through `SC-013`. For each item, identify the exact plan,
+Build a requirement traceability matrix for every `FR-001` through `FR-050`
+and `SC-001` through `SC-016`. For each item, identify the exact plan,
 data-model, contract, quickstart, or test seam that addresses it. Mark an item
 `Covered`, `Partially covered`, `Contradicted`, or `Missing`.
 
@@ -65,6 +65,15 @@ Then review these dimensions:
   evaluated together with effective capability.
 - Approval routing, independent privilege approval, delegation, and timeline
   visibility preserve both authority and explanation.
+- Two distinct temporary Bootstrap Principals cross the first-baseline boundary
+  with product-fixed non-delegable grants and SoD. The baseline freezes
+  structure/workforce only; governed Role Assignments follow it; one atomic
+  handoff expires bootstrap authority only after both replacement duties exist.
+- Recovery replaces only one unavailable principal after two distinct eligible
+  Platform Security Administrator approvals; partial/rejected/expired attempts
+  change no authority and platform authority remains outside KPI roles.
+- Every governed action reloads current committed authorization facts; only
+  identical checks inside one action may be memoized.
 
 ### 2. Mid-period organization change
 
@@ -98,7 +107,8 @@ Then review these dimensions:
 - Effective ranges use an unambiguous interval convention and Organization
   timezone.
 - Submitted revisions, approved baselines, role versions, route snapshots,
-  decisions, delegation evidence, impact facts, and Audit Records are immutable.
+  decisions, bootstrap provisioning/recovery/handoff, delegation evidence,
+  impact facts, and Audit Records are immutable.
 - Database constraints defend race-sensitive invariants such as non-overlapping
   baselines; application validation still supplies friendly diagnostic paths.
 - Optimistic concurrency protects every editable head and maps stale writes to
@@ -169,7 +179,7 @@ Return one Markdown review with exactly these sections:
 1. `Verdict` — one of `APPROVE`, `APPROVE WITH CHANGES`, or `BLOCK` plus a
    two-sentence rationale.
 2. `Findings` — ordered by severity, then evidence location.
-3. `Requirement Traceability` — all `FR-001..FR-047` and `SC-001..SC-013`.
+3. `Requirement Traceability` — all `FR-001..FR-050` and `SC-001..SC-016`.
 4. `Constitution and Architecture Check` — pass/fail for every relevant rule.
 5. `Cross-feature Boundary Check` — foundation versus later Planning/Evaluation.
 6. `Open Questions` — only questions that cannot be resolved from repository

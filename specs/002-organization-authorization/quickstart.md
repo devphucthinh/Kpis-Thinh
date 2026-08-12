@@ -43,7 +43,8 @@ environment, run:
 
 Expected migration evidence:
 
-- Organization/workspace/revision/baseline/applicability tables exist.
+- Organization/workspace/revision/baseline/applicability plus bootstrap
+  principal/recovery-decision/handoff tables exist.
 - Role, role-version, capability link, scoped assignment, policy, Approval
   Group/effective membership, independently reviewed route,
   artifact-type activation slot, delegation, impact, and extended audit tables
@@ -75,12 +76,16 @@ $env:KPI_POSTGRES_TESTS = "1"
 
 Expected focused behavior:
 
+- Bootstrap tests prove atomic/idempotent provisioning, two distinct fixed
+  non-delegable duties, first-baseline separation, two-person time-bounded
+  recovery, one-principal replacement, and atomic two-assignment handoff.
 - Domain tests reject complete cycle paths, invalid effective intervals,
   multiple primary Positions, non-expanding delegation violations, and invalid
   proportional allocation.
 - Application matrix tests distinguish missing capability, out-of-scope,
   expired authority, disabled account, separation of duty, and unresolved
-  approver.
+  approver. A new governed action after revoke, scope/baseline change, or
+  handoff observes current committed facts; no cross-action cache is accepted.
 - Baseline-gate matrix tests allow KPI Dictionary authoring before a baseline,
   deny every representative baseline-dependent operation, then allow those
   operations after the first baseline starts.
@@ -100,9 +105,13 @@ Expected focused behavior:
   idempotent, conflicting/concurrent evidence cannot replace it, and simulated
   failure rolls back the consumer transaction marker, resolution, and Audit
   Record atomically. Later Planning must prove its real approval in that slot.
-- PostgreSQL tests prove approved baselines, role versions, assignments, route
-  snapshots, delegations, impacts/resolutions, and Audit Records survive a fresh
-  DbContext and Web restart.
+- PostgreSQL tests prove bootstrap provisioning/recovery/handoff, approved
+  baselines, role versions, assignments, route snapshots, delegations,
+  impacts/resolutions, and Audit Records survive a fresh DbContext and Web restart.
+- Release-blocking load tests prove validation of 1,000 Employees/200 Units in
+  at most 2 seconds, fresh authorization in at most 50 ms p95 after resource
+  facts are loaded, and paged admin/tree reads returning at most 200 nodes in at
+  most 500 ms p95 under the recorded local acceptance load.
 - Playwright tests cover keyboard and 390-pixel journeys.
 
 Clear only the process-scoped opt-in after the run if needed:
@@ -131,8 +140,24 @@ Expected startup behavior:
 
 ## 5. Validate the primary UI/API journey
 
-Use distinct Development personas backed by distinct Employee/account
-identities.
+Use explicit Development platform personas plus distinct Employee/account
+identities. The development platform adapter must be selected explicitly and
+must never be a fallback for production identity integration.
+
+### 0. Bootstrap provision and recovery
+
+1. As Platform Provisioner, create an Organization with distinct setup and
+   independent-approval subject IDs. Confirm the request cannot provide its own
+   capabilities and retrying the same idempotency key/payload returns the same
+   Organization.
+2. Try identical principal subjects and the same key with a changed payload.
+   Confirm stable 422 and 409 outcomes with no partial Organization.
+3. Before handoff, request recovery of one principal with reason/expiry. Confirm
+   one approval, duplicate administrator approval, a Bootstrap Principal acting
+   as platform approver, rejection, and expiry change no authority.
+4. With a fresh request, approve as two distinct eligible Platform Security
+   Administrators. Confirm exactly the unavailable duty is replaced, the other
+   principal is unchanged, and immutable decision/audit evidence is visible.
 
 ### A. Structure and baseline
 
@@ -145,11 +170,13 @@ identities.
 4. Query the baseline-eligibility matrix before approval. Confirm Dictionary
    authoring is allowed and every representative dependent operation is denied
    with `baseline_missing`.
-5. Correct the structure, validate, submit with an effective start and reason.
-6. Attempt approval as submitter. Confirm HTTP/UI denial
+5. As the active setup Bootstrap Principal, correct the structure, validate,
+   and submit with an effective start and reason.
+6. Attempt approval as that submitter. Confirm HTTP/UI denial
    `authorization.separation-of-duty` and an Audit Record.
-7. Approve as a different eligible actor. Confirm one immutable baseline and
-   its route/timeline evidence.
+7. Approve as the distinct independent-approval Bootstrap Principal. Confirm
+   one immutable baseline, its route/timeline evidence, and zero Role
+   Assignments in its frozen structure/workforce snapshot.
 8. Query the matrix after the baseline start and confirm all representative
    dependent operations are allowed with the exact baseline ID.
 9. Submit a successor whose start is after the tail start. Confirm approval
@@ -173,6 +200,12 @@ identities.
 5. Attempt self-elevation, then approve using an independent actor.
 6. Execute one governed action inside the subtree and one outside it. Confirm
    the first succeeds and the second returns a safe scope explanation.
+7. For initial replacement assignments, confirm the first effective assignment
+   leaves both Bootstrap Principals active. Approve/effect the second duty's
+   replacement and confirm one immutable handoff references the exact two
+   assignments and expires both principals atomically.
+8. Revoke or narrow one ordinary assignment, then execute a new action. Confirm
+   the next action is denied from current facts; a prior allow decision is not reused.
 
 ### C. Route and delegation
 
@@ -253,9 +286,28 @@ identities.
    trí** drawer restores focus and every node's Unit-versus-Position semantics
    remain understandable without color.
 
+### F. Release-blocking acceptance envelope
+
+Use the versioned deterministic seed/load profile declared by the test harness;
+record machine/OS, build/commit, database profile, warm-up, sample count,
+concurrency, and p50/p95/max in the evidence ledger.
+
+1. Validate a complete structure containing 1,000 Employees and 200
+   Organization Units. Confirm the complete deterministic validation result is
+   returned in at most 2 seconds.
+2. Run governed next-action decisions after resource facts are loaded, including
+   allow/deny and a committed revocation between actions. Confirm p95 is at most
+   50 ms and the revoked action is denied.
+3. Run paged administration and authorized lazy-tree queries whose response page
+   contains at most 200 nodes. Confirm p95 is at most 500 ms and protected node
+   counts/identities do not leak.
+
+Failure of any threshold blocks release; it cannot be waived as informational.
+
 ## 6. Prove restart persistence
 
-1. Record IDs/hashes for the approved baseline and applicability chain, role
+1. Record IDs/hashes for bootstrap principals/recovery decisions/handoff, the
+   approved baseline and applicability chain, role
    versions, Approval Group/memberships, route reviews/activation slot/versions/
    snapshot, assignment, delegation, impact/resolution, and representative
    Audit Records.
@@ -265,7 +317,8 @@ identities.
    ranges, decisions, reasons, scopes, and timeline ordering.
 
 Expected: all governed history is unchanged and current authorization reflects
-the requested effective instant, not the restart time alone.
+the requested effective instant and current committed authority, not the restart
+time or a prior action's decision.
 
 ## 7. Human acceptance gate
 
@@ -315,6 +368,8 @@ denominator.
 
 The product owner must review:
 
+- platform provisioning, fixed bootstrap profiles, first-baseline separation,
+  two-person recovery evidence, and atomic governed handoff;
 - desktop and 390-pixel organization tree/edit/validation;
 - Microsoft 365 Admin Center-style business-task role editor;
 - privilege/scope preview and independent approval flow;
@@ -328,7 +383,9 @@ The product owner must review:
   idempotent, conflict, rollback, and restart cases;
 - SC-002 and SC-008 evidence ledgers meeting the declared cohorts and ratios;
 - keyboard operation, focus, warnings, and non-color error evidence;
-- PostgreSQL restart proof.
+- PostgreSQL restart proof;
+- all three release-blocking performance-envelope results with the declared
+  load profile and p95 evidence.
 
 Record approval in the reference evidence ledger. Do not edit
 `BSC-KPIs-API` or `BSC-KPIs` until UI/UX, backend, API, authorization, database,

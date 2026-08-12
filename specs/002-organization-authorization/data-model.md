@@ -8,8 +8,9 @@
   means infinity. Instants are stored in UTC; Organization timezone controls
   entry and display.
 - Mutable heads carry both a business `Revision` and PostgreSQL `xmin`.
-- Submitted revisions, approved baselines, role versions, route snapshots,
-  decisions, impact/resolution facts, and Audit Records are immutable.
+- Bootstrap provisioning/handoff/recovery evidence, submitted revisions,
+  approved baselines, role versions, route snapshots, decisions,
+  impact/resolution facts, and Audit Records are immutable.
 - Status strings and capability identifiers are stable machine codes; localized
   labels belong to Web resources.
 - Deletion of governed history is not part of any persistence interface.
@@ -19,6 +20,10 @@
 ```mermaid
 erDiagram
     ORGANIZATION ||--|| STRUCTURE_WORKSPACE : owns
+    ORGANIZATION ||--o{ BOOTSTRAP_PRINCIPAL : temporarily_authorizes
+    ORGANIZATION ||--o{ BOOTSTRAP_RECOVERY_REQUEST : governs_recovery
+    BOOTSTRAP_RECOVERY_REQUEST ||--o{ BOOTSTRAP_RECOVERY_DECISION : requires
+    ORGANIZATION ||--o| BOOTSTRAP_AUTHORITY_HANDOFF : completes
     STRUCTURE_WORKSPACE ||--o{ STRUCTURE_REVISION : freezes
     STRUCTURE_REVISION ||--o| STRUCTURE_BASELINE : approved_as
     STRUCTURE_REVISION ||--o{ ORGANIZATION_UNIT : contains
@@ -99,6 +104,72 @@ Aggregate root and data-isolation boundary.
 | `Status` | `Active/Inactive` | Inactive Organizations cannot receive new governed changes. |
 | `OperationallyExposed` | `bool` | Exactly one true in the first release; not an isolation shortcut. |
 
+Organization provisioning is one transaction: create the Organization, its
+empty structure workspace, security-policy head, baseline-chain owner, and
+exactly two active `BootstrapPrincipal` rows. It fails rather than leaving a
+partially provisioned Organization.
+
+### BootstrapPrincipal
+
+Temporary Organization-scoped authority used only to cross the first-baseline
+bootstrap boundary. It is an opaque external subject binding, not an Employee,
+Custom KPI Role, Role Assignment, or delegable approval authority.
+
+| Field | Type | Rule |
+|---|---|---|
+| `Id`, `OrganizationId` | `Guid` | Immutable identity/scope. |
+| `Duty` | `Setup/IndependentApproval` | Exactly one active principal of each duty before handoff. |
+| `SubjectId` | opaque string | Required; the two active duties must bind distinct subjects. |
+| `GrantProfileVersion` | stable string | Product-fixed capability allowlist; Organization administrators cannot edit it. |
+| `Status` | `Active/Replaced/Expired` | Replaced means break-glass substitution; Expired means governed handoff completed. |
+| `ProvisionedBySubjectId`, `ProvisionedAt` | platform evidence | Required and immutable. |
+| `ReplacedByPrincipalId`, `ReplacementRoleAssignmentId`, `ExpiredAt` | optional references/time | Set once by the governing recovery or handoff transaction. |
+
+Bootstrap grants are non-delegable, subject to the same maker/approver
+separation rules as ordinary authority, and valid only for the fixed first-
+baseline and initial-security capabilities. They never authorize KPI planning,
+actuals, evaluation, or platform recovery.
+
+### BootstrapRecoveryRequest and decision
+
+Break-glass replacement of one unavailable Bootstrap Principal. Platform
+Security Administrator identity and authority are supplied by the host/platform
+boundary; these administrators are not modeled as Organization Employees or KPI
+Roles.
+
+| Field | Type | Rule |
+|---|---|---|
+| `Id`, `OrganizationId`, `UnavailablePrincipalId` | `Guid` | The principal must still be active. |
+| `ReplacementSubjectId` | opaque string | Differs from the unavailable and remaining active principal. |
+| `Reason`, `RequestedBySubjectId`, `RequestedAt` | evidence | Required and immutable. |
+| `ExpiresAt` | instant | Required, time-bounded, and later than request time. |
+| `Status` | `Pending/Rejected/Expired/Applied` | Derived from immutable decisions and application fact. |
+| `AppliedPrincipalId`, `AppliedAt` | optional reference/time | Present only after atomic replacement. |
+
+Each `BootstrapRecoveryDecision` records request ID, platform administrator
+subject, `Approve/Reject`, reason, time, and correlation ID. Application requires
+two approvals from distinct Platform Security Administrators; neither may equal
+either Bootstrap Principal. A rejection, expiry, duplicate administrator, stale
+principal, or partial approval changes no principal. The second valid approval
+atomically marks only the unavailable principal `Replaced`, inserts its active
+replacement with the same duty/grant profile, and writes audit evidence.
+
+### BootstrapAuthorityHandoff
+
+Immutable proof that ordinary governed authorization replaced bootstrap access.
+
+| Field | Type | Rule |
+|---|---|---|
+| `Id`, `OrganizationId` | `Guid` | At most one handoff per Organization. |
+| `SetupReplacementRoleAssignmentId`, `ApprovalReplacementRoleAssignmentId` | `Guid` | Distinct effective approved Role Assignments that together cover the fixed replacement-duty requirements. |
+| `CompletedAt`, `CompletedByCommandId`, `ContentHash` | evidence | Required and immutable. |
+
+Role Assignment approval/effectiveness invokes the handoff evaluator in the
+same transaction. Until both replacement duties are effective, both active
+Bootstrap Principals remain active. When both exist, the handoff fact is inserted
+and all active bootstrap principals expire atomically; there is no manual expiry
+endpoint and no partial handoff.
+
 ### OrganizationStructureWorkspace
 
 The single editable head for one Organization. Saving a change validates local
@@ -110,7 +181,7 @@ shape and increments `Revision`; it does not create an approved fact.
 | `Revision` | `long` | Optimistic business revision. |
 | `UpdatedBy`, `UpdatedAt` | actor/time | Last accepted edit evidence. |
 | `RowVersion` | concurrency token | Rejects stale writes. |
-| `Document` | structure document | Units, Positions, Employees, assignments, reporting links, and baseline-linked scoped role assignment references. |
+| `Document` | structure document | Units, Positions, Employees, Position Assignments, and reporting links only. Role Assignments are a separate authorization aggregate. |
 
 ### OrganizationStructureRevision
 
@@ -125,12 +196,13 @@ Immutable reviewed candidate produced when the workspace is submitted.
 | `ReviewedBy`, `ReviewedAt`, `ReviewReason` | evidence? | Reviewer differs from submitter; reason required for approve/reject. |
 | `ContentHash` | SHA-256 string | Detects snapshot drift. |
 | `Snapshot` | immutable document | Exact reviewed graph and references. |
+| `ApprovalMode`, `ApprovalEvidenceId` | `Bootstrap/ApprovalRoute`, reference | First baseline freezes product-fixed setup/independent-principal evidence; later routing may reference an immutable route snapshot. |
 
 Validation freezes all errors before `Submitted`: duplicate/colliding stable
 codes, missing parents, cycle path, incomplete reporting relationships,
-conflicting Position Assignment intervals, zero/multiple primary Positions,
-invalid allocation, unknown scoped assignment references, and missing required
-approver configuration.
+conflicting Position Assignment intervals, zero/multiple primary Positions, and
+invalid allocation. Bootstrap-principal eligibility and separation are validated
+by the baseline command, not embedded in the structure snapshot.
 
 ### OrganizationUnit snapshot member
 
@@ -194,7 +266,8 @@ or an explicit root exception.
 
 ### OrganizationStructureBaseline
 
-Immutable approved effective snapshot used by planning, routing, and scope.
+Immutable approved effective structure/workforce snapshot used by planning,
+routing, and scope. It never contains Custom KPI Roles or Role Assignments.
 
 | Field | Type | Rule |
 |---|---|---|
@@ -228,6 +301,16 @@ predecessor identity, and atomic close-plus-insert prevent gaps and concurrent
 branching. Before the first segment starts, baseline-dependent operations return
 `baseline_missing`; from that instant onward exactly one segment contains every
 operating instant.
+
+For the first baseline only, the active setup Bootstrap Principal submits and
+the distinct active independent-approval Bootstrap Principal approves. Governed
+roles and Role Assignments can be created only against that approved baseline;
+they are not members of it. Successor baseline review uses current governed
+authorization (or still-active bootstrap authority before handoff) and preserves
+the same maker/approver separation. The first submission does not require a
+user-configured Approval Route; its immutable approval evidence records both
+exact principal IDs, grant-profile version, decisions, reasons, times, revision
+hash, and correlation IDs.
 
 State is `Scheduled` before `EffectiveFrom`, `Effective` while the segment
 contains now, and `Superseded` after its successor starts. These labels are
@@ -332,7 +415,7 @@ Discriminated value object:
 | Kind | Required target | Meaning |
 |---|---|---|
 | `Organization` | Organization ID | All resources in one Organization. |
-| `UnitSubtree` | Baseline ID + Organization Unit ID | Unit and descendants in the applicable approved baseline. |
+| `UnitSubtree` | Baseline ID + Organization Unit ID | Unit and descendants in the applicable approved baseline; an editable draft/revision is never a valid target. |
 | `Assigned` | Business responsibility type + subject ID | Only resources explicitly assigned to the Employee. |
 | `Self` | Employee ID | Only resources representing the Employee. |
 
@@ -411,8 +494,14 @@ instant. Commands load this before authorization.
 | `ScopeEvidence` | safe summary | Enough for authorized correction without protected leakage. |
 | `RepresentedAuthorityId`, `DelegationId` | optional IDs | Present for delegated decisions. |
 
-Every governed command consumes this result. Web may query a reduced decision
-projection to show actions but must call the command again to enforce it.
+Every governed command consumes this result. The decision service reloads the
+current committed account, employment, bootstrap/handoff, capability, Role
+Assignment, scope, baseline, delegation, and resource facts for each action. It
+does not reuse an `AuthorizationDecision` across actions. Identical checks may be
+memoized only inside one Application-command context; the next action must
+observe a committed revoke, expiry, scope/baseline change, or handoff. Web may
+query a reduced decision projection to show actions but must call the command
+again to enforce it.
 
 ## Approval and delegation
 
@@ -686,6 +775,7 @@ authorization commands must populate them.
 | Aggregate/fact | Main tables | Protection |
 |---|---|---|
 | Organization/workspace | `organizations`, `organization_structure_workspaces` | unique Organization code; `xmin` on workspace |
+| Bootstrap authority | `bootstrap_principals`, `bootstrap_recovery_requests`, `bootstrap_recovery_decisions`, `bootstrap_authority_handoffs` | unique active duty/Organization; distinct-subject and one-handoff constraints; immutable evidence |
 | Submitted revision | `organization_structure_revisions`, revision member tables | append-only after submission; content hash |
 | Baseline | `organization_structure_baselines`, `baseline_applicability_segments`, baseline member projections | immutable reviewed content; unique chain links/open tail; GiST exclusion on Organization + applicability range |
 | Custom role | `custom_kpi_roles`, `custom_kpi_role_versions`, `custom_kpi_role_capabilities` | unique role/version; immutable used version |
@@ -704,6 +794,8 @@ Organization mismatch as not-found/denied rather than loading cross-scope data.
 ## Required indexes and query paths
 
 - Unique Organization Unit code per Organization + revision.
+- Unique active Bootstrap Principal per Organization + duty, unique handoff per
+  Organization, and request/administrator uniqueness for recovery decisions.
 - Unique Position code and Employee number per Organization + revision.
 - GiST effective-range lookup for baselines, assignments, delegations, and
   Position Assignments.
@@ -726,6 +818,11 @@ Organization mismatch as not-found/denied rather than loading cross-scope data.
 ## Transaction boundaries
 
 One Application command and its Audit Record commit in one unit of work.
+Organization provisioning atomically creates both distinct Bootstrap Principals
+and every required empty Organization head. Bootstrap recovery records immutable
+decisions; the second valid independent platform approval atomically replaces
+only the unavailable principal or changes nothing. No ordinary Organization
+authorization path can call that platform operation.
 Baseline approval takes a row lock on the Organization baseline-chain owner and
 atomically commits the approved baseline projection, closes the predecessor
 applicability segment at the exact successor start, opens the successor segment,
@@ -736,7 +833,10 @@ slot and affected route heads, atomically retires the prior active version/route
 activates the independently approved target, advances the slot, and writes audit
 evidence. Approval Group membership commands advance the group head and preserve
 effective history. Role Assignment approval commits its decision and scheduled/
-effective grant. Approval decisions commit the decision plus route status. A
+effective grant. The same transaction runs the handoff evaluator; when effective
+approved assignments cover both replacement duties, it inserts the one handoff
+fact and expires all active Bootstrap Principals atomically. Approval decisions
+commit the decision plus route status. A
 Planning's governed amendment approval command calls the in-process impact
 registrar before commit; authoritative amendment approval, immutable
 `BaselineImpactResolution`, and its Audit Record share one unit of work. The

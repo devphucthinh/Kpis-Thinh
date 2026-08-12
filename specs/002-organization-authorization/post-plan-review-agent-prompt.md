@@ -42,8 +42,8 @@ Treat repository artifacts as authoritative. Chat history is not evidence.
 
 ## Review obligations
 
-Build a traceability matrix for every `FR-001` through `FR-047` and `SC-001`
-through `SC-013`. Each row must cite the exact Plan, Research, Data Model,
+Build a traceability matrix for every `FR-001` through `FR-050` and `SC-001`
+through `SC-016`. Each row must cite the exact Plan, Research, Data Model,
 Contract, Quickstart, or future-feature ownership evidence and be marked
 `Covered`, `Partial`, `Contradicted`, or `Missing`.
 
@@ -91,6 +91,20 @@ Audit these high-risk decisions explicitly:
     orientation/assistance rules, numerator, denominator, minimum sample sizes,
     evidence fields, and the exact `>= 0.90` pass calculation. Automated tests
     cannot substitute for human outcomes.
+15. Provisioning creates two distinct temporary Bootstrap Principals with fixed,
+    non-delegable grants; the first baseline contains structure/workforce only;
+    post-baseline governed Role Assignments replace both duties; one immutable
+    atomic handoff expires both principals only after both replacements exist.
+16. Break-glass recovery is time-bounded, approved by two distinct eligible
+    Platform Security Administrators, replaces only the unavailable principal,
+    excludes either Bootstrap Principal, and leaves authority unchanged for
+    partial, duplicate, rejected, expired, or stale attempts.
+17. Authorization is evaluated from current committed facts for every governed
+    action; no cross-action decision cache exists. SC-014 proves the next action
+    observes change and the 50 ms p95 threshold remains release-blocking.
+18. SC-016 uses exactly 1,000 Employees and 200 Organization Units for the
+    release-blocking validation/read envelope; tree/admin pages return at most
+    200 nodes and satisfy the declared p95 threshold.
 
 Check for stale alternatives, ambiguous state transitions, missing aggregate
 owners, fake feature-002 acceptance claims, cross-Organization leakage,
@@ -119,8 +133,8 @@ Return one Markdown document with exactly these sections:
    followed by a two-sentence rationale.
 2. `Findings` — actionable findings ordered by severity; write `None` when
    there are no findings.
-3. `Requirement Traceability` — every `FR-001..FR-047` and
-   `SC-001..SC-013`.
+3. `Requirement Traceability` — every `FR-001..FR-050` and
+   `SC-001..SC-016`.
 4. `Approval Route Decision Traceability` — one row for high-risk decisions
    1-7 above across Spec, Plan, Data Model, OpenAPI, UI/Quickstart, and Tests.
 5. `Organization KPI Workspace Boundary` — one row for decisions 8-10 with

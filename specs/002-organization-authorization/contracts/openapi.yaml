@@ -3,17 +3,135 @@ info:
   title: KPI Organization and Authorization Foundation API
   version: 1.0.0
   description: >-
-    Reference contract for organization structure, approved baselines, atomic
-    capabilities, custom roles, scoped assignments, delegation, approval, and
-    audit. All writes are authorized again by the Application layer.
+    Reference contract for bootstrap provisioning/recovery, organization
+    structure, approved baselines, atomic capabilities, custom roles, scoped
+    assignments, delegation, approval, and audit. All writes are authorized
+    again by the Application layer.
 servers:
   - url: /api/v1
 tags:
+  - name: Platform Bootstrap
   - name: Organization Structure
   - name: Security
   - name: Approval
   - name: Audit
 paths:
+  /platform/organizations:
+    post:
+      tags: [Platform Bootstrap]
+      operationId: provisionOrganization
+      summary: Atomically provision an Organization and two distinct temporary Bootstrap Principals.
+      description: >-
+        Requires host capability platform.organization.provision. The request
+        cannot choose bootstrap capabilities; the product-fixed profile is used.
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 200 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProvisionOrganizationRequest' }
+      responses:
+        '201':
+          description: Complete atomic provisioning result.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BootstrapProvisioningView' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /platform/organizations/{organizationId}/bootstrap:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+    get:
+      tags: [Platform Bootstrap]
+      operationId: getBootstrapProvisioning
+      summary: Read bootstrap principal and handoff status through platform scope.
+      responses:
+        '200':
+          description: Current status plus immutable provisioning/handoff evidence.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BootstrapProvisioningView' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /platform/organizations/{organizationId}/bootstrap-recovery-requests:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+    post:
+      tags: [Platform Bootstrap]
+      operationId: requestBootstrapRecovery
+      summary: Request time-bounded replacement of exactly one unavailable Bootstrap Principal.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateBootstrapRecoveryRequest' }
+      responses:
+        '201':
+          description: Pending recovery request; no authority has changed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BootstrapRecoveryRequestView' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
+  /platform/organizations/{organizationId}/bootstrap-recovery-requests/{requestId}:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: requestId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [Platform Bootstrap]
+      operationId: getBootstrapRecoveryRequest
+      responses:
+        '200':
+          description: Immutable decisions and derived request status.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BootstrapRecoveryRequestView' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /platform/organizations/{organizationId}/bootstrap-recovery-requests/{requestId}/decisions:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+      - name: requestId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [Platform Bootstrap]
+      operationId: decideBootstrapRecovery
+      summary: Record one Platform Security Administrator decision.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BootstrapRecoveryDecisionRequest' }
+      responses:
+        '200':
+          description: Updated derived request status; application occurs only on the second valid independent approval.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BootstrapRecoveryRequestView' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+
   /capabilities:
     get:
       tags: [Security]
@@ -119,7 +237,10 @@ paths:
               $ref: '#/components/schemas/SubmitStructureRequest'
       responses:
         '201':
-          description: Frozen submitted revision and approval route snapshot.
+          description: >-
+            Frozen submitted revision plus immutable approval evidence. The first
+            baseline uses fixed bootstrap evidence; later submissions may use an
+            Approval Route snapshot.
           content:
             application/json:
               schema:
@@ -1119,6 +1240,117 @@ components:
           schema: { $ref: '#/components/schemas/ProblemDetails' }
 
   schemas:
+    ProvisionOrganizationRequest:
+      type: object
+      additionalProperties: false
+      required: [code, name, timeZoneId, setupSubjectId, independentApprovalSubjectId]
+      properties:
+        code: { type: string, minLength: 1, maxLength: 100 }
+        name: { type: string, minLength: 1, maxLength: 300 }
+        timeZoneId: { type: string, minLength: 1, maxLength: 100 }
+        setupSubjectId: { type: string, minLength: 1, maxLength: 300 }
+        independentApprovalSubjectId: { type: string, minLength: 1, maxLength: 300 }
+
+    BootstrapPrincipalDuty:
+      type: string
+      enum: [setup, independentApproval]
+
+    BootstrapPrincipalView:
+      type: object
+      additionalProperties: false
+      required: [id, organizationId, duty, subjectId, grantProfileVersion, status, provisionedAt]
+      properties:
+        id: { type: string, format: uuid }
+        organizationId: { type: string, format: uuid }
+        duty: { $ref: '#/components/schemas/BootstrapPrincipalDuty' }
+        subjectId: { type: string }
+        grantProfileVersion: { type: string }
+        status: { type: string, enum: [active, replaced, expired] }
+        provisionedAt: { type: string, format: date-time }
+        replacedByPrincipalId: { type: string, format: uuid, nullable: true }
+        replacementRoleAssignmentId: { type: string, format: uuid, nullable: true }
+        expiredAt: { type: string, format: date-time, nullable: true }
+
+    BootstrapHandoffView:
+      type: object
+      additionalProperties: false
+      required: [id, organizationId, setupReplacementRoleAssignmentId, approvalReplacementRoleAssignmentId, completedAt, contentHash]
+      properties:
+        id: { type: string, format: uuid }
+        organizationId: { type: string, format: uuid }
+        setupReplacementRoleAssignmentId: { type: string, format: uuid }
+        approvalReplacementRoleAssignmentId: { type: string, format: uuid }
+        completedAt: { type: string, format: date-time }
+        contentHash: { type: string }
+
+    BootstrapProvisioningView:
+      type: object
+      additionalProperties: false
+      required: [organizationId, organizationCode, organizationName, timeZoneId, bootstrapPrincipals, bootstrapStatus, provisionedAt]
+      properties:
+        organizationId: { type: string, format: uuid }
+        organizationCode: { type: string }
+        organizationName: { type: string }
+        timeZoneId: { type: string }
+        bootstrapPrincipals:
+          type: array
+          minItems: 2
+          items: { $ref: '#/components/schemas/BootstrapPrincipalView' }
+        bootstrapStatus: { type: string, enum: [active, handedOff] }
+        handoff: { $ref: '#/components/schemas/BootstrapHandoffView', nullable: true }
+        provisionedAt: { type: string, format: date-time }
+
+    CreateBootstrapRecoveryRequest:
+      type: object
+      additionalProperties: false
+      required: [unavailablePrincipalId, replacementSubjectId, reason, expiresAt]
+      properties:
+        unavailablePrincipalId: { type: string, format: uuid }
+        replacementSubjectId: { type: string, minLength: 1, maxLength: 300 }
+        reason: { type: string, minLength: 1, maxLength: 2000 }
+        expiresAt: { type: string, format: date-time }
+
+    BootstrapRecoveryDecisionRequest:
+      type: object
+      additionalProperties: false
+      required: [decision, reason]
+      properties:
+        decision: { type: string, enum: [approve, reject] }
+        reason: { type: string, minLength: 1, maxLength: 2000 }
+
+    BootstrapRecoveryDecisionView:
+      type: object
+      additionalProperties: false
+      required: [id, requestId, platformAdministratorSubjectId, decision, reason, occurredAt, correlationId]
+      properties:
+        id: { type: string, format: uuid }
+        requestId: { type: string, format: uuid }
+        platformAdministratorSubjectId: { type: string }
+        decision: { type: string, enum: [approve, reject] }
+        reason: { type: string }
+        occurredAt: { type: string, format: date-time }
+        correlationId: { type: string }
+
+    BootstrapRecoveryRequestView:
+      type: object
+      additionalProperties: false
+      required: [id, organizationId, unavailablePrincipalId, replacementSubjectId, reason, requestedBySubjectId, requestedAt, expiresAt, status, decisions]
+      properties:
+        id: { type: string, format: uuid }
+        organizationId: { type: string, format: uuid }
+        unavailablePrincipalId: { type: string, format: uuid }
+        replacementSubjectId: { type: string }
+        reason: { type: string }
+        requestedBySubjectId: { type: string }
+        requestedAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        status: { type: string, enum: [pending, rejected, expired, applied] }
+        decisions:
+          type: array
+          items: { $ref: '#/components/schemas/BootstrapRecoveryDecisionView' }
+        appliedPrincipalId: { type: string, format: uuid, nullable: true }
+        appliedAt: { type: string, format: date-time, nullable: true }
+
     EffectiveInterval:
       type: object
       required: [from]
@@ -1285,7 +1517,7 @@ components:
 
     SubmittedStructureRevision:
       type: object
-      required: [id, organizationId, revisionNumber, status, contentHash, effectiveFrom, routeSnapshotId]
+      required: [id, organizationId, revisionNumber, status, contentHash, effectiveFrom, approvalMode, approvalEvidenceId]
       properties:
         id: { type: string, format: uuid }
         organizationId: { type: string, format: uuid }
@@ -1293,7 +1525,13 @@ components:
         status: { type: string, enum: [submitted, approved, rejected, superseded] }
         contentHash: { type: string }
         effectiveFrom: { type: string, format: date-time }
-        routeSnapshotId: { type: string, format: uuid }
+        approvalMode: { type: string, enum: [bootstrap, approvalRoute] }
+        approvalEvidenceId: { type: string, format: uuid }
+        routeSnapshotId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Present only when approvalMode is approvalRoute.
         baseline: { $ref: '#/components/schemas/BaselineSummary' }
 
     BaselineSummary:

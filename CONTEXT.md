@@ -145,7 +145,7 @@ An effective-dated node in an Organization's hierarchy, classified by a business
 _Avoid_: Organization, fixed department column, free-form unit name
 
 **Organization Structure Baseline**:
-An approved immutable snapshot of Organization Units, Positions, Position Assignments, reporting lines, and scoped role assignments used to plan and cascade organizational KPIs within its Baseline Applicability Segment.
+An approved immutable snapshot of Organization Units, Positions, Position Assignments, and reporting lines used by downstream authorization, planning, and cascade within its Baseline Applicability Segment; Role Assignments remain separately governed facts and are never baseline members.
 _Avoid_: Live directory view, unapproved organization draft, Annual BSC Plan
 
 **Baseline Applicability Segment**:
@@ -367,6 +367,18 @@ _Avoid_: Menu visibility, role-name check, authentication result
 **Organization Security Policy**:
 An Organization-scoped policy that may make the system's mandatory capability-risk and KPI Data Scope approval thresholds stricter but can never weaken them.
 _Avoid_: Custom KPI Role, sign-in policy, optional security bypass
+
+**Bootstrap Principal**:
+One of two distinct sign-in identities explicitly provisioned with a temporary, product-owned, Organization-scoped setup or independent-approval grant before ordinary Role Assignments exist; the grant is non-delegable, audited, and expires only when independently approved effective Role Assignments replace both duties.
+_Avoid_: Permanent administrator, Custom KPI Role, self-approved first user
+
+**Bootstrap Authority Handoff**:
+The immutable system consequence that atomically expires both bootstrap grants after exact independently approved effective Role Assignments cover the setup and independent-approval duties.
+_Avoid_: Manual bootstrap disable toggle, one-sided expiry, role-name check
+
+**Bootstrap Recovery Request**:
+A time-bounded platform-level break-glass request that replaces exactly one unavailable Bootstrap Principal only after decisions by two distinct Platform Security Administrators and preserves the reason, expiry, decisions, replacement, and resulting grant as immutable evidence.
+_Avoid_: Password reset, delegation, single-administrator override
 
 **KPI Role Template**:
 A named organizational bundle of KPI Capabilities used to provision common responsibilities without making the role name itself an authorization rule.

@@ -15,7 +15,7 @@ Sử dụng Matt Pocock skills để quản lý vòng phản hồi kỹ thuật:
 Sử dụng harness của repo làm cổng kiểm tra cuối:
 
   .\harness.cmd check
-
+   
 
 0. PHẠM VI VÀ CÁCH GỌI SKILL
 -----------------------------

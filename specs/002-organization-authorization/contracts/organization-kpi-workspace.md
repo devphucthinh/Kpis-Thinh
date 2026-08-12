@@ -37,6 +37,12 @@ visible through `organization.structure.view` plus applicable KPI Data Scope,
 and a backend-authorized action projection. Hidden matches are omitted without
 revealing their identifiers or counts.
 
+The approved baseline supplies structure/workforce context only; it does not
+contain Role Assignments. Capability and scope come from current committed
+authorization facts (or the still-active fixed bootstrap profile before
+handoff) and are re-evaluated for every query/action. A subsequent query must
+observe a committed revoke, scope change, baseline change, or bootstrap handoff.
+
 Unit nodes are navigation branches and cannot select KPI context. Position
 nodes are selectable. Razor does not traverse the organization graph or infer
 scope; it renders this read model.

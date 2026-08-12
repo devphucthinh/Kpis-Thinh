@@ -20,9 +20,12 @@ public interface IAuthorizationDecision
 ```
 
 Callers must load the resource identity and safe scope facts before invoking
-the interface. The module hides catalog lookup, account/employment eligibility,
-effective role version/assignment lookup, scope containment, delegation
-intersection, system/Organization policy, and separation of duty.
+the interface. The module hides active bootstrap/handoff lookup, catalog lookup,
+account/employment eligibility, effective role version/assignment lookup, scope
+containment, delegation intersection, system/Organization policy, and
+separation of duty. One Application-command context may memoize an identical
+check, but an `AuthorizationDecision` is never cached or reused across governed
+actions.
 
 ## Required evaluation order
 
@@ -30,11 +33,17 @@ The order is externally observable through stable denial codes and must remain
 deterministic:
 
 1. Reject an Organization mismatch without disclosing the foreign resource.
-2. Require an enabled linked account.
-3. Require active employment when the capability is workforce-based.
+2. Resolve whether the actor is one of the two active Organization Bootstrap
+   Principals. If so, require the capability in that duty's product-fixed
+   allowlist, reject delegation, and continue to baseline/resource and
+   separation-of-duty checks. An expired/replaced principal has no authority.
+3. Otherwise require an enabled linked account and active employment when the
+   capability is workforce-based.
 4. Resolve effective approved Role Assignments for the requested instant.
 5. Require the atomic capability in at least one exact assigned role version.
-6. Require at least one matching KPI Data Scope for the resource facts.
+6. Require at least one matching KPI Data Scope for the resource facts. A
+   `UnitSubtree` always identifies an applicable approved baseline, never an
+   editable structure revision.
 7. If represented authority is used, intersect original authority, delegation,
    effective interval, responsibility, and scope; never union them.
 8. Apply same-artifact separation of duty against submitter, requester,
@@ -44,6 +53,11 @@ deterministic:
    capabilities.
 9. Return Allow with only the minimum assignment/scope evidence needed for
    audit; otherwise return one stable Deny reason.
+
+Every invocation reloads the current committed bootstrap/handoff, account,
+employment, role/assignment, baseline, delegation, and resource facts. The next
+governed action must observe any committed revoke, expiry, scope/baseline
+change, recovery replacement, or bootstrap handoff.
 
 If several failures apply, the first safe reason in this order is returned. A
 cross-Organization request maps to not-found/denied without confirming the
@@ -63,6 +77,9 @@ AuthorizationDecision
     missing_capability
     scope_mismatch
     authority_not_effective
+    bootstrap_capability_not_granted
+    bootstrap_expired
+    bootstrap_delegation_forbidden
     delegation_not_effective
     delegation_scope_mismatch
     separation_of_duty
@@ -73,6 +90,7 @@ AuthorizationDecision
   ResourceType / ResourceId / ResourceRevision
   EffectiveAt
   AssignmentIds[]
+  BootstrapPrincipalId?
   ScopeEvidence[]
   RepresentedAuthorityActorId?
   DelegationId?
@@ -115,6 +133,29 @@ Initial business-area groups:
 The implementation task must publish the complete initial catalog and tests;
 these representative IDs establish naming and grouping, not an exhaustive list.
 
+## Bootstrap authority profile
+
+Organization provisioning creates exactly two distinct subject bindings. The
+fixed profile is versioned with the product and cannot be edited or delegated:
+
+| Duty | Fixed initial capabilities |
+|---|---|
+| Setup | `organization.structure.view`, `organization.structure.edit`, `organization.baseline.submit`, `security.custom-role.view`, `security.custom-role.manage`, `security.role-assignment.request`, `audit.timeline.view` |
+| Independent approval | `organization.structure.view`, `organization.baseline.approve`, `security.custom-role.view`, `security.role-assignment.approve`, `audit.timeline.view` |
+
+The first baseline contains only structure/workforce facts. It is submitted by
+the setup principal and approved by the independent-approval principal. Roles
+and Role Assignments are then created against that baseline. When effective
+approved assignments cover both replacement duties, the handoff fact and expiry
+of all active Bootstrap Principals commit atomically. Until then, both duties
+remain active. A principal cannot approve its own submission, use the other
+duty, approve its own Role Assignment, or delegate bootstrap authority.
+
+Platform break-glass recovery is deliberately outside this interface: it uses
+the host's Platform Security Administrator authority, requires two distinct
+platform approvals, and cannot be authorized by a Bootstrap Principal or an
+Organization KPI Role. See `bootstrap-authority.md`.
+
 ## KPI Data Scope containment
 
 `Self` is narrowest, followed by `Assigned`, `UnitSubtree`, and `Organization`
@@ -156,7 +197,11 @@ The interface is tested with matrix rows across:
 - direct and represented authority;
 - submitter/requester/beneficiary self-approval conflicts;
 - current and historical approved baselines;
-- Organization isolation.
+- Organization isolation;
+- both bootstrap duties, fixed-capability allow/deny, non-delegation, self-
+  approval rejection, partial/full handoff, expiry, and recovery replacement;
+- a committed revoke/scope/baseline/handoff change followed by a new action, to
+  prove no cross-action cache is used.
 
 Tests assert outcome, stable reason, evidence minimization, and transactional
 Audit Record behavior through the same interface used by controllers.

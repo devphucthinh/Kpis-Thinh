@@ -35,7 +35,9 @@ employment eligibility, effective Role Assignments, atomic capability, exact
 scope containment, delegation intersection, and separation of duty. Role names,
 claims copied at sign-in, menu visibility, controllers, and Razor pages are not
 authoritative. Each allow/deny result has a stable reason and transactional
-immutable Audit Record.
+immutable Audit Record. Decisions are never cached across governed actions;
+identical checks may be memoized only within one action execution while every
+authorization input remains identical.
 
 Organization editing uses an optimistic mutable workspace. Submission freezes
 an immutable structure revision; independent approval creates an immutable
@@ -51,6 +53,23 @@ editor set, and activated only by an eligible non-maker. One optimistic
 activation slot per Organization and artifact type serializes replacement:
 activation retires the prior active version/route and activates the approved
 target atomically, so standalone retirement cannot create an unroutable gap.
+
+The first Organization is provisioned with two distinct Bootstrap Principals:
+one setup identity and one independent-approval identity. Their product-owned
+grants are Organization-scoped, non-delegable, restricted to a fixed bootstrap
+task allowlist, fully audited, and still subject to same-artifact separation of
+duty. The first baseline freezes only structure and workforce facts; Role
+Assignments are separately governed and never baseline members. After the
+baseline exists, the principals establish independently approved replacement
+Role Assignments against it. When exact effective assignments cover both
+duties, one immutable handoff atomically expires both bootstrap grants.
+
+If one principal becomes unavailable before handoff, only a time-bounded
+platform break-glass request approved by two distinct Platform Security
+Administrators may replace it. Neither platform approver may be a Bootstrap
+Principal, the replacement cannot equal the remaining principal, and the
+request, decisions, expiry, replacement, grant, and audit evidence are
+immutable. This recovery authority cannot inspect or mutate ordinary KPI facts.
 
 Typed route selectors resolve from the applicable baseline. An Organization
 Unit Head is an explicitly configured Employee validated in the relevant unit;
@@ -98,6 +117,13 @@ remains the only schema writer.
   deterministic weight algorithm for future Planning consumers.
 - A Baseline Change Impact is resolved only by durable, independently approved
   KPI Plan Amendment evidence; no UI/API status toggle can bypass that link.
+- The first Organization can become governed without a permanent hard-coded
+  administrator or a self-approved first user, and its bootstrap recovery path
+  cannot silently weaken two-person control.
+- Baselines remain immutable structure/workforce evidence instead of becoming
+  authorization snapshots; Role Assignment history evolves independently.
+- Revocation and other authorization changes apply to the next governed action
+  without a stale cross-action decision window.
 - The model requires additional immutable/versioned tables, effective-range
   indexes, and explicit route/scope queries; this complexity is accepted because
   mutable role checks cannot satisfy the governance requirements.

@@ -28,6 +28,30 @@ Quản trị
 Navigation is filtered for usability by the reduced `/me/actions` projection;
 direct URLs and POSTs still pass the authoritative Application decision.
 
+The reference host also exposes a separate server-rendered **Platform
+Bootstrap** control surface. It is outside the Organization navigation and is
+visible only through the host's platform authorization adapter; it is never
+enabled by a Bootstrap Principal, Custom KPI Role, or Organization scope.
+
+## Journey 0: Provision and recover bootstrap authority
+
+1. A Platform Provisioner enters Organization code/name/timezone plus two
+   distinct opaque sign-in subject IDs: setup and independent approval. The UI
+   never accepts a bootstrap capability list.
+2. One submit atomically creates the Organization and both fixed-profile
+   Bootstrap Principals. The status screen shows duty, subject, grant-profile
+   version, active state, provisioning time, and audit correlation—not secrets.
+3. If one principal becomes unavailable before handoff, a Platform Security
+   Administrator opens a time-bounded recovery request naming exactly that
+   principal, a distinct replacement subject, expiry, and reason.
+4. One approval displays **1/2 approvals—authority unchanged**. The same
+   administrator, either Bootstrap Principal, or an ineligible actor cannot
+   supply the second approval. Rejection or expiry shows a terminal state and
+   leaves both duties unchanged.
+5. A second distinct eligible Platform Security Administrator approves. The UI
+   shows immutable decisions and that exactly the unavailable duty was replaced;
+   the other principal is unchanged.
+
 ## Journey 1: Organization to approved baseline
 
 1. Open **Sơ đồ tổ chức** and view the current workspace revision.
@@ -46,6 +70,13 @@ direct URLs and POSTs still pass the authoritative Application decision.
 8. A successor approval preview shows the current chain tail. Approval
    atomically closes it at the successor start and opens the successor; a gap,
    overlap, out-of-order insertion, or stale tail is a blocking diagnostic.
+
+For the first baseline, steps 1–5 are performed by the setup Bootstrap
+Principal and approval is performed by the distinct independent-approval
+Bootstrap Principal. The approved snapshot visibly contains structure,
+Employees, Positions, Position Assignments, and reporting facts only; it shows
+zero Role Assignments. Those are created only afterward against the approved
+baseline.
 
 Required responsive behavior: the tree becomes an indented list at 390 px;
 every edit/validation/approval action remains reachable by keyboard; errors do
@@ -79,6 +110,12 @@ role creation grants the role to its creator.
    decision and offers a new proposal revision.
 6. A verification panel shows allowed in-scope and denied out-of-scope example
    resources using backend decisions, not client simulation.
+
+During initial setup the panel also shows both bootstrap replacement duties.
+One effective replacement assignment leaves both Bootstrap Principals active.
+When the second independently approved replacement becomes effective, the UI
+shows the immutable handoff, exact two Role Assignment references, and atomic
+expiry of both principals. There is no manual expiry control.
 
 ## Journey 4: Route resolution and delegation
 
@@ -188,23 +225,32 @@ and official results without changing these navigation or authorization rules.
 
 ## Playwright acceptance journey
 
-Using seeded Development personas with distinct Employee/account identities:
+Using explicit seeded Development platform identities plus distinct
+Employee/account identities (never a silent production fallback):
 
-1. Organization Admin builds and validates structure.
-2. Submitter submits baseline; attempted self-approval is denied.
-3. Independent approver approves; application restarts on PostgreSQL; baseline
-   remains effective.
-4. Security Admin creates a risky custom role and acknowledges warnings.
-5. Security Admin requests a UnitSubtree assignment; self-elevation is denied;
-   independent approver activates it.
-6. Beneficiary succeeds on an in-subtree operation and is denied outside it.
-7. Approver delegates one stage; delegate acts within time/scope; an invalid
-   delegated attempt is denied.
-8. Auditor views the permitted timeline; an out-of-scope observer cannot see
+1. A Platform Provisioner creates the Organization plus two distinct Bootstrap
+   Principals; negative provisioning/recovery separation cases are asserted.
+2. The setup principal builds and validates structure, then submits the first
+   baseline; attempted self-approval is denied.
+3. The independent-approval principal approves; Web restarts on PostgreSQL; the
+   baseline remains effective and contains zero Role Assignments.
+4. The setup principal creates risky replacement roles and acknowledges warnings.
+5. The setup principal requests baseline-scoped replacement assignments;
+   self-elevation is denied; the independent principal approves them. The first
+   assignment does not expire bootstrap authority; the second creates the
+   immutable handoff and expires both principals atomically.
+6. The beneficiary succeeds on an in-subtree operation and is denied outside
+   it. A new action after a committed revoke/scope change is denied, proving
+   authorization facts are reloaded.
+7. An approver delegates one ordinary governed stage; the delegate acts within
+   time/scope; an invalid delegated attempt is denied.
+8. An auditor views the permitted timeline; an out-of-scope observer cannot see
    protected details.
-9. A mid-period baseline change produces impact and deterministic weight
-   preview evidence.
-10. The authorized Organization KPI Workspace restores an in-scope Position
+9. Before handoff, two distinct Platform Security Administrators recover one
+   unavailable principal; one/duplicate/rejected/expired cases change none.
+10. A mid-period baseline change produces impact and deterministic weight
+    preview evidence.
+11. The authorized Organization KPI Workspace restores an in-scope Position
     URL after restart, blocks an out-of-scope Position safely, and displays the
     honest future-provider state without KPI fixtures.
 

@@ -427,6 +427,97 @@ keeping their business behavior out of the foundation acceptance claim.
 - Let Razor derive relations or results: rejected because the backend must own
   hierarchy, authorization, calculation, and aggregation.
 
+## Decision 19: Bootstrap the first Organization with two temporary principals
+
+**Decision**: Explicit Organization provisioning creates two distinct
+Organization-scoped Bootstrap Principals, one for setup and one for independent
+approval. Their product-owned grants use a fixed minimum capability allowlist,
+are non-delegable, fully audited, and continue to enforce same-artifact
+separation of duty. They are identities and grants, not Custom KPI Roles and not
+ordinary Employee Role Assignments.
+
+The first baseline freezes only units, Positions, Employees, Position
+Assignments, and reporting relationships. It never contains Role Assignments.
+After that baseline exists, the two principals establish independently approved
+replacement Role Assignments against it. A handoff evaluator recognizes exact
+effective assignments that cover both required duties and atomically creates an
+immutable `BootstrapAuthorityHandoff` while expiring both bootstrap grants. A
+partial replacement never expires one grant or locks the Organization out.
+
+If one principal becomes unavailable before handoff, a time-bounded
+`BootstrapRecoveryRequest` requires two distinct Platform Security
+Administrator decisions. Platform approvers cannot be either Bootstrap
+Principal, the replacement must differ from the remaining principal, and the
+request cannot mutate ordinary Organization/KPI facts. Rejection, expiry, and
+partial approval leave authority unchanged; successful replacement and every
+decision are immutable audit facts.
+
+**Rationale**: The product otherwise has a circular dependency: an actor needs
+authority to create the first governed authority and baseline. Two temporary
+principals preserve independent review without a permanent hard-coded
+administrator. Keeping Role Assignments outside baselines avoids binding
+authorization history to structure snapshot versioning and allows UnitSubtree
+scope to reference an already approved baseline.
+
+**Alternatives considered**:
+
+- Let the first administrator self-approve: rejected because it creates an
+  unreviewed privilege-escalation exception at the most sensitive point.
+- Include pending Role Assignments in the first baseline and activate them with
+  baseline approval: rejected because it couples two aggregate lifecycles and
+  makes review evidence circular.
+- Reference an editable structure draft from UnitSubtree scope: rejected because
+  later edits could silently change authorization meaning.
+- Permit one platform administrator or the remaining Bootstrap Principal to
+  replace the unavailable identity: rejected because it defeats two-person
+  break-glass control.
+
+## Decision 20: Re-evaluate authorization for every governed action
+
+**Decision**: No Authorization Decision survives beyond one governed action.
+Each command reloads current committed account, employment, Role Assignment,
+policy, baseline, delegation, resource revision, represented authority, and
+effective-time facts. Identical evaluations may be memoized only inside that
+one command while all inputs remain identical. The next command after a change
+must observe the change from its effective instant.
+
+**Rationale**: Cross-action cache invalidation would span every security fact
+and could preserve revoked authority. The first-company envelope is small
+enough to meet the 50-millisecond p95 target with indexed current-fact queries,
+so immediate correctness is preferable to a distributed invalidation protocol.
+
+**Alternatives considered**:
+
+- Short-lived cross-action cache with invalidation: deferred until measured
+  production evidence proves current-fact queries insufficient.
+- Fixed TTL or process-lifetime cache: rejected because authorization changes
+  would have an accepted stale window.
+- Identity claims as the cache: rejected because scope, baseline, employment,
+  delegation, and separation-of-duty facts change independently.
+
+## Decision 21: Use the reduced first-feature performance envelope as a gate
+
+**Decision**: Automated acceptance uses one operational Organization with 1,000
+Employees and 200 Organization Units. Structure validation must complete within
+2 seconds. Paged administration and authorized tree queries returning at most
+200 nodes must complete within 500 milliseconds p95. Authorization evaluation
+after resource facts are loaded must complete within 50 milliseconds p95. All
+three thresholds are release-blocking for the reference feature.
+
+**Rationale**: This envelope is large enough to expose algorithmic and query
+shape failures while matching the product owner's first-company rollout. Larger
+production sizing belongs to the target-port/load-test gate and cannot weaken
+correctness or Organization isolation.
+
+**Alternatives considered**:
+
+- Keep 10,000 Employees and 2,000 Units as the first feature gate: rejected by
+  the approved reduced initial envelope.
+- Treat latency as advisory only: rejected because unmeasured tree and
+  authorization paths would make the UI/UX and security gate non-reproducible.
+- Defer all performance evidence to target port: rejected because the reference
+  implementation must expose poor query shapes before porting.
+
 ## Resolved unknowns
 
 All Technical Context items are resolved. The following cross-feature ownership
@@ -443,3 +534,8 @@ is intentional rather than unresolved:
 - Feature 002 implements the authorized Organization/Position navigator and
   publishes the Organization KPI Workspace integration contract; later modules
   populate its KPI neighborhood and result projections from durable facts.
+- Two audited Bootstrap Principals and the two-person recovery/handoff contracts
+  close first-Organization authority without making Role Assignments baseline
+  members or permitting self-approval.
+- Authorization has no cross-action cache, and the 1,000-Employee/200-Unit
+  performance envelope plus all three latency thresholds are explicit gates.

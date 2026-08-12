@@ -29,6 +29,11 @@
 
 - Q: How does the foundation prove that a Baseline Change Impact was resolved by later KPI Planning? → A: Keep the impact immutable and derive `Resolved` only from a separate immutable Baseline Impact Resolution created as a consequence of the governed KPI Plan Amendment approval; validate the exact Organization, baseline, amendment revision, approval decision, and content hash, commit both outcomes atomically, treat the same retry as idempotent, and reject missing, unapproved, cross-Organization, or conflicting evidence.
 - Q: How are the 90-percent first-attempt outcomes in SC-002 and SC-008 measured? → A: Record a standardized human evidence protocol: SC-002 uses at least 10 representative Organization Administrators and passes at 9/10 or better; SC-008 uses at least 20 participants with at least five in each named persona group and passes at 18/20 or better. A first attempt begins after the same orientation but before task-specific assistance, and Playwright evidence cannot substitute for a human attempt.
+- Q: When no baseline or Role Assignment exists yet, how does the system authorize the first actors to establish the Organization and approve it independently? → A: Provision two distinct, Organization-scoped Bootstrap Principals: one setup actor and one independent approver. Their product-owned bootstrap grants are non-delegable and fully audited, cannot be held by the same sign-in identity, and expire automatically only after independently approved replacement Role Assignments for both duties become effective.
+- Q: May the system reuse an Authorization Decision from an earlier governed action? → A: No. Each governed action reloads and evaluates the current committed authorization facts; only identical evaluations inside that one action execution may be memoized. The next action after an account, employment, Role Assignment, policy, baseline, or delegation change must observe that change, while authorization evaluation after resource facts are loaded must complete within 50 milliseconds p95 under the accepted local load.
+- Q: Must replacement Role Assignments exist before the first Organization Structure Baseline is approved? → A: No. The first baseline freezes only structure and workforce facts and contains no Role Assignment. The two Bootstrap Principals submit and independently approve that baseline, then establish governed Role Assignments against the approved baseline; bootstrap authority expires only after effective replacements cover both duties.
+- Q: How is bootstrap authority recovered if one Bootstrap Principal loses access before governed replacement assignments are effective? → A: Use a platform-level break-glass replacement requiring approval by two distinct Platform Security Administrators. It may replace only the unavailable principal, requires reason and expiry evidence plus a complete audit trail, and the replacement identity must remain distinct from the other Bootstrap Principal.
+- Q: What scale must the first feature pass as a release-blocking performance gate? → A: Use an acceptance envelope of 1,000 Employees and 200 Organization Units. Structure validation must complete within 2 seconds, paged administration and authorized tree reads returning at most 200 nodes must complete within 500 milliseconds p95, and current-fact authorization evaluation must retain its 50-millisecond p95 gate after resource facts are loaded.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -36,17 +41,19 @@
 
 An Organization Administrator defines the company, its effective-dated
 Organization Unit hierarchy, Positions, reporting relationships, Employees,
-Position Assignments, and required scoped role assignments. An independent
-approver reviews the complete structure and approves an Organization Structure
-Baseline that downstream planning can trust.
+and Position Assignments. An independent approver reviews the complete
+structure and approves an Organization Structure Baseline that downstream
+authorization and planning can trust. Role Assignments are governed separately
+after the first baseline exists and are not baseline snapshot members.
 
 **Why this priority**: Annual BSC planning, KPI assignment, approval routing,
 and cascade depend on an approved and explainable organization snapshot.
 
 **Independent Test**: Create a representative organization with multiple unit
-levels, positions, employees, reporting lines, and scoped assignments; submit
-it for independent review; approve it; then verify that the approved snapshot
-is immutable, traceable, and recognized as the effective planning baseline.
+levels, positions, employees, and reporting lines; submit it for independent
+review; approve it without a Role Assignment in the snapshot; then verify that
+the approved snapshot is immutable, traceable, and recognized as the effective
+authorization and planning baseline.
 
 **Acceptance Scenarios**:
 
@@ -83,6 +90,21 @@ is immutable, traceable, and recognized as the effective planning baseline.
    **Then** one immutable Baseline Impact Resolution is created atomically with
    audit evidence, and retrying that exact evidence returns the same resolution
    without another write.
+9. **Given** a newly provisioned Organization with no baseline or Role
+   Assignment, **When** its setup Bootstrap Principal submits the complete
+   structure and its distinct approver Bootstrap Principal approves the first
+   baseline, **Then** that baseline contains no Role Assignment; **When** they
+   later establish independently approved Role Assignments against that
+   baseline, **Then** every bootstrap action is audited, neither principal may
+   approve its own governed submission or delegate bootstrap authority, and
+   both bootstrap grants expire only after the two replacement duties are
+   effective.
+10. **Given** one Bootstrap Principal is unavailable before governed replacement
+    assignments cover both duties, **When** two distinct Platform Security
+    Administrators approve a reasoned, time-bounded break-glass replacement,
+    **Then** only that unavailable principal is replaced, the replacement
+    remains distinct from the other principal, and the request, both decisions,
+    expiry, and resulting grant are preserved as immutable audit evidence.
 
 ---
 
@@ -304,6 +326,17 @@ identity, decision reason, and scoped timeline visibility.
   blocked with the failed selector and configured fallback explained.
 - Delegation cannot expand the original authority's capabilities or KPI Data
   Scope and cannot make a delegate eligible to approve their own artifact.
+- The two Bootstrap Principals cannot share a sign-in identity, exchange or
+  delegate bootstrap duties, approve their own governed submissions, or expire
+  one-sidedly before effective Role Assignments replace both duties.
+- A single Platform Security Administrator, either Bootstrap Principal, or a
+  replacement identity matching the remaining principal cannot complete a
+  bootstrap recovery; a partially approved or expired break-glass request
+  changes no bootstrap authority.
+- A governed action evaluated immediately after an authorization fact changes
+  cannot reuse the prior action's decision; revocation, expiry, account or
+  employment changes, policy, baseline, and delegation changes apply from their
+  effective instant on the next action.
 - Timeline visibility changes with effective capability and scope, while the
   underlying Audit Record remains immutable.
 - An enabled sign-in account does not itself prove active employment, a Position
@@ -339,10 +372,13 @@ identity, decision reason, and scoped timeline visibility.
   Position responsibility, capability, and KPI Data Scope as distinct facts.
 - **FR-010**: Authorized actors MUST be able to prepare and submit an
   Organization Structure Baseline containing the applicable units, Positions,
-  Position Assignments, reporting lines, and scoped role assignments.
+  Position Assignments, and reporting lines. Role Assignments MUST remain
+  separately governed facts and MUST NOT be members of the first or any later
+  baseline snapshot.
 - **FR-011**: Baseline submission MUST be blocked until required structure,
-  primary Position, reporting, and authorization relationships are complete and
-  valid.
+  primary Position, and reporting relationships are complete and valid; absence
+  of Role Assignments MUST NOT block the first baseline while valid Bootstrap
+  Principals provide setup and independent-approval authority.
 - **FR-012**: An Organization Structure Baseline MUST require approval by an
   eligible actor who did not submit the same revision.
 - **FR-013**: An approved Organization Structure Baseline MUST be an immutable
@@ -382,7 +418,9 @@ identity, decision reason, and scoped timeline visibility.
   version, Organization, KPI Data Scope, effective period, requester, approval
   state, and reason.
 - **FR-023**: KPI Data Scope MUST support Organization, Organization Unit
-  subtree, assigned business responsibility, and self boundaries.
+  subtree, assigned business responsibility, and self boundaries. UnitSubtree
+  scope MUST reference an approved applicable baseline and therefore cannot be
+  created against an editable structure draft.
 - **FR-024**: A governed action MUST be allowed only when the actor has both the
   required effective KPI Capability and an applicable KPI Data Scope for the
   resource facts.
@@ -496,6 +534,30 @@ identity, decision reason, and scoped timeline visibility.
   residual units by descending fractional remainder; ties MUST use prior
   relative order and stable assignment identity, the prior assignee order MUST
   NOT be reversed, and the final weights MUST total exactly 100 percent.
+- **FR-048**: Explicit Organization provisioning MUST create two distinct
+  Organization-scoped Bootstrap Principals for initial setup and independent
+  approval. Bootstrap grants MUST be product-owned, non-delegable, fully
+  audited, unusable outside their Organization, and forbidden from sharing one
+  sign-in identity or bypassing same-artifact separation of duty. They MUST
+  expire automatically only after independently approved, effective Role
+  Assignments provide both replacement duties; failure to establish both
+  replacements MUST leave the bootstrap grants visible and effective rather
+  than silently locking the Organization out.
+- **FR-049**: Every governed action MUST evaluate authorization from the current
+  committed account, employment, Role Assignment, policy, baseline, delegation,
+  resource-revision, and effective-time facts. An Authorization Decision MUST
+  NOT be reused across separate governed actions. Repeated identical decisions
+  MAY be memoized only within one action execution and only while the actor,
+  Organization, capability, resource revision, effective instant, represented
+  authority, and loaded authorization facts remain identical.
+- **FR-050**: Before bootstrap handoff completes, replacement of an unavailable
+  Bootstrap Principal MUST use a platform-level, time-bounded break-glass
+  request approved by two distinct Platform Security Administrators. The
+  request MUST identify only the principal being replaced, require a reason and
+  expiry, reject either Bootstrap Principal as a platform approver, reject a
+  replacement identity equal to the remaining principal, change no authority
+  until both decisions exist, and preserve the request, decisions, replacement,
+  resulting grant, and expiry as immutable audit evidence.
 
 ### Key Entities
 
@@ -512,7 +574,8 @@ identity, decision reason, and scoped timeline visibility.
 - **Reporting Relationship**: Effective relationship used to explain management
   and direct-manager resolution.
 - **Organization Structure Baseline**: Approved immutable snapshot of the
-  structure and scoped responsibility facts used by downstream planning.
+  structure and workforce responsibility facts used by downstream
+  authorization and planning; it never contains a Role Assignment.
 - **Baseline Applicability Segment**: Effective interval selecting one approved
   baseline; after the first segment starts, segments form a gapless,
   non-overlapping chain and successor approval closes only predecessor
@@ -530,6 +593,14 @@ identity, decision reason, and scoped timeline visibility.
   which a capability may be exercised.
 - **Role Assignment**: Effective and approved relationship granting one exact
   role version to an Employee within a KPI Data Scope.
+- **Bootstrap Principal**: One of two explicitly provisioned, distinct sign-in
+  identities holding a temporary product-owned Organization-scoped setup or
+  independent-approval grant until governed Role Assignments replace both
+  duties; the grant is non-delegable, audited, and not a Custom KPI Role.
+- **Bootstrap Recovery Request**: Time-bounded platform-level break-glass fact
+  that replaces exactly one unavailable Bootstrap Principal only after two
+  distinct Platform Security Administrator decisions and preserves immutable
+  reason, expiry, decision, replacement, and grant evidence.
 - **Approval Group**: Organization-scoped internal group with effective-dated
   Employee memberships used by Named Group approval selectors.
 - **Approval Route Definition**: Organization-scoped route identity with
@@ -612,11 +683,30 @@ later features MUST consume.
   cases requiring rounding, repeated calculation produces the same assignment
   weights, preserves the prior assignee order, and totals exactly 100 percent at
   the configured precision.
+- **SC-014**: Under the accepted local authorization load, 100% of next-action
+  tests observe any account, employment, Role Assignment, policy, baseline, or
+  delegation change from its effective instant without cross-action decision
+  reuse, and authorization evaluation completes within 50 milliseconds p95
+  after the governed resource facts are loaded.
+- **SC-015**: In acceptance testing, 100% of bootstrap recovery attempts with
+  one approver, a Bootstrap Principal acting as platform approver, a replacement
+  matching the remaining principal, missing reason/expiry, or an expired
+  request are rejected without changing authority, while a request approved by
+  two distinct eligible Platform Security Administrators replaces only the
+  unavailable principal and exposes the complete immutable audit evidence.
+- **SC-016**: Under the first-feature acceptance envelope of 1,000 Employees and
+  200 Organization Units, structure validation completes within 2 seconds;
+  paged administration and authorized Organization-tree reads returning at
+  most 200 nodes complete within 500 milliseconds p95. These measurements and
+  the SC-014 authorization threshold are release-blocking automated evidence.
 
 ## Assumptions
 
 - The domain model remains Organization-scoped for future multi-company use,
   while only one Organization is operationally exposed in the first release.
+- The first-feature performance acceptance envelope is 1,000 Employees and 200
+  Organization Units; larger production sizing remains a later port/load-test
+  obligation and does not weaken Organization isolation or correctness rules.
 - A sign-in identity capability already exists outside this feature; this
   feature governs account status, Employee linkage, authorization outcomes, and
   audit evidence without choosing an authentication method.
