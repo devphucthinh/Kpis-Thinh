@@ -192,8 +192,24 @@ _Avoid_: Formula Test Run, KPI Target, mutable actual value
 A configurable ordered set of approval stages for a governed KPI artifact, resolved and preserved as an immutable workflow snapshot when that artifact is submitted.
 _Avoid_: Hard-coded job-title chain, current organization hierarchy
 
+**Approval Group**:
+An Organization-scoped internal approver group whose Employee memberships are effective-dated and whose eligible member set is frozen when a Named Group selector resolves a submitted artifact.
+_Avoid_: Live identity-provider group, mutable Employee list inside a route, Custom KPI Role
+
+**Approval Route Definition**:
+The stable Organization- and artifact-type-scoped identity that owns immutable Approval Route Versions and an optimistic configuration head.
+_Avoid_: Approval Route Snapshot, active approver list, hard-coded workflow
+
+**Approval Route Version**:
+An immutable ordered selector/fallback configuration that must be submitted, independently approved outside its maker/editor set, and activated through the artifact-type route slot before it can resolve new submissions.
+_Avoid_: Editable active route, Approval Route Snapshot, validation-only approval
+
+**Approval Route Activation Slot**:
+The single concurrency-controlled active Approval Route Definition and Version for one Organization and governed artifact type, switched atomically so replacement never creates an unroutable gap.
+_Avoid_: Latest route version, standalone route retirement, frontend-selected route
+
 **Approval Route Snapshot**:
-The immutable selector, candidate, resolved approver, fallback, scope, and applicable Organization Structure Baseline evidence frozen for every stage when a governed artifact is submitted.
+The immutable selector, candidate, resolved approver, Position/group resolution, fallback, scope, and applicable Organization Structure Baseline evidence frozen for every stage when a governed artifact is submitted.
 _Avoid_: Current manager lookup, editable approval route, approver display name
 
 **Approval Delegation**:

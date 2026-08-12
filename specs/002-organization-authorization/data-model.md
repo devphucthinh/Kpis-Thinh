@@ -38,7 +38,13 @@ erDiagram
     ORGANIZATION ||--|| ORGANIZATION_SECURITY_POLICY : tightens
 
     ORGANIZATION ||--o{ APPROVAL_ROUTE_DEFINITION : configures
+    ORGANIZATION ||--o{ APPROVAL_GROUP : owns
+    APPROVAL_GROUP ||--o{ APPROVAL_GROUP_MEMBERSHIP : contains
+    EMPLOYEE ||--o{ APPROVAL_GROUP_MEMBERSHIP : joins
     APPROVAL_ROUTE_DEFINITION ||--o{ APPROVAL_SELECTOR : orders
+    APPROVAL_ROUTE_DEFINITION ||--o{ APPROVAL_ROUTE_VERSION_REVIEW : governs
+    ORGANIZATION ||--o{ APPROVAL_ROUTE_ACTIVATION_SLOT : routes
+    APPROVAL_ROUTE_ACTIVATION_SLOT ||--o| APPROVAL_ROUTE_DEFINITION : activates
     APPROVAL_ROUTE_DEFINITION ||--o{ APPROVAL_ROUTE_SNAPSHOT : resolves
     STRUCTURE_BASELINE ||--o{ APPROVAL_ROUTE_SNAPSHOT : explains
     APPROVAL_ROUTE_SNAPSHOT ||--o{ APPROVAL_STAGE_SNAPSHOT : freezes
@@ -380,20 +386,50 @@ projection to show actions but must call the command again to enforce it.
 
 ## Approval and delegation
 
+### ApprovalGroup
+
+Organization-scoped internal approver group used only by `NamedGroup`
+selectors. The group head is editable with optimistic concurrency; membership
+history is stored separately and never overwritten.
+
+| Field | Type | Rule |
+|---|---|---|
+| `Id`, `OrganizationId` | `Guid` | Immutable identity and isolation boundary. |
+| `Code`, `Name`, `Description` | string | Code unique among non-retired groups in the Organization. |
+| `Status` | `Active/Retired` | Retired groups cannot resolve for new submissions. |
+| `Revision`, `RowVersion` | revision/token | Every accepted head or membership command advances the optimistic head. |
+| `CreatedBy/At`, `UpdatedBy/At` | evidence | Required. |
+
+### ApprovalGroupMembership
+
+| Field | Type | Rule |
+|---|---|---|
+| `Id`, `OrganizationId`, `ApprovalGroupId`, `EmployeeId` | `Guid` | All references belong to the same Organization. |
+| `EffectiveInterval` | interval | Required; no overlap for the same group and Employee. |
+| `CreatedBy/At`, `Reason` | evidence | Required and immutable. |
+| `EndedBy/At`, `EndReason` | optional evidence | Closing a membership is the only permitted change and cannot rewrite its start. |
+
+At submission, `NamedGroup` resolution selects memberships containing the
+resolution instant, then applies Employee/account eligibility, required
+capability, and required scope. The stage snapshot freezes group ID, membership
+IDs, eligible and ineligible Employee IDs with safe reason evidence, and the
+resolved candidate set. Later membership changes affect only later submissions.
+
 ### ApprovalRouteDefinition
 
 Stable Organization-scoped route identity for one governed artifact type. Its
 mutable head has `LatestVersion`, `Status`, and `RowVersion`. Each
 `ApprovalRouteVersion` contains ordered stages with one primary selector, zero
 or more explicit fallbacks, required capability, required scope relation, and
-decision policy. Used versions are immutable; changes require the route-head
-concurrency token and create a new version. Stale heads return HTTP 409 rather
-than branching.
+decision policy. Every version preserves its maker/editor identities. Changes
+require the route-head concurrency token and create a new version; stale heads
+return HTTP 409 rather than branching.
 
-Lifecycle: a new route begins `Draft`; successful validation permits
-`Active`; a replacement version becomes the active version atomically; `Retired`
-prevents new route snapshots while preserving historical ones. Only one active
-route version may exist for an Organization and governed artifact type.
+The definition status is `Draft/Active/Retired`. A definition may hold a new
+draft or approved version while an older version remains active. The active
+identity is selected by `ApprovalRouteActivationSlot`, not inferred from
+`LatestVersion`. A route-specific retire command may retire only a definition
+that is not selected by the activation slot.
 
 ### ApprovalRouteVersion
 
@@ -403,8 +439,58 @@ route version may exist for an Organization and governed artifact type.
 | `VersionNumber` | integer | Monotonic per route; unique with route ID. |
 | `ArtifactType` | stable string | Matches the route definition. |
 | `Stages` | ordered stage set | At least one; stage order is contiguous and unique. |
-| `Status` | `Draft/Active/Retired` | Only validated versions become active. |
-| `CreatedBy/At`, `ChangeReason` | evidence | Required. |
+| `Status` | `Draft/PendingApproval/Approved/Active/Rejected/Retired` | Direct `Draft -> Active` is forbidden. |
+| `CreatedBy/At`, `EditedByEmployeeIds` | evidence | All makers considered by separation of duty. |
+| `ChangeReason`, `ContentHash` | evidence | Required; submission freezes the hash. |
+| `SubmittedBy/At` | optional evidence | Required from `PendingApproval` onward. |
+| `ReviewDecisionId` | `Guid?` | Required for Approved/Rejected/Active. |
+
+```mermaid
+stateDiagram-v2
+    [*] --> Draft
+    Draft --> PendingApproval: submit frozen version
+    PendingApproval --> Approved: independent approve
+    PendingApproval --> Rejected: independent reject
+    Rejected --> [*]
+    Approved --> Active: independent activation
+    Active --> Retired: atomic replacement activates successor
+    Approved --> Retired: governed retire before use
+```
+
+A rejected version is terminal; further editing creates a new Draft version
+from the optimistic route head and leaves the rejected decision unchanged.
+
+### ApprovalRouteVersionReview
+
+Immutable decision over one submitted version.
+
+| Field | Type | Rule |
+|---|---|---|
+| `Id`, `OrganizationId`, `RouteDefinitionId`, `RouteVersionId` | `Guid` | Exact submitted version and Organization. |
+| `Decision` | `Approve/Reject` | One terminal review decision per submission. |
+| `ReviewerEmployeeId`, `OccurredAt`, `Reason` | evidence | Required. Reviewer differs from every maker/editor. |
+| `CapabilityId` | stable string | Must be `approval.route.approve`. |
+| `ScopeEvidence`, `AuthorizationDecisionId`, `CorrelationId` | immutable evidence | Proves applicable scope and separation of duty. |
+
+### ApprovalRouteActivationSlot
+
+One mutable concurrency owner per `(OrganizationId, ArtifactType)`.
+
+| Field | Type | Rule |
+|---|---|---|
+| `OrganizationId`, `ArtifactType` | key | Unique. |
+| `ActiveRouteDefinitionId`, `ActiveRouteVersionId` | nullable references | Both null only before the first activation. |
+| `Revision`, `RowVersion` | revision/token | Protects concurrent activation/switch. |
+| `UpdatedBy/At`, `Reason` | evidence | Required for every activation. |
+
+Activation requires an `Approved` target, `approval.route.activate`, an actor
+different from every target maker/editor, the target route-head token, and the
+slot token. The transaction locks the slot and affected route heads, verifies
+the expected active identity, retires the prior active version and any replaced
+route definition, activates the target, updates the slot, and writes immutable
+Audit Records. Failure rolls back every change. Retiring the slot's active route
+returns `approval.route.replacement-required`; activating an independently
+approved replacement is the only route-removal path.
 
 ### ApprovalSelector
 
@@ -417,9 +503,33 @@ Discriminated selector kinds:
 - `NamedGroup`
 - `CapabilityWithinScope`
 
-Each selector defines the source subject and the applicable approved baseline.
-Resolution returns either an ordered eligible candidate set plus evidence or a
-stable failure path. It never silently skips a stage.
+Selector definitions are discriminated records, not one object with optional
+fields:
+
+- `DirectManager` has no configured Position. It requires an
+  `ApprovalSubjectContext` containing subject Employee and optional Position/
+  business-responsibility context. A supplied Position must be used and an
+  invalid supplied context fails; only an absent Position context may fall back
+  to the applicable primary Position.
+- `OrganizationUnitHead` requires `OrganizationUnitId` and the explicitly
+  configured `EmployeeId`. The Employee must have an applicable active Position
+  Assignment to a Position in that exact unit; title/rank is never inferred.
+- `PositionHolder` requires `PositionId`.
+- `NamedEmployee` requires `EmployeeId`.
+- `NamedGroup` requires an active `ApprovalGroupId`.
+- `CapabilityWithinScope` requires a capability and scope selector.
+
+Every selector also uses the applicable approved baseline. Resolution returns
+an ordered eligible candidate set plus evidence or a stable failure path and
+never silently skips a stage.
+
+### ApprovalSubjectContext
+
+Immutable input derived from the submitted artifact: Organization, artifact
+type/ID/revision, subject Employee, optional subject Position, optional business
+responsibility reference, resource unit path, and effective instant. Artifacts
+that support Position-context routing must publish these fields rather than
+forcing route resolution to infer them.
 
 ### ApprovalRouteSnapshot
 
@@ -430,7 +540,7 @@ stable failure path. It never silently skips a stage.
 | `RouteDefinitionId/Version` | reference | Exact configured route. |
 | `BaselineId` | `Guid` | Applicable approved structure used to resolve. |
 | `SubmittedBy/At` | evidence | Required. |
-| `Stages` | ordered snapshots | Selector, candidates, resolved actor, fallback, scope, and evidence. |
+| `Stages` | ordered snapshots | Selector, candidates, resolved actor, fallback, scope, Position-resolution source, reporting evidence, frozen group membership, and evidence. |
 | `Status` | `Pending/Approved/Rejected/Blocked` | Derived from immutable decisions. |
 
 ### ApprovalDelegation
@@ -501,6 +611,29 @@ Future Planning/Evaluation integration key:
 This feature defines and tests the contract but does not create official KPI
 results.
 
+## Organization KPI Workspace foundation read model
+
+Feature 002 publishes and implements only the authorized organization navigator
+portion of the approved workspace.
+
+### OrganizationTreeReadModel
+
+| Field | Meaning |
+|---|---|
+| `OrganizationId`, `BaselineId`, `BaselineApplicabilitySegmentId` | Exact approved structure context. |
+| `EffectiveAt` | Instant used for baseline, employment, assignment, and scope resolution. |
+| `ParentUnitId`, `Search` | Branch/search request echoed for URL-restorable navigation. |
+| `Nodes` | Scope-filtered Unit and Position nodes with stable IDs, labels, path, has-children state, and allowed UI actions. |
+| `ConcurrencyContext` | Baseline/segment identity used to reject stale mixed-context reads. |
+
+Unit nodes are expand/collapse-only. Position nodes are selectable. The
+foundation shell may show that the KPI neighborhood is not yet available, but
+it does not persist or synthesize KPI Plan, hierarchy, assignment, Target,
+Actual, Variance, score, or KPI Effective Segment facts. Those future DTOs and
+their exact one-edge relationship invariant are defined in
+`contracts/organization-kpi-workspace.md` and implemented by their named later
+feature owners.
+
 ## AuditRecord extension
 
 The existing Audit Record grows without losing current fields:
@@ -528,7 +661,8 @@ authorization commands must populate them.
 | Custom role | `custom_kpi_roles`, `custom_kpi_role_versions`, `custom_kpi_role_capabilities` | unique role/version; immutable used version |
 | Policy | `organization_security_policies` | one current head per Organization; revision + `xmin` |
 | Role Assignment | `role_assignments`, `role_assignment_decisions` | exact role version; range indexes; proposal concurrency |
-| Approval | `approval_route_definitions`, `approval_route_versions`, `approval_route_snapshots`, `approval_stage_snapshots`, `approval_decisions` | `xmin` on route head; immutable used version/snapshot/decision |
+| Approval Group | `approval_groups`, `approval_group_memberships` | `xmin` on group head; GiST exclusion for same group/Employee membership overlap |
+| Approval | `approval_route_definitions`, `approval_route_versions`, `approval_route_version_reviews`, `approval_route_activation_slots`, `approval_route_snapshots`, `approval_stage_snapshots`, `approval_decisions` | `xmin` on route head/activation slot; immutable submitted version/review/snapshot/decision |
 | Delegation | `approval_delegations`, `approval_delegation_decisions` | effective range indexes; non-expansion checked Domain/Application |
 | Mid-period impact | `baseline_change_impacts` | immutable baseline pair + effective time |
 | Audit | extended `audit_records` | update/delete rejected by database trigger |
@@ -549,6 +683,10 @@ Organization mismatch as not-found/denied rather than loading cross-scope data.
 - Baseline unit path index for ancestor/subtree checks.
 - Effective Role Assignment lookup by Organization + Employee + status/range.
 - Route queue lookup by Organization + resolved actor + pending stage.
+- Unique activation slot by Organization + artifact type; active route/version
+  references must match the same Organization and artifact type.
+- Effective Approval Group membership lookup by Organization + group + range;
+  GiST exclusion prevents overlap for the same group and Employee.
 - Audit timeline lookup by Organization + resource + occurred time and by actor.
 - Unique `(RoleId, VersionNumber)` and `(OrganizationId, normalized RoleName)`.
 
@@ -559,7 +697,12 @@ Baseline approval takes a row lock on the Organization baseline-chain owner and
 atomically commits the approved baseline projection, closes the predecessor
 applicability segment at the exact successor start, opens the successor segment,
 and writes `BaselineChangeImpact`. Role/version and route/version creation lock
-their optimistic heads and reject stale tokens. Role Assignment approval commits
-its decision and scheduled/effective grant. Approval decisions commit the
-decision plus route status. A concurrency or database-constraint failure writes
-no partial state and maps to stable HTTP 409 Problem Details.
+their optimistic heads and reject stale tokens. Route-version review commits an
+immutable decision without activation. Route activation locks the artifact-type
+slot and affected route heads, atomically retires the prior active version/route,
+activates the independently approved target, advances the slot, and writes audit
+evidence. Approval Group membership commands advance the group head and preserve
+effective history. Role Assignment approval commits its decision and scheduled/
+effective grant. Approval decisions commit the decision plus route status. A
+concurrency or database-constraint failure writes no partial state and maps to
+stable HTTP 409 Problem Details.

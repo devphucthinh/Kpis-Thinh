@@ -38,7 +38,10 @@ deterministic:
 7. If represented authority is used, intersect original authority, delegation,
    effective interval, responsibility, and scope; never union them.
 8. Apply same-artifact separation of duty against submitter, requester,
-   beneficiary, prior maker, and represented authority.
+   beneficiary, prior maker/editor, and represented authority. Route-version
+   review and activation both reject every actor who created or edited that
+   version, even when one Custom Role contains maker, approver, and activator
+   capabilities.
 9. Return Allow with only the minimum assignment/scope evidence needed for
    audit; otherwise return one stable Deny reason.
 
@@ -106,7 +109,7 @@ Initial business-area groups:
 | Organization | `organization.structure.view`, `organization.structure.edit`, `organization.baseline.submit`, `organization.baseline.approve` |
 | Workforce | `workforce.employee.view`, `workforce.employee.manage`, `workforce.position.manage` |
 | Security | `security.custom-role.view`, `security.custom-role.manage`, `security.role-assignment.request`, `security.role-assignment.approve` |
-| Approval | `approval.route.manage`, `approval.delegation.request`, `approval.delegation.approve`, `approval.decision.make` |
+| Approval | `approval.group.manage`, `approval.route.manage`, `approval.route.submit`, `approval.route.approve`, `approval.route.activate`, `approval.delegation.request`, `approval.delegation.approve`, `approval.decision.make` |
 | Audit | `audit.timeline.view`, `audit.organization.view` |
 
 The implementation task must publish the complete initial catalog and tests;
@@ -157,6 +160,44 @@ The interface is tested with matrix rows across:
 
 Tests assert outcome, stable reason, evidence minimization, and transactional
 Audit Record behavior through the same interface used by controllers.
+
+## Approval Route governance seam
+
+Route configuration is governed independently from runtime artifact approval:
+
+```csharp
+public interface IApprovalRouteGovernance
+{
+    Task<ApprovalRouteVersion> SubmitAsync(...);
+    Task<ApprovalRouteVersionReview> DecideAsync(...);
+    Task<ApprovalRouteActivationResult> ActivateAsync(...);
+    Task<ApprovalRouteDefinition> RetireInactiveAsync(...);
+}
+```
+
+`SubmitAsync` freezes the version and all maker/editor identities.
+`DecideAsync` requires `approval.route.approve`, applicable scope, and a reviewer
+outside that maker set. `ActivateAsync` requires an approved version,
+`approval.route.activate`, the same maker exclusion, current route-head and
+artifact-type activation-slot tokens, and one atomic prior-retire/target-
+activate transaction. `RetireInactiveAsync` rejects the active slot target with
+`approval.route.replacement-required`.
+
+Selector resolution receives one immutable `ApprovalSubjectContext`. A supplied
+artifact Position is authoritative for `DirectManager`; primary Position is
+used only when context is absent. `OrganizationUnitHead` uses its configured
+Employee plus exact-unit Position Assignment. `NamedGroup` resolves the
+effective internal Approval Group membership. Every source and candidate set is
+written to the route snapshot.
+
+## Organization tree query authorization
+
+The workspace tree query asks the same decision module for
+`organization.structure.view` and applies the actor's effective KPI Data Scope
+to the approved baseline projection before returning Unit/Position nodes.
+Search, lazy branch expansion, and selected-Position restoration cannot expand
+the scope. The reduced action projection remains advisory; direct Position URLs
+and every later command are independently authorized.
 
 ## Approved baseline gate
 

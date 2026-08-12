@@ -176,19 +176,29 @@ token and the repository already uses the same mapping for KPI definitions.
 
 **Primary sources**: [EF Core concurrency handling](https://learn.microsoft.com/en-us/ef/core/saving/concurrency) and [Npgsql concurrency tokens](https://www.npgsql.org/efcore/modeling/concurrency.html?tabs=fluent-api).
 
-## Decision 9: Snapshot approval routes at submission
+## Decision 9: Independently approve route versions before activation
 
 **Decision**: Route definitions have optimistic mutable heads and immutable
-versions containing ordered selectors and explicit fallbacks. Versioned JSON
-contracts support create, read, validate/activate, and create-new-version
-operations with stale-head HTTP 409 behavior. Submission resolves the active
-version using the applicable approved baseline and stores candidate/resolved
-identities, evidence, scope, and baseline revision in an immutable route
-snapshot. Later organization changes do not alter it.
+versions containing ordered selectors and explicit fallbacks. A version follows
+`Draft -> PendingApproval -> Approved -> Active` or ends as `Rejected`/
+`Retired`. Submission freezes its maker and reviewed content. A different actor
+with `approval.route.approve` and applicable scope records an immutable decision;
+the maker/editor cannot approve or activate that version. Activation requires
+an approved version, `approval.route.activate`, a different eligible actor, the
+current route-head token, and the current artifact-type activation-slot token.
+Versioned JSON contracts expose every state transition and stable stale-head/
+stale-slot HTTP 409 behavior.
 
-**Rationale**: A decision must remain explainable from the facts visible at
-submission time. Re-resolving from the current structure would silently change
-the approver and destroy audit reproducibility.
+Submission of a governed artifact resolves only the active version using the
+applicable approved baseline and stores candidate/resolved identities, Position
+context, group membership, fallback evidence, scope, and baseline revision in an
+immutable route snapshot. Later organization or group changes do not alter it.
+
+**Rationale**: Route configuration controls who may authorize product changes,
+so direct maker activation would be an indirect privilege-escalation path. A
+separate immutable review makes the configuration decision explainable, while
+snapshotting preserves the facts visible when each governed artifact was
+submitted.
 
 **Alternatives considered**:
 
@@ -196,6 +206,8 @@ the approver and destroy audit reproducibility.
   route would drift after manager or Position changes.
 - Store only the chosen actor: rejected because it loses selector and fallback
   evidence.
+- Treat validation as approval: rejected because syntax/eligibility validation
+  cannot provide independent governance or separation of duty.
 
 ## Decision 10: Treat delegation as constrained represented authority
 
@@ -291,6 +303,105 @@ rules authoritative, and remains portable to `BSC-KPIs`.
 - Client-side authorization: rejected because visibility cannot authorize a
   governed command.
 
+## Decision 15: Model effective-dated internal Approval Groups
+
+**Decision**: `NamedGroup` selects an Organization-scoped internal
+`ApprovalGroup`. The group is an optimistic mutable head; its Employee
+memberships are effective-dated immutable facts with no overlapping interval for
+the same group/Employee. Membership changes close or schedule facts rather than
+rewriting history. Route resolution filters active, employed, in-scope members
+at submission and freezes group ID, membership IDs, Employee IDs, eligibility
+evidence, and resolution time in the route snapshot.
+
+**Rationale**: An internal group is auditable during the first release and does
+not make approval depend on an external identity-provider lookup. Effective
+membership plus a frozen snapshot prevents a later group edit from changing an
+already submitted route.
+
+**Alternatives considered**:
+
+- Read a live external identity group: deferred with production identity
+  integration because it cannot currently satisfy restart and historical proof.
+- Store an unversioned Employee list inside the route: rejected because it
+  duplicates workforce identity and silently overwrites membership history.
+
+## Decision 16: Make selector source semantics explicit
+
+**Decision**: Selector contracts use a discriminator with kind-specific shapes.
+`OrganizationUnitHead` requires both the relevant Organization Unit and the
+explicit configured Employee; resolution verifies an active Position Assignment
+in that exact unit plus employment, capability, and scope. `DirectManager`
+obtains its subject Position from the governed artifact's Position/business-
+responsibility context. Only an artifact with no Position context may fall back
+to the subject Employee's applicable primary Position. The source kind,
+Position Assignment, subject Position, reporting relationship, manager Position,
+candidates, and fallback are frozen in the stage snapshot.
+
+**Rationale**: Free-form selector fields allow invalid combinations and make
+multi-Position Employees ambiguous. Kind-specific shapes make invalid
+configuration rejectable before submission and preserve an exact explanation.
+
+**Alternatives considered**:
+
+- Infer a unit head from title or reporting-tree rank: rejected by the approved
+  product decision and because the inference is not a governed identity.
+- Always use the primary Position for Direct Manager: rejected because a
+  multi-Position Employee's artifact may belong to another responsibility.
+
+## Decision 17: Serialize route replacement through one activation slot
+
+**Decision**: Each `(OrganizationId, ArtifactType)` owns one optimistic
+`ApprovalRouteActivationSlot` with its active route/version and concurrency
+token. Activating an independently approved target locks the slot and relevant
+route heads, verifies the expected active identity, retires the previous active
+version and, when switching definitions, its route definition, then activates
+the target in one transaction. The route-specific retire command rejects the
+slot's active route with `approval.route.replacement-required`; activating an
+approved replacement is the only operation that can remove that active route.
+
+**Rationale**: A slot makes the invariant and concurrency owner explicit. The
+transaction cannot expose an instant with no route, and a concurrent activation
+or retirement returns a stable conflict instead of silently selecting a winner.
+
+**Alternatives considered**:
+
+- Retire and activate as separate requests: rejected because a failure between
+  requests creates an unroutable gap.
+- A database query that searches for an arbitrary active version without a
+  concurrency owner: rejected because two route definitions could race.
+
+## Decision 18: Split the Organization KPI Workspace by feature ownership
+
+**Decision**: Feature 002 implements the authorized Organization tree read
+model, branch loading/search, Position selection, applicable baseline context,
+URL-restorable MVC/Razor shell, capability/data-scope filtering, empty/forbidden/
+conflict states, keyboard interaction, and 390-pixel drawer behavior. It also
+publishes a versioned integration contract for the future one-edge KPI
+neighborhood. The shell labels KPI neighborhood, Effective Segment, Target,
+Actual, Variance, score, and Employee KPI responsibility as unavailable until
+their named Planning/Cascade/Actual/Evaluation owners provide durable facts; it
+does not use production-looking fixtures.
+
+The later modules own the real parent/child graph, the three weight kinds,
+Employee KPI assignments, KPI Effective Segments, official Target/Actual/
+Variance/score, and whole-period aggregation. The future endpoint is coarse-
+grained and backend-authoritative; the frontend never traverses or calculates
+those facts.
+
+**Rationale**: The approved workspace can establish its navigation and
+authorization seam now without violating feature 002's scope. An explicit
+contract prevents later modules from inventing incompatible page DTOs while
+keeping their business behavior out of the foundation acceptance claim.
+
+**Alternatives considered**:
+
+- Implement full KPI neighborhood in feature 002: rejected because the required
+  Plan, Cascade, Actual, and Evaluation aggregates are explicitly out of scope.
+- Use mock KPI rows to finish the UI: rejected because mock evidence cannot pass
+  the PostgreSQL or reference-port gate.
+- Let Razor derive relations or results: rejected because the backend must own
+  hierarchy, authorization, calculation, and aggregation.
+
 ## Resolved unknowns
 
 All Technical Context items are resolved. The following cross-feature ownership
@@ -301,3 +412,6 @@ is intentional rather than unresolved:
   validation; these are behavioral seams rather than document-only promises.
 - The later Planning feature applies a governed KPI plan amendment/re-cascade.
 - The later Evaluation feature calculates and combines official segment results.
+- Feature 002 implements the authorized Organization/Position navigator and
+  publishes the Organization KPI Workspace integration contract; later modules
+  populate its KPI neighborhood and result projections from durable facts.

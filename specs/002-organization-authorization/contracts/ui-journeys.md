@@ -12,7 +12,8 @@ Quản trị
 |   |-- Cấu trúc đơn vị
 |   |-- Vị trí và quan hệ báo cáo
 |   |-- Nhân viên và phân công vị trí
-|   `-- Baseline cơ cấu
+|   |-- Baseline cơ cấu
+|   `-- Không gian KPI theo cơ cấu
 |-- Bảo mật KPI
 |   |-- Danh mục tác vụ
 |   |-- Vai trò tùy chỉnh
@@ -82,18 +83,32 @@ role creation grants the role to its creator.
 ## Journey 4: Route resolution and delegation
 
 1. A route owner creates a draft route version with ordered stages, a primary
-   selector, explicit fallbacks, required capability, and required scope
-   relation; validation/activation is a governed action.
+   typed selector, explicit fallbacks, required capability, and required scope
+   relation. `Organization Unit Head` requires Unit plus explicit Employee;
+   `Named Group` selects an internal effective-dated Approval Group.
 2. Editing an active/used route creates a new version with a before/after diff
    and opaque head token. A stale editor receives a conflict and current head;
    existing route snapshots remain on the original version.
-3. Submitting an artifact shows the applicable baseline and a preview of
+3. Validation reports configuration errors without activating the route. The
+   owner submits a frozen version and a different actor with applicable
+   `approval.route.approve` capability reviews its diff and reason. The maker or
+   editor cannot approve or activate the same version.
+4. An eligible non-maker activates only an approved version. If another route
+   is active for the artifact type, the page shows both identities and performs
+   one atomic switch; attempting to retire the active route without an approved
+   replacement is blocked with **Cần route thay thế đã duyệt**.
+5. Submitting an artifact shows the applicable baseline and a preview of
    resolved candidates. No eligible primary/fallback blocks submission with the
    failed selector path.
-4. The frozen timeline shows selector, candidate evidence, resolved actor,
-   fallback, scope, and baseline revision.
-5. An original approver creates a time/scope/responsibility-limited delegation.
-6. A delegate decision displays **Thực hiện thay cho** and preserves both
+6. A Direct Manager stage shows whether it used artifact Position context or
+   the allowed primary-Position fallback. A Named Group stage shows the frozen
+   effective member/candidate evidence. Later manager or group changes do not
+   change the snapshot.
+7. The frozen timeline shows selector, candidate evidence, resolved actor,
+   Position/group evidence, fallback, scope, route review, activation, and
+   baseline revision.
+8. An original approver creates a time/scope/responsibility-limited delegation.
+9. A delegate decision displays **Thực hiện thay cho** and preserves both
    identities. Expired/out-of-scope delegation is rejected without skipping the
    stage.
 
@@ -130,6 +145,29 @@ tree scope. Each visible entry shows:
 Hidden entries are omitted rather than replaced by revealing placeholders. The
 immutable Audit Record remains intact regardless of current visibility.
 
+## Journey 6: Organization KPI Workspace foundation
+
+1. Open **Không gian KPI theo cơ cấu**. The server resolves the applicable
+   approved baseline and exact Baseline Applicability Segment for the URL's
+   `effectiveAt`.
+2. The lazy tree returns only Organization Units and Positions allowed by
+   `organization.structure.view` plus KPI Data Scope. Organization Unit nodes
+   expand/collapse; they never select or aggregate KPIs.
+3. Select a Position. The URL records Position, baseline, effective time,
+   branch, and search state. Refresh, back, forward, and a copied URL restore
+   the same authorized Position.
+4. A direct URL to an out-of-scope Position returns a safe forbidden/not-found
+   experience without selecting another Position or revealing hidden ancestry.
+5. Until later Planning/Cascade/Actual/Evaluation providers exist, the detail
+   region explains that the KPI neighborhood is unavailable. It does not render
+   mock Target, Actual, Variance, score, weights, or KPI Effective Segment.
+6. At 390 pixels the tree opens in **Chọn vị trí**; keyboard arrow/Enter
+   behavior, focus restoration, and all context evidence remain available.
+
+The later workspace journeys consume
+`contracts/organization-kpi-workspace.md` to add the exactly-one-edge KPI table
+and official results without changing these navigation or authorization rules.
+
 ## Visual and accessibility states
 
 - Lifecycle, data, and decision status use text plus badge/icon; never color
@@ -161,6 +199,9 @@ Using seeded Development personas with distinct Employee/account identities:
    protected details.
 9. A mid-period baseline change produces impact and deterministic weight
    preview evidence.
+10. The authorized Organization KPI Workspace restores an in-scope Position
+    URL after restart, blocks an out-of-scope Position safely, and displays the
+    honest future-provider state without KPI fixtures.
 
 The journey runs with keyboard assertions and a 390-pixel viewport and is
 repeated after Web restart to prove durable PostgreSQL behavior.

@@ -44,9 +44,21 @@ that instant onward baseline applicability is a gapless chain: successor
 approval locks the Organization chain, atomically closes predecessor
 applicability at the successor start, and opens the successor segment. The
 reviewed baseline content remains immutable. Approval routes have optimistic
-heads and immutable versions, resolve from the applicable baseline, and are
-snapshotted at submission. Later structure changes never rewrite earlier route,
-baseline content, assignment, decision, or audit evidence.
+heads and immutable versions. Every new or changed version is frozen on
+submission, independently approved by an eligible actor outside its maker/
+editor set, and activated only by an eligible non-maker. One optimistic
+activation slot per Organization and artifact type serializes replacement:
+activation retires the prior active version/route and activates the approved
+target atomically, so standalone retirement cannot create an unroutable gap.
+
+Typed route selectors resolve from the applicable baseline. An Organization
+Unit Head is an explicitly configured Employee validated in the relevant unit;
+a Direct Manager starts from artifact Position context and falls back to the
+applicable primary Position only when context is absent. Named groups use
+Organization-scoped internal Approval Groups with effective-dated Employee
+memberships. Submission freezes Position resolution, group membership,
+candidates, scope, and fallback evidence. Later structure or group changes never
+rewrite earlier route, baseline content, assignment, decision, or audit evidence.
 
 A mid-period replacement baseline creates an immutable change-impact fact and a
 deterministic proportional re-cascade preview. Existing weights are scaled into
@@ -58,7 +70,8 @@ segment contract.
 
 PostgreSQL remains the race-safe guard: row locking plus atomic predecessor
 close/successor insert protects continuity, range/exclusion constraints protect
-non-overlap, `xmin` protects workspace/policy/role/route/assignment heads,
+non-overlap, `xmin` protects workspace/policy/role/route/group/activation-slot/
+assignment heads,
 immutable facts have no update/delete interface, and the explicit migrator
 remains the only schema writer.
 
@@ -70,7 +83,10 @@ remains the only schema writer.
   reusable across MVC, JSON, background work, tests, and future target hosts.
 - UI action visibility improves usability but cannot bypass backend decisions.
 - Historical approvals remain reproducible from exact baseline, route, role
-  version, assignment, delegation, and audit evidence.
+  version, Position/group selector evidence, assignment, delegation, and audit
+  evidence.
+- Approval Route configuration cannot be self-approved or activated by its
+  maker, and replacement cannot leave an artifact type without an active route.
 - Mid-period structure changes preserve before/after causality and provide one
   deterministic weight algorithm for future Planning consumers.
 - The model requires additional immutable/versioned tables, effective-range

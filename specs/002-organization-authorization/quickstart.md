@@ -44,8 +44,10 @@ environment, run:
 Expected migration evidence:
 
 - Organization/workspace/revision/baseline/applicability tables exist.
-- Role, role-version, capability link, scoped assignment, policy, versioned
-  route, delegation, impact, and extended audit tables exist.
+- Role, role-version, capability link, scoped assignment, policy, Approval
+  Group/effective membership, independently reviewed route,
+  artifact-type activation slot, delegation, impact, and extended audit tables
+  exist.
 - The named baseline effective-range exclusion constraint rejects overlap; the
   unique open tail plus serialized atomic predecessor-close/successor-insert
   path rejects gaps and concurrent branches.
@@ -83,6 +85,13 @@ Expected focused behavior:
 - API tests prove stable 400/403/404/409/422 Problem Details and do not reveal
   cross-Organization resources; route-definition and role-version stale heads
   return stable 409 responses.
+- Route governance tests prove maker/editor review and activation denial,
+  independently approved activation, stale activation-slot conflict, atomic
+  replacement, blocked active-route retirement, typed selector validation, and
+  frozen Position/Approval Group evidence.
+- Workspace tests prove approved-baseline lazy tree reads, Unit expand-only and
+  Position-select semantics, scope-filtered direct URLs, restorable URL state,
+  and an honest no-KPI-provider state.
 - PostgreSQL tests prove approved baselines, role versions, assignments, route
   snapshots, delegations, impacts, and Audit Records survive a fresh DbContext
   and Web restart.
@@ -159,17 +168,35 @@ identities.
 
 ### C. Route and delegation
 
-1. Create a route draft with Direct Manager primary selector, Position Holder
-   fallback, required capability, and scope relation; validate and activate it.
-2. Create a new version using `If-Match`, then retry from the stale token and
+1. Create an internal Approval Group, add effective-dated Employee memberships,
+   and confirm overlapping membership for the same group/Employee is rejected.
+2. Create a route draft with Direct Manager primary selector, Position Holder
+   fallback, required capability, and scope relation. Add stages using an
+   explicit Employee plus Unit for Organization Unit Head and the internal
+   group for Named Group; confirm invalid field combinations fail validation.
+3. Validate and submit the frozen route version. Attempt review and activation
+   as its maker/editor and confirm `authorization.separation-of-duty`.
+4. Approve as a different eligible actor with a reason. Confirm approval alone
+   does not bypass the activation capability, then activate as an eligible
+   non-maker using the route-head and activation-slot tokens.
+5. Create a new version using `If-Match`, then retry from the stale token and
    confirm HTTP 409 without an implicit route branch.
-3. Submit an artifact through the active route and inspect the frozen
-   baseline/selector evidence.
-4. Change the live manager after submission. Confirm the stored route is
+6. Submit a multi-Position Employee artifact with Position context. Confirm
+   Direct Manager uses that Position. Submit a context-free supported artifact
+   and confirm the primary-Position fallback is labeled; invalid supplied
+   Position context must fail rather than silently fall back.
+7. Submit through Named Group, then change live membership. Confirm the stored
+   membership/candidate snapshot remains unchanged.
+8. Prepare and independently approve a replacement. Attempt to retire the only
+   active route directly and confirm `approval.route.replacement-required`;
+   activate the replacement and confirm prior retirement plus target activation
+   commit atomically. A concurrent stale slot request returns HTTP 409 and
+   leaves the original active route routable.
+9. Change the live manager after submission. Confirm the stored route is
    unchanged.
-5. Create a time/scope-limited delegation and decide as the delegate.
-6. Confirm both original and acting identities appear in the timeline.
-7. Retry outside the interval or scope; confirm denial and no stage skip.
+10. Create a time/scope-limited delegation and decide as the delegate. Confirm
+    both original and acting identities appear in the timeline; retry outside
+    the interval or scope and confirm denial with no stage skip.
 
 ### D. Mid-period impact and weight preview
 
@@ -187,11 +214,30 @@ identities.
    without claiming an official KPI result. Record the later Planning/Evaluation
    acceptance obligations separately.
 
+### E. Organization KPI Workspace foundation
+
+1. Open **Không gian KPI theo cơ cấu** at an instant with an applicable approved
+   baseline. Confirm the page shows the exact Baseline Applicability Segment,
+   not a fabricated KPI Effective Segment.
+2. Expand Organization Unit nodes and confirm they never select or aggregate
+   KPI data. Select an in-scope Position and confirm Position, baseline,
+   effective time, branch, and search state are reflected in the URL.
+3. Refresh, use back/forward, and open a copied URL. Confirm the same authorized
+   Position is restored.
+4. Attempt a direct URL for an out-of-scope Position. Confirm a safe forbidden/
+   not-found experience without hidden ancestry or Employee leakage.
+5. Confirm the foundation detail region states that KPI neighborhood providers
+   are not yet available and renders no mock Target, Actual, Variance, score,
+   weights, or KPI Effective Segment.
+6. Repeat with keyboard only and a 390-pixel viewport. Confirm the **Chọn vị
+   trí** drawer restores focus and every node's Unit-versus-Position semantics
+   remain understandable without color.
+
 ## 6. Prove restart persistence
 
 1. Record IDs/hashes for the approved baseline and applicability chain, role
-   versions, route versions/snapshot, assignment, delegation, impact, and
-   representative Audit Records.
+   versions, Approval Group/memberships, route reviews/activation slot/versions/
+   snapshot, assignment, delegation, impact, and representative Audit Records.
 2. Stop the Web process normally.
 3. Start the same `Thinh-KPI-TEST` profile again.
 4. Query the records through UI/API and compare IDs, revision/hash, effective
@@ -208,6 +254,10 @@ The product owner must review:
 - Microsoft 365 Admin Center-style business-task role editor;
 - privilege/scope preview and independent approval flow;
 - delegation labels and complete explanation timeline;
+- independent route review, atomic replacement, typed selector evidence, and
+  Approval Group history;
+- Organization KPI Workspace tree/Position navigation, URL restoration, honest
+  provider boundary, and 390-pixel drawer;
 - mid-period impact and deterministic weight preview;
 - keyboard operation, focus, warnings, and non-color error evidence;
 - PostgreSQL restart proof.
