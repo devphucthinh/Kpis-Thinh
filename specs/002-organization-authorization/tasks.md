@@ -28,7 +28,7 @@ documentation structure without changing target repositories.
 - [ ] T002 [P] Create the feature test directory layout under `tests/Kpi.Domain.Tests/Organizations`, `tests/Kpi.Domain.Tests/Authorization`, `tests/Kpi.Domain.Tests/Approvals`, `tests/Kpi.Application.Tests/Organizations`, `tests/Kpi.Application.Tests/Authorization`, `tests/Kpi.Application.Tests/Approvals`, `tests/Kpi.IntegrationTests/Api`, `tests/Kpi.IntegrationTests/Database`, `tests/Kpi.IntegrationTests/Web`, and `tests/Kpi.Web.EndToEndTests`
 - [ ] T003 [P] [Setup] Add deterministic Development platform and Employee/account persona fixtures without credentials in `tests/Kpi.IntegrationTests/Fixtures/DevelopmentIdentityFixture.cs`
 - [ ] T004 [P] [Setup] Add the `Thinh-KPI-TEST` PostgreSQL launch/profile assertions in `tests/Kpi.IntegrationTests/Composition/TestProfileContractTests.cs`
-- [ ] T005 [P] Add the feature capability-code and stable-problem-code inventory test scaffold in `tests/Kpi.Application.Tests/Authorization/CapabilityCatalogContractTests.cs`
+- [X] T005 [P] Add the feature capability-code and stable-problem-code inventory test scaffold in `tests/Kpi.Application.Tests/Authorization/CapabilityCatalogContractTests.cs`
 - [ ] T006 [Setup] Add the feature evidence ledger and performance-measurement schema to `.scratch/bsc-kpi-reference/evidence.md`
 - [ ] T007 [P] Add OpenAPI/ref/operationId validation to `tests/Kpi.IntegrationTests/Api/OpenApiContractTests.cs`
 - [ ] T008 [Setup] Run `./harness.cmd bootstrap` and record the clean baseline build/provisioning result in `.scratch/bsc-kpi-reference/evidence.md`
