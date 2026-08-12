@@ -189,8 +189,10 @@ pass-through layer is introduced.
    Employees, Positions and Position Assignments, validation, immutable revision,
    independent baseline approval by the two active Bootstrap Principals, baseline
    lookup, proof that the baseline contains no Role Assignment, and durable
-   restart evidence. Tests for the complete baseline journey precede its
-   implementation.
+   restart evidence. Bootstrap recovery is included in this MVP; governed Role
+   Assignment replacement and the atomic bootstrap handoff are deliberately
+   verified in the later P2 slice after role and assignment behavior exists.
+   Tests for the complete baseline/recovery journey precede its implementation.
 3. **P2 capability authorization and handoff**: fixed catalog, custom role
    versioning, security floor, post-baseline scoped Role Assignment approval,
    runtime decision reasons, denied-action audit, and an atomic immutable

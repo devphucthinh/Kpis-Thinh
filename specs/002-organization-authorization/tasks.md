@@ -54,7 +54,7 @@ this phase is complete.
 - [ ] T021 Add the versioned `/api/v1` composition registrations for Domain, Application, PostgreSQL, platform identity, audit, and the explicit `Postgres` persistence profile in `src/Kpi.Web/Program.cs`
 - [ ] T022 Add the migrator composition registrations using only `ConnectionStrings:KpiMigration` in `src/Kpi.Migrator/Program.cs`
 - [ ] T023 Implement the fixed capability catalog loader and complete initial catalog contract in `src/Kpi.Application/Authorization/CapabilityCatalog.cs` and `src/Kpi.Application/Authorization/CapabilityCatalogRegistration.cs`
-- [ ] T024 Run the foundational RED tests, then implement and pass the shared transaction, authorization freshness, isolation, Problem Details, and migration contract tests; record the result in `.scratch/bsc-kpi-reference/evidence.md` before proceeding to User Stories.
+- [ ] T024 Run the completed foundational transaction, authorization freshness, isolation, Problem Details, and migration contract tests; record the result in `.scratch/bsc-kpi-reference/evidence.md` before proceeding to User Stories.
 
 ## Phase 3: User Story 1 - Approve an Organization Structure Baseline (Priority: P1) -- MVP
 
@@ -66,36 +66,37 @@ break-glass recovery, and expose the baseline-impact/effective-segment seams.
 **Independent Test**: Provision with distinct setup/approval subjects; submit
 and independently approve a valid multi-level structure; verify the baseline
 contains zero Role Assignments, survives restart, rejects cycles/gaps/overlaps,
-and preserves bootstrap/recovery/handoff evidence.
+and preserves bootstrap/recovery evidence. Bootstrap handoff is verified later
+as part of User Story 4 after replacement Role Assignments exist.
 
 ### Tests for User Story 1 (write first and verify RED)
 
-- [ ] T025 [P] [US1] Add RED domain tests for two distinct Bootstrap Principals, fixed duty grants, non-delegation, SoD, first-baseline no-Role-Assignment invariant, and atomic handoff in `tests/Kpi.Domain.Tests/Organizations/BootstrapAuthorityTests.cs`
+- [ ] T025 [P] [US1] Add RED domain tests for two distinct Bootstrap Principals, fixed duty grants, non-delegation, SoD, and the first-baseline no-Role-Assignment invariant in `tests/Kpi.Domain.Tests/Organizations/BootstrapAuthorityTests.cs`
 - [ ] T026 [P] [US1] Add RED application tests for atomic/idempotent Organization provisioning and bootstrap status in `tests/Kpi.Application.Tests/Organizations/BootstrapProvisioningTests.cs`
 - [ ] T027 [P] [US1] Add RED application tests for two-person recovery, duplicate/ineligible approver, expiry, stale unavailable principal, and replacement-only-one-duty rules in `tests/Kpi.Application.Tests/Organizations/BootstrapRecoveryTests.cs`
 - [ ] T028 [P] [US1] Add RED domain tests for unit cycles, missing parents, reporting cycles, effective interval conflicts, primary assignment completeness, and deterministic diagnostics in `tests/Kpi.Domain.Tests/Organizations/StructureValidationTests.cs`
 - [ ] T029 [P] [US1] Add RED application/API tests for first baseline submission/approval, Bootstrap approval evidence, no Role Assignment in the snapshot, and self-approval rejection in `tests/Kpi.IntegrationTests/Api/StructureBaselineApiTests.cs`
-- [ ] T030 [P] [US1] Add RED PostgreSQL/restart tests for Bootstrap Principals, recovery decisions, handoff, baseline applicability, immutable snapshots, and audit history in `tests/Kpi.IntegrationTests/Database/BootstrapBaselineRestartTests.cs`
+- [ ] T030 [P] [US1] Add RED PostgreSQL/restart tests for Bootstrap Principals, recovery decisions, baseline applicability, immutable snapshots, and audit history in `tests/Kpi.IntegrationTests/Database/BootstrapBaselineRestartTests.cs`
 - [ ] T031 [P] [US1] Add RED tests for gapless baseline successor transactions and before/after applicability lookup in `tests/Kpi.Application.Tests/Organizations/BaselineApplicabilityTests.cs`
-- [ ] T032 [P] [US1] Add RED contract tests for baseline impact, one-per-impact resolution, exact retry, cross-Organization rejection, and Effective Segment publication in `tests/Kpi.IntegrationTests/Api/BaselineImpactContractTests.cs`
+- [ ] T032 [P] [US1] Add RED contract tests for baseline impact, deterministic proportional weight preview, largest-remainder rounding, exact 100-percent proof, one-per-impact resolution, exact retry, cross-Organization rejection, and Effective Segment publication in `tests/Kpi.IntegrationTests/Api/BaselineImpactContractTests.cs`
 
 ### Implementation for User Story 1
 
-- [ ] T033 [P] [US1] Implement `BootstrapPrincipal`, `BootstrapRecoveryRequest`, `BootstrapRecoveryDecision`, and `BootstrapAuthorityHandoff` domain entities and invariants in `src/Kpi.Domain/Organizations/BootstrapAuthority.cs`
+- [ ] T033 [P] [US1] Implement `BootstrapPrincipal`, `BootstrapRecoveryRequest`, and `BootstrapRecoveryDecision` domain entities and invariants in `src/Kpi.Domain/Organizations/BootstrapAuthority.cs`
 - [ ] T034 [P] [US1] Implement Organization, structure workspace/revision, unit, Position, Employee, Position Assignment, and reporting relationship domain entities in `src/Kpi.Domain/Organizations/OrganizationStructure.cs`
 - [ ] T035 [P] [US1] Implement immutable Structure Baseline and Baseline Applicability Segment state transitions in `src/Kpi.Domain/Organizations/OrganizationStructureBaseline.cs`
 - [ ] T036 [P] [US1] Implement deterministic structure validation and cycle/interval diagnostics in `src/Kpi.Domain/Organizations/StructureValidator.cs`
-- [ ] T037 [P] [US1] Implement baseline impact and immutable resolution domain facts plus `EffectiveSegmentContract` value object in `src/Kpi.Domain/Organizations/BaselineImpact.cs` and `src/Kpi.Domain/Organizations/EffectiveSegmentContract.cs`
+- [ ] T037 [P] [US1] Implement baseline impact, immutable resolution, `WeightAllocationInput`, deterministic `WeightAllocationPreview`, and `EffectiveSegmentContract` domain facts/value objects in `src/Kpi.Domain/Organizations/BaselineImpact.cs`, `src/Kpi.Domain/Organizations/WeightAllocationPreview.cs`, and `src/Kpi.Domain/Organizations/EffectiveSegmentContract.cs`
 - [ ] T038 [US1] Implement bootstrap provisioning, fixed grant profiles, and idempotency in `src/Kpi.Application/Organizations/ProvisionOrganizationHandler.cs`
 - [ ] T039 [US1] Implement bootstrap recovery request/decision/application with two distinct Platform Security Administrators in `src/Kpi.Application/Organizations/BootstrapRecoveryHandler.cs`
 - [ ] T040 [US1] Implement first-baseline submission/independent approval and bootstrap evidence capture in `src/Kpi.Application/Organizations/SubmitStructureBaselineHandler.cs` and `src/Kpi.Application/Organizations/DecideStructureBaselineHandler.cs`
 - [ ] T041 [US1] Implement atomic successor baseline close-plus-insert, applicability lookup, and baseline gate in `src/Kpi.Application/Organizations/BaselineApplicabilityService.cs` and `src/Kpi.Application/Organizations/ApprovedBaselineGate.cs`
-- [ ] T042 [US1] Implement baseline impact creation, Planning evidence-reader/registration seam, exact retry, conflict handling, and shared-unit-of-work registration in `src/Kpi.Application/Organizations/BaselineImpactRegistrar.cs` and `src/Kpi.Application/Organizations/IPlanningAmendmentEvidenceReader.cs`
-- [ ] T043 [US1] Add EF mappings and migration tables for bootstrap principals/recovery/decisions/handoff, structure revisions, baseline segments, impacts/resolutions, and immutable snapshots in `src/Kpi.Infrastructure.Postgres/Persistence/Configurations/OrganizationStructureConfiguration.cs` and `src/Kpi.Migrator/Migrations/`
+- [ ] T042 [US1] Implement deterministic largest-remainder allocation preview and baseline impact creation/Planning evidence-reader registration with exact retry, conflict handling, and shared-unit-of-work registration in `src/Kpi.Application/Organizations/WeightAllocationPreviewService.cs`, `src/Kpi.Application/Organizations/BaselineImpactRegistrar.cs`, and `src/Kpi.Application/Organizations/IPlanningAmendmentEvidenceReader.cs`
+- [ ] T043 [US1] Add EF mappings and migration tables for bootstrap principals/recovery/decisions, structure revisions, baseline segments, impacts/resolutions, and immutable snapshots in `src/Kpi.Infrastructure.Postgres/Persistence/Configurations/OrganizationStructureConfiguration.cs` and `src/Kpi.Migrator/Migrations/`
 - [ ] T044 [US1] Add platform bootstrap/recovery and organization structure/baseline endpoints and DTOs from `contracts/bootstrap-authority.md` and `contracts/openapi.yaml` in `src/Kpi.Web/Api/Platform/BootstrapController.cs` and `src/Kpi.Web/Api/V1/OrganizationStructureController.cs`
 - [ ] T045 [US1] Add Razor provisioning, recovery, structure editor, validation, baseline review, baseline timeline, and impact-preview pages in `src/Kpi.Web/Controllers/OrganizationController.cs`, `src/Kpi.Web/Controllers/PlatformBootstrapController.cs`, `src/Kpi.Web/ViewModels/`, and `src/Kpi.Web/Views/Organization/`
 - [ ] T046 [US1] Add the first-baseline and bootstrap/recovery Playwright journey, including keyboard/390-pixel evidence, in `tests/Kpi.Web.EndToEndTests/OrganizationAuthorizationJourneyTests.cs`
-- [ ] T047 [US1] Run `./harness.cmd check`, opt-in PostgreSQL migration/restart tests, and the US1 quickstart sections; record acceptance evidence in `.scratch/bsc-kpi-reference/evidence.md`
+- [ ] T047 [US1] Run `./harness.cmd check`, opt-in PostgreSQL migration/restart tests, and the US1 quickstart sections; record MVP baseline/recovery evidence in `.scratch/bsc-kpi-reference/evidence.md`
 
 **Checkpoint**: MVP is independently usable only when provisioning, first
 baseline, bootstrap recovery, immutable audit, PostgreSQL restart, and the US1
@@ -158,7 +159,7 @@ approve independently, allow an in-scope action, deny an out-of-scope action,
 and verify the next action observes revocation or handoff changes.
 
 - [ ] T073 [P] [US4] Add RED domain tests for `KpiDataScope` discriminators, approved-baseline UnitSubtree binding, scope containment, assignment lifecycle, and proportional weight-preview value objects in `tests/Kpi.Domain.Tests/Authorization/ScopeAndAssignmentTests.cs`
-- [ ] T074 [P] [US4] Add RED application tests for security-floor merge, risky scope approval, self-elevation denial, expiration, revocation, fresh-facts authorization, and handoff completion in `tests/Kpi.Application.Tests/Authorization/RoleAssignmentAuthorizationTests.cs`
+- [ ] T074 [P] [US4] Add RED application tests for security-floor merge, risky scope approval, self-elevation denial, expiration, revocation, account change, employment change, Role Assignment change, policy change, baseline change, delegation change, fresh-facts authorization, and handoff completion in `tests/Kpi.Application.Tests/Authorization/RoleAssignmentAuthorizationTests.cs`
 - [ ] T075 [P] [US4] Add RED API tests for Role Assignment create/decision/revoke, stable Problem Details, If-Match, scope mismatch, and cross-Organization hiding in `tests/Kpi.IntegrationTests/Api/RoleAssignmentApiTests.cs`
 - [ ] T076 [P] [US4] Add RED PostgreSQL tests for assignment ranges, decision evidence, audit atomicity, bootstrap handoff, and restart in `tests/Kpi.IntegrationTests/Database/RoleAssignmentRestartTests.cs`
 - [ ] T077 [P] [US4] Add RED end-to-end tests for in-scope allow, out-of-scope deny, self-approval, expired authority, and post-revocation next-action denial in `tests/Kpi.Web.EndToEndTests/RoleAssignmentJourneyTests.cs`
@@ -171,7 +172,7 @@ and verify the next action observes revocation or handoff changes.
 - [ ] T084 [US4] Add scoped assignment form, risk/scope preview, independent approval reason form, decision timeline, and safe denied state in `src/Kpi.Web/Controllers/RoleAssignmentController.cs`, `src/Kpi.Web/ViewModels/Security/`, and `src/Kpi.Web/Views/Security/`
 - [ ] T085 [US4] Add initial bootstrap replacement-duty UI and immutable handoff/expiry evidence to `src/Kpi.Web/Controllers/PlatformBootstrapController.cs` and `src/Kpi.Web/Views/Security/BootstrapHandoff.cshtml`
 - [ ] T086 [US4] Add US4 contract, PostgreSQL/restart, and Playwright evidence for one-assignment-pending versus two-assignment-handoff states in `tests/Kpi.IntegrationTests/Api/BootstrapHandoffContractTests.cs` and `tests/Kpi.Web.EndToEndTests/RoleAssignmentJourneyTests.cs`
-- [ ] T087 [US4] Add release-blocking authorization latency test with current-fact reload and revocation-between-actions to `tests/Kpi.IntegrationTests/Authorization/AuthorizationPerformanceTests.cs`
+- [ ] T087 [US4] Add release-blocking authorization latency/freshness matrix for account, employment, Role Assignment, policy, baseline, delegation, and revocation changes between governed actions to `tests/Kpi.IntegrationTests/Authorization/AuthorizationPerformanceTests.cs`
 - [ ] T088 [US4] Add release-blocking validation/read load fixtures for 1,000 Employees, 200 Organization Units, and 200-node pages in `tests/Kpi.IntegrationTests/Performance/OrganizationAcceptanceLoadTests.cs`
 - [ ] T089 [US4] Run US4 focused tests, opt-in PostgreSQL restart tests, performance envelope, and quickstart authorization scenarios; record p95 evidence in `.scratch/bsc-kpi-reference/evidence.md`
 
@@ -214,7 +215,7 @@ Effective Segment contracts without fabricating KPI facts.
 - [ ] T109 [P] Write RED Application query tests proving tree nodes/actions are server-filtered by current capability plus KPI Data Scope and never traverse editable workspace in `tests/Kpi.Application.Tests/Organizations/OrganizationTreeQueryTests.cs`
 - [ ] T110 [P] Write RED Playwright tests for tree keyboard navigation, Position selection, refresh/back/forward/copy URL, drawer focus, 390-pixel layout, and unavailable KPI neighborhood in `tests/Kpi.Web.EndToEndTests/OrganizationKpiWorkspaceJourneyTests.cs`
 - [ ] T111 Implement `OrganizationTreeReadModel`, approved-baseline context, continuation/search, and safe action projection in `src/Kpi.Application/Organizations/OrganizationTreeQuery.cs`
-- [ ] T112 Add authorized organization-tree endpoint and future KPI-neighborhood/Effective Segment schemas without operational Target/Actual/score endpoints in `src/Kpi.Web/Api/V1/OrganizationKpiWorkspaceController.cs` and `specs/002-organization-authorization/contracts/openapi.yaml`
+- [ ] T112 Implement the authorized organization-tree endpoint and validate/bind the existing future KPI-neighborhood and `EffectiveSegmentContract` schemas without adding operational Target/Actual/score endpoints in `src/Kpi.Web/Api/V1/OrganizationKpiWorkspaceController.cs` and `specs/002-organization-authorization/contracts/openapi.yaml`
 - [ ] T113 Add Razor tree shell, Unit/Position semantics, URL-restorable context, empty/forbidden/conflict states, and honest unavailable KPI region in `src/Kpi.Web/Controllers/OrganizationKpiWorkspaceController.cs`, `src/Kpi.Web/ViewModels/Organization/`, and `src/Kpi.Web/Views/Organization/KpiWorkspace.cshtml`
 - [ ] T114 Add Effective Segment consumer contract/provider interface and baseline-impact read integration in `src/Kpi.Application/Organizations/IEffectiveSegmentProvider.cs` and `src/Kpi.Application/Organizations/BaselineImpactQuery.cs`
 - [ ] T115 Add workspace persistence/restart tests proving baseline/Position context survives Web restart without synthetic KPI facts in `tests/Kpi.IntegrationTests/Database/OrganizationKpiWorkspaceRestartTests.cs`
@@ -233,6 +234,27 @@ security, accessibility, and handoff evidence.
 - [ ] T122 Run `./harness.cmd check`, opt-in PostgreSQL migration/restart tests, and the complete `Thinh-KPI-TEST` quickstart; record results in `.scratch/bsc-kpi-reference/evidence.md`
 - [ ] T123 Review all feature docs against `spec.md`, `plan.md`, `data-model.md`, contracts, and `quickstart.md`; fix stale scope/target-lock claims in `specs/002-organization-authorization/`
 - [ ] T124 Prepare the UI/UX, backend, API, authorization, database, restart, audit, and performance approval packet without editing `BSC-KPIs-API` or `BSC-KPIs` in `.scratch/bsc-kpi-reference/reference-approval.md`
+
+## Requirement Traceability
+
+The following compact map makes the primary coverage auditable without adding
+requirement labels to the strict checklist format. Individual acceptance tests
+must still assert the exact FR/SC identifier in their test name or evidence.
+
+| Requirement range | Primary task coverage |
+|---|---|
+| FR-001–FR-016 | T009–T024, T025–T059 |
+| FR-017–FR-021 | T005, T023, T060–T072 |
+| FR-022–FR-027 | T073–T089 |
+| FR-028–FR-035 | T090–T107 |
+| FR-036–FR-043 | T009–T047, T075, T091–T107 |
+| FR-044–FR-047 | T032, T037, T042, T045, T073, T114 |
+| FR-048–FR-050 | T025–T046, T073–T089 |
+| SC-001–SC-010 | T025–T122 across the corresponding story checkpoints |
+| SC-011–SC-013 | T032, T037, T042, T045, T073, T114 |
+| SC-014 | T010, T019, T074, T081, T087, T121 |
+| SC-015 | T027, T039, T086 |
+| SC-016 | T088, T121, T122 |
 
 ## Dependencies & Execution Order
 

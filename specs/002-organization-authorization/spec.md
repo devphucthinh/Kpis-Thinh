@@ -53,7 +53,9 @@ and cascade depend on an approved and explainable organization snapshot.
 levels, positions, employees, and reporting lines; submit it for independent
 review; approve it without a Role Assignment in the snapshot; then verify that
 the approved snapshot is immutable, traceable, and recognized as the effective
-authorization and planning baseline.
+authorization and planning baseline. Bootstrap provisioning and recovery are
+also verified here; governed Role Assignment replacement and bootstrap handoff
+are verified by User Story 4 after this MVP baseline exists.
 
 **Acceptance Scenarios**:
 
@@ -93,12 +95,11 @@ authorization and planning baseline.
 9. **Given** a newly provisioned Organization with no baseline or Role
    Assignment, **When** its setup Bootstrap Principal submits the complete
    structure and its distinct approver Bootstrap Principal approves the first
-   baseline, **Then** that baseline contains no Role Assignment; **When** they
-   later establish independently approved Role Assignments against that
-   baseline, **Then** every bootstrap action is audited, neither principal may
-   approve its own governed submission or delegate bootstrap authority, and
-   both bootstrap grants expire only after the two replacement duties are
-   effective.
+    baseline, **Then** that baseline contains no Role Assignment and every
+    bootstrap action is audited; neither principal may approve its own governed
+    submission or delegate bootstrap authority. User Story 4 later verifies
+    independently approved replacement Role Assignments and the atomic handoff
+    that expires both bootstrap grants only after both duties are effective.
 10. **Given** one Bootstrap Principal is unavailable before governed replacement
     assignments cover both duties, **When** two distinct Platform Security
     Administrators approve a reasoned, time-bounded break-glass replacement,
@@ -214,8 +215,13 @@ act inside the subtree but is denied outside it.
    required before it becomes effective.
 6. **Given** an Organization Security Administrator changes its approval policy,
    **When** the proposed policy is stricter than the system minimum, **Then** it
-   may govern later assignments; **When** it would weaken the system minimum,
-   **Then** the change is rejected with the protected rule identified.
+    may govern later assignments; **When** it would weaken the system minimum,
+    **Then** the change is rejected with the protected rule identified.
+7. **Given** the first approved baseline and two active Bootstrap Principal
+   duties, **When** independently approved replacement Role Assignments for
+   both duties become effective, **Then** one immutable Bootstrap Authority
+   Handoff is created and both bootstrap grants expire atomically; **When** only
+   one replacement is effective, **Then** both bootstrap grants remain active.
 
 ---
 
