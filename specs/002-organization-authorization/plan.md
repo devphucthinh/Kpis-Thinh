@@ -192,6 +192,9 @@ pass-through layer is introduced.
    restart evidence. Bootstrap recovery is included in this MVP; governed Role
    Assignment replacement and the atomic bootstrap handoff are deliberately
    verified in the later P2 slice after role and assignment behavior exists.
+   Successor-baseline impact, responsibility-weight allocation, and Effective
+   Segment resolution are explicitly excluded from US1 and delivered only in
+   the separate Mid-period contract slice after P3.
    Tests for the complete baseline/recovery journey precede its implementation.
 3. **P2 capability authorization and handoff**: fixed catalog, custom role
    versioning, security floor, post-baseline scoped Role Assignment approval,

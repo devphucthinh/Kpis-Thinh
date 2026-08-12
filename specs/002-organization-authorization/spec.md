@@ -72,40 +72,20 @@ are verified by User Story 4 after this MVP baseline exists.
 4. **Given** an approved baseline, **When** an administrator changes an
    organization fact, **Then** the approved snapshot remains unchanged and the
    change is prepared as a traceable later revision or effective amendment.
-5. **Given** a new baseline approved to take effect during an open KPI period,
-   **When** its effective time arrives, **Then** it becomes the only applicable
-   baseline from that time, the prior baseline remains applicable to earlier
-   facts, and affected downstream KPI responsibilities are identified for a
-   governed re-cascade amendment.
-6. **Given** an open KPI period spans a baseline effective-time boundary,
-   **When** downstream results are prepared, **Then** facts before and after the
-   boundary remain in separate immutable effective segments and no segment is
-   silently recalculated with the other segment's structure or weights.
-7. **Given** the first baseline has become effective, **When** a successor is
-   submitted with a start that would leave a gap, overlap, or insert before the
-   last approved successor, **Then** approval is blocked and the required
-   contiguous boundary is explained.
-8. **Given** an immutable Baseline Change Impact, **When** downstream Planning
-   supplies missing, unapproved, cross-Organization, wrong-baseline, or
-   conflicting amendment evidence, **Then** no resolution is created; **When**
-   the exact independently approved KPI Plan Amendment revision is registered,
-   **Then** one immutable Baseline Impact Resolution is created atomically with
-   audit evidence, and retrying that exact evidence returns the same resolution
-   without another write.
-9. **Given** a newly provisioned Organization with no baseline or Role
+5. **Given** a newly provisioned Organization with no baseline or Role
    Assignment, **When** its setup Bootstrap Principal submits the complete
    structure and its distinct approver Bootstrap Principal approves the first
-    baseline, **Then** that baseline contains no Role Assignment and every
-    bootstrap action is audited; neither principal may approve its own governed
-    submission or delegate bootstrap authority. User Story 4 later verifies
-    independently approved replacement Role Assignments and the atomic handoff
-    that expires both bootstrap grants only after both duties are effective.
-10. **Given** one Bootstrap Principal is unavailable before governed replacement
-    assignments cover both duties, **When** two distinct Platform Security
-    Administrators approve a reasoned, time-bounded break-glass replacement,
-    **Then** only that unavailable principal is replaced, the replacement
-    remains distinct from the other principal, and the request, both decisions,
-    expiry, and resulting grant are preserved as immutable audit evidence.
+   baseline, **Then** that baseline contains no Role Assignment and every
+   bootstrap action is audited; neither principal may approve its own governed
+   submission or delegate bootstrap authority. User Story 4 later verifies
+   independently approved replacement Role Assignments and the atomic handoff
+   that expires both bootstrap grants only after both duties are effective.
+6. **Given** one Bootstrap Principal is unavailable before governed replacement
+   assignments cover both duties, **When** two distinct Platform Security
+   Administrators approve a reasoned, time-bounded break-glass replacement,
+   **Then** only that unavailable principal is replaced, the replacement
+   remains distinct from the other principal, and the request, both decisions,
+   expiry, and resulting grant are preserved as immutable audit evidence.
 
 ---
 
@@ -291,6 +271,40 @@ identity, decision reason, and scoped timeline visibility.
     action is blocked; **When** a replacement is ready, **Then** activation and
     retirement occur atomically with no unroutable interval, while previously
     submitted artifacts keep their original route snapshots.
+
+### Cross-feature acceptance: Mid-period baseline impact and weight allocation
+
+These scenarios are deliberately outside the User Story 1 MVP and run only
+after the organization baseline, workforce, authorization, and approval-route
+prerequisites are complete. They provide the contract consumed later by KPI
+Planning, Cascade, Actual, and Evaluation; this feature does not calculate or
+publish official KPI results.
+
+1. **Given** a successor baseline is independently approved for an open KPI
+   period, **When** its effective time arrives, **Then** the successor is the
+   only applicable baseline from that instant, the prior baseline remains
+   applicable before it, and the contiguous applicability boundary is explicit.
+2. **Given** a KPI period crosses that boundary, **When** downstream consumers
+   resolve context, **Then** immutable effective segments identify the period,
+   interval, baseline, plan-revision placeholder, assignment-weight snapshot,
+   and aggregation-policy version without silently combining structures.
+3. **Given** an immutable Baseline Change Impact, **When** missing, unapproved,
+   cross-Organization, wrong-baseline, or conflicting amendment evidence is
+   supplied, **Then** no resolution is written; **When** the exact approved
+   amendment evidence is registered, **Then** one immutable resolution and audit
+   record are committed atomically and an exact retry returns the same result.
+4. **Given** prior responsibility weights of 50%, 20%, and 30% and a fixed new
+   assignment of 20%, **When** the deterministic preview is requested, **Then**
+   the prior assignments retain their relative order and become 40%, 16%, and
+   24%, the new assignment is 20%, and the total is exactly 100%.
+5. **Given** proportional rescaling cannot be represented at the configured
+   precision, **When** the preview is rounded, **Then** largest remainder and
+   stable assignment order allocate residual units deterministically, preserve
+   prior ordering, and prove an exact 100% total.
+6. **Given** a later Planning or Evaluation consumer requests the published
+   Effective Segment contract, **When** the contract is validated, **Then** its
+   identity and boundary fields are available while Target, Actual, Variance,
+   Score, and official aggregation remain deferred to their owning features.
 
 ### Edge Cases
 

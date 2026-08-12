@@ -241,6 +241,10 @@ must never be a fallback for production identity integration.
 
 ### D. Mid-period impact and weight preview
 
+This section is a separate post-US5 contract slice. It is not part of the US1
+MVP checkpoint; run it only after the baseline, workforce, authorization, and
+approval-route prerequisites have passed.
+
 1. Approve a replacement baseline effective inside an open KPI period.
 2. Confirm the prior baseline applies before the boundary, the new baseline
    applies after it, and the immutable impact reads as `Detected`/requires
