@@ -21,6 +21,9 @@ public sealed class OrganizationAuthorizationSchemaTests
         Assert.NotNull(context.Model.FindEntityType("Kpi.Infrastructure.Postgres.Persistence.OrganizationBaselineRow"));
         Assert.NotNull(context.Model.FindEntityType("Kpi.Infrastructure.Postgres.Persistence.BaselineApplicabilitySegmentRow"));
         Assert.Contains(context.Model.GetEntityTypes(), entity => entity.GetProperties().Any(property => property.Name == "RowVersion" && property.GetColumnName() == "xmin"));
+        var organizationEntity = context.Model.FindEntityType(typeof(OrganizationRow));
+        Assert.NotNull(organizationEntity);
+        Assert.DoesNotContain(organizationEntity!.GetProperties(), property => property.Name == nameof(OrganizationScopedHeadRow.OrganizationId));
         var unitEntity = context.Model.FindEntityType("Kpi.Infrastructure.Postgres.Persistence.OrganizationUnitRow");
         Assert.NotNull(unitEntity);
         Assert.Contains(unitEntity!.GetForeignKeys(), foreignKey => foreignKey.PrincipalEntityType.ClrType == typeof(OrganizationRow));
