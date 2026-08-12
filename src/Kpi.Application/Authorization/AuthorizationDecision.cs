@@ -99,7 +99,11 @@ public sealed record AuthorizationFacts(
     bool EmploymentActive,
     IReadOnlySet<KpiCapabilityId> Capabilities,
     IReadOnlyList<Guid> AssignmentIds,
-    IReadOnlyList<string> ScopeEvidence);
+    IReadOnlyList<string> ScopeEvidence,
+    bool ScopeMatches = false,
+    bool BaselineApplicable = false,
+    bool SeparationOfDutySatisfied = false,
+    bool DelegationValid = false);
 
 public interface IAuthorizationFactsReader
 {
