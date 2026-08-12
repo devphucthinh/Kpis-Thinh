@@ -26,12 +26,12 @@ documentation structure without changing target repositories.
 
 - [ ] T001 Record the approved branch, .NET SDK `9.0.315`, PostgreSQL profile, and target-repository lock in `specs/002-organization-authorization/plan.md`
 - [ ] T002 [P] Create the feature test directory layout under `tests/Kpi.Domain.Tests/Organizations`, `tests/Kpi.Domain.Tests/Authorization`, `tests/Kpi.Domain.Tests/Approvals`, `tests/Kpi.Application.Tests/Organizations`, `tests/Kpi.Application.Tests/Authorization`, `tests/Kpi.Application.Tests/Approvals`, `tests/Kpi.IntegrationTests/Api`, `tests/Kpi.IntegrationTests/Database`, `tests/Kpi.IntegrationTests/Web`, and `tests/Kpi.Web.EndToEndTests`
-- [ ] T003 [P] Add deterministic Development platform and Employee/account persona fixtures without credentials in `tests/Kpi.IntegrationTests/Fixtures/DevelopmentIdentityFixture.cs`
-- [ ] T004 [P] Add the `Thinh-KPI-TEST` PostgreSQL launch/profile assertions in `tests/Kpi.IntegrationTests/Composition/TestProfileContractTests.cs`
+- [ ] T003 [P] [Setup] Add deterministic Development platform and Employee/account persona fixtures without credentials in `tests/Kpi.IntegrationTests/Fixtures/DevelopmentIdentityFixture.cs`
+- [ ] T004 [P] [Setup] Add the `Thinh-KPI-TEST` PostgreSQL launch/profile assertions in `tests/Kpi.IntegrationTests/Composition/TestProfileContractTests.cs`
 - [ ] T005 [P] Add the feature capability-code and stable-problem-code inventory test scaffold in `tests/Kpi.Application.Tests/Authorization/CapabilityCatalogContractTests.cs`
-- [ ] T006 Add the feature evidence ledger and performance-measurement schema to `.scratch/bsc-kpi-reference/evidence.md`
+- [ ] T006 [Setup] Add the feature evidence ledger and performance-measurement schema to `.scratch/bsc-kpi-reference/evidence.md`
 - [ ] T007 [P] Add OpenAPI/ref/operationId validation to `tests/Kpi.IntegrationTests/Api/OpenApiContractTests.cs`
-- [ ] T008 Run `./harness.cmd bootstrap` and record the clean baseline build/provisioning result in `.scratch/bsc-kpi-reference/evidence.md`
+- [ ] T008 [Setup] Run `./harness.cmd bootstrap` and record the clean baseline build/provisioning result in `.scratch/bsc-kpi-reference/evidence.md`
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
@@ -218,10 +218,12 @@ amendment evidence, register one approved amendment idempotently, and preview
 - [ ] T104 [P] Add RED domain/application tests for gapless successor baselines, exact applicability boundaries, immutable impact/resolution, and Effective Segment identity in `tests/Kpi.Application.Tests/Organizations/MidPeriodImpactTests.cs`
 - [ ] T105 [P] Add RED API contract tests for deterministic proportional preview, largest-remainder tie breaks, exact 100% proof, idempotent resolution, and cross-Organization/conflict rejection in `tests/Kpi.IntegrationTests/Api/BaselineImpactContractTests.cs`
 - [ ] T106 [P] Implement `BaselineChangeImpact`, `WeightAllocationInput`, `WeightAllocationPreview`, and `EffectiveSegmentContract` in `src/Kpi.Domain/Organizations/BaselineImpact.cs`, `src/Kpi.Domain/Organizations/WeightAllocationPreview.cs`, and `src/Kpi.Domain/Organizations/EffectiveSegmentContract.cs`
-- [ ] T107 Implement deterministic preview, impact registration, exact-retry handling, and Planning amendment evidence-reader ports in `src/Kpi.Application/Organizations/WeightAllocationPreviewService.cs`, `src/Kpi.Application/Organizations/BaselineImpactRegistrar.cs`, and `src/Kpi.Application/Organizations/IPlanningAmendmentEvidenceReader.cs`
-- [ ] T108 [P] Add the versioned mid-period impact/preview/resolution API DTOs and endpoints from the OpenAPI contract in `src/Kpi.Web/Api/V1/BaselineImpactController.cs` and `specs/002-organization-authorization/contracts/openapi.yaml`
-- [ ] T109 [P] Add the Razor mid-period impact and weight-preview UI with boundary/conflict/idempotency states in `src/Kpi.Web/Controllers/BaselineImpactController.cs`, `src/Kpi.Web/ViewModels/Organization/`, and `src/Kpi.Web/Views/Organization/BaselineImpact.cshtml`
-- [ ] T110 Run PostgreSQL migration/restart, API, Razor, and quickstart verification for successor boundaries, immutable evidence, and exact allocation; record results in `.scratch/bsc-kpi-reference/evidence.md`
+- [ ] T107 [P] Implement the atomic gapless successor-baseline close-plus-insert, effective-time applicability lookup, tail serialization, and concurrency conflict handling in `src/Kpi.Application/Organizations/BaselineApplicabilityService.cs`
+- [ ] T108 [P] Add EF mappings, append-only constraints, indexes, and forward-only migrations for baseline impacts, impact resolutions, effective segments, and assignment-weight snapshots in `src/Kpi.Infrastructure.Postgres/Persistence/Configurations/BaselineImpactConfiguration.cs` and `src/Kpi.Migrator/Migrations/`
+- [ ] T109 Implement deterministic preview, impact registration, exact-retry handling, and Planning amendment evidence-reader ports in `src/Kpi.Application/Organizations/WeightAllocationPreviewService.cs`, `src/Kpi.Application/Organizations/BaselineImpactRegistrar.cs`, and `src/Kpi.Application/Organizations/IPlanningAmendmentEvidenceReader.cs`
+- [ ] T110 [P] Add the versioned mid-period impact/preview/resolution API DTOs and endpoints from the OpenAPI contract in `src/Kpi.Web/Api/V1/BaselineImpactController.cs` and `specs/002-organization-authorization/contracts/openapi.yaml`
+- [ ] T111 [P] Add the Razor mid-period impact and weight-preview UI with boundary/conflict/idempotency states in `src/Kpi.Web/Controllers/BaselineImpactController.cs`, `src/Kpi.Web/ViewModels/Organization/`, and `src/Kpi.Web/Views/Organization/BaselineImpact.cshtml`
+- [ ] T112 Run PostgreSQL migration/restart, API, Razor, and quickstart verification for successor boundaries, immutable evidence, and exact allocation; record results in `.scratch/bsc-kpi-reference/evidence.md`
 
 ## Phase 9: Organization KPI Workspace Foundation and Cross-Feature Contracts
 
@@ -229,29 +231,29 @@ amendment evidence, register one approved amendment idempotently, and preview
 Organization tree and Position navigation; publish future KPI-neighborhood and
 Effective Segment contracts without fabricating KPI facts.
 
-- [ ] T111 [P] Write RED contract tests for authorized lazy tree, Unit-expand/Position-select semantics, exact Baseline Applicability Segment, URL restoration, safe out-of-scope direct URL, and no KPI fixture state in `tests/Kpi.IntegrationTests/Api/OrganizationKpiWorkspaceContractTests.cs`
-- [ ] T112 [P] Write RED Application query tests proving tree nodes/actions are server-filtered by current capability plus KPI Data Scope and never traverse editable workspace in `tests/Kpi.Application.Tests/Organizations/OrganizationTreeQueryTests.cs`
-- [ ] T113 [P] Write RED Playwright tests for tree keyboard navigation, Position selection, refresh/back/forward/copy URL, drawer focus, 390-pixel layout, and unavailable KPI neighborhood in `tests/Kpi.Web.EndToEndTests/OrganizationKpiWorkspaceJourneyTests.cs`
-- [ ] T114 Implement `OrganizationTreeReadModel`, approved-baseline context, continuation/search, and safe action projection in `src/Kpi.Application/Organizations/OrganizationTreeQuery.cs`
-- [ ] T115 Implement the authorized organization-tree endpoint and keep future KPI-neighborhood/metric schemas explicitly non-operational without adding Target/Actual/Score endpoints in `src/Kpi.Web/Api/V1/OrganizationKpiWorkspaceController.cs` and `specs/002-organization-authorization/contracts/openapi.yaml`
-- [ ] T116 Add Razor tree shell, Unit/Position semantics, URL-restorable context, empty/forbidden/conflict states, and honest unavailable KPI region in `src/Kpi.Web/Controllers/OrganizationKpiWorkspaceController.cs`, `src/Kpi.Web/ViewModels/Organization/`, and `src/Kpi.Web/Views/Organization/KpiWorkspace.cshtml`
-- [ ] T117 Add the approved-baseline applicability context read model used by the workspace without traversing KPI impact or result facts in `src/Kpi.Application/Organizations/BaselineApplicabilityContextQuery.cs`
-- [ ] T118 Add workspace persistence/restart tests proving baseline/Position context survives Web restart without synthetic KPI facts in `tests/Kpi.IntegrationTests/Database/OrganizationKpiWorkspaceRestartTests.cs`
-- [ ] T119 Run workspace quickstart, API, PostgreSQL, and Playwright tests and record target-port lock evidence in `.scratch/bsc-kpi-reference/evidence.md`
+- [ ] T113 [P] Write RED contract tests for authorized lazy tree, Unit-expand/Position-select semantics, exact Baseline Applicability Segment, URL restoration, safe out-of-scope direct URL, and no KPI fixture state in `tests/Kpi.IntegrationTests/Api/OrganizationKpiWorkspaceContractTests.cs`
+- [ ] T114 [P] Write RED Application query tests proving tree nodes/actions are server-filtered by current capability plus KPI Data Scope and never traverse editable workspace in `tests/Kpi.Application.Tests/Organizations/OrganizationTreeQueryTests.cs`
+- [ ] T115 [P] Write RED Playwright tests for tree keyboard navigation, Position selection, refresh/back/forward/copy URL, drawer focus, 390-pixel layout, and unavailable KPI neighborhood in `tests/Kpi.Web.EndToEndTests/OrganizationKpiWorkspaceJourneyTests.cs`
+- [ ] T116 Implement `OrganizationTreeReadModel`, approved-baseline context, continuation/search, and safe action projection in `src/Kpi.Application/Organizations/OrganizationTreeQuery.cs`
+- [ ] T117 Implement the authorized organization-tree endpoint and keep future KPI-neighborhood/metric schemas explicitly non-operational without adding Target/Actual/Score endpoints in `src/Kpi.Web/Api/V1/OrganizationKpiWorkspaceController.cs` and `specs/002-organization-authorization/contracts/openapi.yaml`
+- [ ] T118 Add Razor tree shell, Unit/Position semantics, URL-restorable context, empty/forbidden/conflict states, and honest unavailable KPI region in `src/Kpi.Web/Controllers/OrganizationKpiWorkspaceController.cs`, `src/Kpi.Web/ViewModels/Organization/`, and `src/Kpi.Web/Views/Organization/KpiWorkspace.cshtml`
+- [ ] T119 Add the approved-baseline applicability context read model used by the workspace without traversing KPI impact or result facts in `src/Kpi.Application/Organizations/BaselineApplicabilityContextQuery.cs`
+- [ ] T120 Add workspace persistence/restart tests proving baseline/Position context survives Web restart without synthetic KPI facts in `tests/Kpi.IntegrationTests/Database/OrganizationKpiWorkspaceRestartTests.cs`
+- [ ] T121 Run workspace quickstart, API, PostgreSQL, and Playwright tests and record target-port lock evidence in `.scratch/bsc-kpi-reference/evidence.md`
 
 ## Phase 10: Polish & Cross-Cutting Concerns
 
 **Purpose**: Complete repository-level verification, documentation, performance,
 security, accessibility, and handoff evidence.
 
-- [ ] T120 [P] Update `specs/002-organization-authorization/quickstart.md` with final command/output references and known opt-in PostgreSQL prerequisites
-- [ ] T121 [P] Update `specs/002-organization-authorization/contracts/openapi.yaml` examples and run the OpenAPI/ref/operationId contract validator in `tests/Kpi.IntegrationTests/Api/OpenApiContractTests.cs`
-- [ ] T122 [P] Add security review tests for cross-Organization leakage, platform/bootstrap boundary, hidden timeline entries, stale concurrency, and no cross-action authorization cache in `tests/Kpi.IntegrationTests/Authorization/SecurityBoundaryTests.cs`
-- [ ] T123 [P] Add accessibility regression checks for labels, focus restoration, keyboard-only operation, warning/error text, and non-color status in `tests/Kpi.Web.EndToEndTests/AccessibilityJourneyTests.cs`
-- [ ] T124 [P] Add performance evidence collection and threshold assertions for SC-014 and SC-016 in `tests/Kpi.IntegrationTests/Performance/ReleaseBlockingThresholdTests.cs`
-- [ ] T125 Run `./harness.cmd check`, opt-in PostgreSQL migration/restart tests, and the complete `Thinh-KPI-TEST` quickstart; record results in `.scratch/bsc-kpi-reference/evidence.md`
-- [ ] T126 Review all feature docs against `spec.md`, `plan.md`, `data-model.md`, contracts, and `quickstart.md`; fix stale scope/target-lock claims in `specs/002-organization-authorization/`
-- [ ] T127 Prepare the UI/UX, backend, API, authorization, database, restart, audit, and performance approval packet without editing `BSC-KPIs-API` or `BSC-KPIs` in `.scratch/bsc-kpi-reference/reference-approval.md`
+- [ ] T122 [P] Update `specs/002-organization-authorization/quickstart.md` with final command/output references and known opt-in PostgreSQL prerequisites
+- [ ] T123 [P] Update `specs/002-organization-authorization/contracts/openapi.yaml` examples and run the OpenAPI/ref/operationId contract validator in `tests/Kpi.IntegrationTests/Api/OpenApiContractTests.cs`
+- [ ] T124 [P] Add security review tests for cross-Organization leakage, platform/bootstrap boundary, hidden timeline entries, stale concurrency, and no cross-action authorization cache in `tests/Kpi.IntegrationTests/Authorization/SecurityBoundaryTests.cs`
+- [ ] T125 [P] Add accessibility regression checks for labels, focus restoration, keyboard-only operation, warning/error text, and non-color status in `tests/Kpi.Web.EndToEndTests/AccessibilityJourneyTests.cs`
+- [ ] T126 [P] Add performance evidence collection and threshold assertions for SC-014 and SC-016 in `tests/Kpi.IntegrationTests/Performance/ReleaseBlockingThresholdTests.cs`
+- [ ] T127 Run `./harness.cmd check`, opt-in PostgreSQL migration/restart tests, and the complete `Thinh-KPI-TEST` quickstart; record results in `.scratch/bsc-kpi-reference/evidence.md`
+- [ ] T128 [Quality] Review all feature docs against `spec.md`, `plan.md`, `data-model.md`, contracts, and `quickstart.md`; fix stale scope/target-lock claims in `specs/002-organization-authorization/`
+- [ ] T129 [ApprovalGate] Prepare the UI/UX, backend, API, authorization, database, restart, audit, and performance approval packet without editing `BSC-KPIs-API` or `BSC-KPIs` in `.scratch/bsc-kpi-reference/reference-approval.md`
 
 ## Requirement Traceability
 
@@ -265,22 +267,27 @@ must still assert the exact FR/SC identifier in their test name or evidence.
 | FR-017-FR-021 | T056-T059 | T005, T023, T060-T068 |
 | FR-022-FR-027 | T069-T073 | T074-T085 |
 | FR-028-FR-035 | T086-T090 | T091-T103 |
-| FR-036-FR-042 | T009-T011, T028-T030, T044-T055, T070-T073, T086-T103 | T012-T024, T031-T042, T048-T054, T074-T103 |
-| FR-043 | T104, T105 | T106-T110 |
-| FR-044 | T105 | T106-T110 |
-| FR-045 | T104 | T106, T107, T110 |
-| FR-046 | T105 | T106-T108, T110 |
-| FR-047 | T105 | T106, T107, T110 |
-| FR-048 | T025-T030, T031-T034, T035-T042, T104-T110 | T031-T042, T106-T110 |
-| FR-049 | T010, T019, T070, T077, T083, T111-T113, T122-T124 | T019, T077, T114-T117, T122-T124 |
-| FR-050 | T027, T036, T040, T104-T110 | T036, T040, T107-T110 |
-| SC-001-SC-010 | Corresponding RED tests T025-T125 | Corresponding story checkpoints and evidence tasks |
-| SC-011 | T104-T105 | T106-T110 |
-| SC-012 | T104-T105 | T106-T110 |
-| SC-013 | T105 | T106-T110 |
-| SC-014 | T010, T019, T070, T077, T083, T124 | T019, T077, T124-T125 |
+| FR-036-FR-041 | T009-T011, T028-T030, T044-T055, T070-T073, T086-T103 | T012-T024, T031-T042, T048-T054, T074-T103 |
+| FR-042 | T028-T030, T104 | T033, T038, T107, T108, T112 |
+| FR-043 | T104, T105 | T106-T110, T111-T112 |
+| FR-044 | T105 | T106-T110, T111-T112 |
+| FR-045 | T104 | T106-T109, T112 |
+| FR-046 | T105 | T106, T109-T110, T112 |
+| FR-047 | T105 | T106, T109, T112 |
+| FR-048 | T025-T030 | T031, T035-T043 |
+| FR-049 | T010, T019, T070, T077, T083, T113-T115, T124-T126 | T019, T077, T116-T119, T124-T126 |
+| FR-050 | T027 | T036, T040 |
+| SC-001-SC-010 | Corresponding RED tests T025-T127 | Corresponding story checkpoints and evidence tasks |
+| SC-011 | T104-T105 | T106-T110, T111-T112 |
+| SC-012 | T104-T105 | T106-T110, T111-T112 |
+| SC-013 | T105 | T106-T110, T111-T112 |
+| SC-014 | T010, T019, T070, T077, T083, T126 | T019, T077, T126-T127 |
 | SC-015 | T027, T036, T082 | T027, T036, T076, T082 |
-| SC-016 | T034, T019, T077, T084, T114, T124-T125 | T019 (`AuthorizationDecisionService`), T034 (`StructureValidator`), T077 (`AuthorizationFactStore`), T114 (`OrganizationTreeQuery`), T124-T125 (threshold evidence) |
+| SC-016 | T034, T019, T077, T084, T116, T126-T127 | T019 (`AuthorizationDecisionService`), T034 (`StructureValidator`), T077 (`AuthorizationFactStore`), T116 (`OrganizationTreeQuery`), T126-T127 (threshold evidence) |
+
+Setup, quality, and approval-gate tasks are intentionally cross-cutting rather
+than FR-owned; their labels make that status explicit and prevent them from
+being mistaken for uncovered business requirements.
 
 ## Dependencies & Execution Order
 
@@ -323,11 +330,12 @@ must still assert the exact FR/SC identifier in their test name or evidence.
   in parallel after T074-T076 interfaces are fixed.
 - Within US5, T086-T090 are parallel RED tests; T097/T098/T100 can proceed in
   parallel after T091-T096 interfaces are fixed.
-- Within Mid-period, T104-T105 are parallel RED tests; T106, T108, and T109 can
-  proceed in parallel after the domain contract is fixed, while T107 follows
-  the domain types and T110 verifies the complete slice.
-- T111-T113 are parallel RED workspace tests; T114-T118 follow the query seam.
-- T120-T124 are parallel polish tasks after all story checkpoints.
+- Within Mid-period, T104-T105 are parallel RED tests; T106-T108 can proceed in
+  parallel after the domain contract is fixed, T109 follows the domain and
+  application seams, T110 and T111 follow the published contracts, and T112
+  verifies the complete slice.
+- T113-T115 are parallel RED workspace tests; T116-T120 follow the query seam.
+- T122-T126 are parallel polish tasks after all story checkpoints.
 
 ## Parallel Example: MVP (User Story 1)
 

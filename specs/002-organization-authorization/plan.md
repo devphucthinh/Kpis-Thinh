@@ -209,13 +209,16 @@ pass-through layer is introduced.
    resolution from explicit unit-head Employee, artifact Position context, or
    frozen group membership; immutable route snapshots; non-expanding
    delegation; scoped audit visibility; and responsive Razor evidence.
-5. **Mid-period contract slice**: unique effective baseline; immutable
-   structural impact plus one-per-impact resolution fact; in-process Planning
-   evidence-reader/registration contract; exact-retry idempotency, conflicting-
-   reference and cross-Organization rejection, atomic resolution/audit and
-   consumer-transaction rollback participation; deterministic largest-remainder
-   re-cascade preview; and executable effective-segment contract tests for later
-   Planning/Evaluation integration.
+5. **Mid-period contract slice**: atomic gapless successor-baseline close-plus-
+   insert and effective-time lookup; unique effective baseline; immutable
+   structural impact plus one-per-impact resolution fact; EF mappings and
+   forward-only PostgreSQL migration for impact, resolution, segment, and weight
+   snapshot facts; in-process Planning evidence-reader/registration contract;
+   exact-retry idempotency, conflicting-reference and cross-Organization
+   rejection, atomic resolution/audit and consumer-transaction rollback
+   participation; deterministic largest-remainder re-cascade preview; and
+   executable effective-segment contract tests for later Planning/Evaluation
+   integration.
 6. **Organization KPI Workspace foundation slice**: approved-baseline and
    scope-filtered lazy Organization tree, Unit expand-only and Position-select
    semantics, restorable Position/baseline/effective-time URL state, baseline-
