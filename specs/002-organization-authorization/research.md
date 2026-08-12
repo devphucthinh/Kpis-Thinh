@@ -266,19 +266,35 @@ this feature. Keeping it pure makes the interface reusable and testable.
 - Apply changes directly to existing KPI data: rejected because no governed
   plan-amendment aggregate exists in this feature.
 
-## Decision 13: Preserve effective boundaries for later segment aggregation
+## Decision 13: Preserve effective boundaries and register immutable resolution
 
-**Decision**: Baseline approval writes a `BaselineChangeImpact` containing old
-and new baseline IDs, effective instant, changed unit/position/employee/
-assignment IDs, and `RequiresRecascade`. This feature executes the approved-
-baseline gate, chain-continuity, impact, allocation-preview, and immutable
-Effective Segment contract tests. Planning later attaches and applies actual
-KPI responsibility changes; Evaluation later combines official segment
-outcomes only through the approved KPI Aggregation Policy.
+**Decision**: Baseline approval writes an immutable `BaselineChangeImpact`
+containing old/new baseline IDs, effective instant, changed unit/position/
+employee/assignment IDs, and `RequiresRecascade`. It has no mutable status or
+resolution fields. A separate one-per-impact `BaselineImpactResolution` stores
+the exact approved KPI Plan Amendment ID/revision, approval decision, content
+hash, actor, and time.
 
-**Rationale**: The foundation can freeze organization causality now without
-pulling Strategy, Planning, or Evaluation implementation into this slice. It
-also prevents later modules from recomputing old facts using a new baseline.
+Later Planning supplies an `IApprovedKpiPlanAmendmentReferenceReader` and calls
+the foundation's in-process `IBaselineImpactResolutionRegistrar` from the
+governed amendment approval command before the shared unit of work commits. The
+registrar reloads authoritative approved evidence, verifies Organization and
+new-baseline identity, writes the resolution plus Audit Record atomically, and
+returns the existing fact for an exact retry. Missing/unapproved/cross-
+Organization evidence is denied and a different reference for an already
+resolved impact is a stable conflict. There is no public resolve endpoint.
+
+This feature executes contract tests using a deterministic Planning-consumer
+adapter. Planning later supplies the production reader and applies actual KPI
+responsibility changes; Evaluation later combines official segment outcomes
+only through the approved KPI Aggregation Policy.
+
+**Rationale**: Separate append-only facts preserve organization causality and
+make `Resolved` a provable projection rather than an administrative toggle. An
+in-process contract fits the modular monolith and lets Planning and foundation
+commit together without publishing an HTTP operation that could bypass Plan
+approval. The boundary can be tested now without pulling the KPI Plan aggregate
+or official Evaluation behavior into this slice.
 
 **Alternatives considered**:
 
@@ -286,6 +302,15 @@ also prevents later modules from recomputing old facts using a new baseline.
   it rewrites history.
 - Implement complete KPI plan amendments in this feature: rejected by the
   approved feature boundary.
+- Mutate `ImpactStatus` and resolution columns on the impact row: rejected
+  because the supposedly immutable bridge could then be resolved without
+  durable amendment evidence.
+- Publish a generic HTTP resolve endpoint: rejected because resolution is a
+  consequence of the governed Planning approval command, not an independent
+  user task.
+- Use asynchronous events/outbox for this first modular-monolith seam: rejected
+  as unnecessary when both modules share one Application unit of work; revisit
+  only if the deployment boundary changes.
 
 ## Decision 14: Keep the production UI C#/Razor-first
 
@@ -411,6 +436,9 @@ is intentional rather than unresolved:
   applicability transaction, impact fact, weight preview, and segment-contract
   validation; these are behavioral seams rather than document-only promises.
 - The later Planning feature applies a governed KPI plan amendment/re-cascade.
+- Its approval command registers an immutable `BaselineImpactResolution`
+  through the published in-process Application contract; feature 002 owns the
+  registrar, validation, persistence, idempotency, audit, and contract tests.
 - The later Evaluation feature calculates and combines official segment results.
 - Feature 002 implements the authorized Organization/Position navigator and
   publishes the Organization KPI Workspace integration contract; later modules

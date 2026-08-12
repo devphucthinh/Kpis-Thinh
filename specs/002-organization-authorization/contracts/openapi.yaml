@@ -285,13 +285,16 @@ paths:
         in: query
         schema:
           type: string
-          enum: [detected, acknowledged, resolved]
+          enum: [detected, resolved]
     get:
       tags: [Organization Structure]
       operationId: listBaselineChangeImpacts
       responses:
         '200':
-          description: Baseline impacts within the actor's data scope.
+          description: >-
+            Immutable baseline impacts and derived resolution status within the
+            actor's data scope. Resolution is registered only through the
+            in-process Planning contract, not this HTTP API.
           content:
             application/json:
               schema:
@@ -1398,9 +1401,10 @@ components:
 
     BaselineChangeImpact:
       type: object
-      required: [id, previousBaselineId, newBaselineId, effectiveAt, requiresRecascade, impactStatus]
+      required: [id, organizationId, previousBaselineId, newBaselineId, effectiveAt, requiresRecascade, contentHash, createdAt, impactStatus]
       properties:
         id: { type: string, format: uuid }
+        organizationId: { type: string, format: uuid }
         previousBaselineId: { type: string, format: uuid }
         newBaselineId: { type: string, format: uuid }
         effectiveAt: { type: string, format: date-time }
@@ -1409,7 +1413,31 @@ components:
         changedEmployeeIds: { type: array, items: { type: string, format: uuid } }
         changedAssignmentIds: { type: array, items: { type: string, format: uuid } }
         requiresRecascade: { type: boolean }
-        impactStatus: { type: string, enum: [detected, acknowledged, resolved] }
+        contentHash: { type: string }
+        createdAt: { type: string, format: date-time }
+        impactStatus:
+          type: string
+          description: Derived from whether the immutable resolution exists.
+          enum: [detected, resolved]
+        resolution: { $ref: '#/components/schemas/BaselineImpactResolutionView' }
+
+    BaselineImpactResolutionView:
+      type: object
+      required: [id, organizationId, baselineChangeImpactId, planAmendmentId, planAmendmentRevision, appliedBaselineId, approvalDecisionId, amendmentContentHash, approvedByEmployeeId, approvedAt, registeredByEmployeeId, registeredAt, correlationId]
+      properties:
+        id: { type: string, format: uuid }
+        organizationId: { type: string, format: uuid }
+        baselineChangeImpactId: { type: string, format: uuid }
+        planAmendmentId: { type: string, format: uuid }
+        planAmendmentRevision: { type: integer, format: int64, minimum: 1 }
+        appliedBaselineId: { type: string, format: uuid }
+        approvalDecisionId: { type: string, format: uuid }
+        amendmentContentHash: { type: string }
+        approvedByEmployeeId: { type: string, format: uuid }
+        approvedAt: { type: string, format: date-time }
+        registeredByEmployeeId: { type: string, format: uuid }
+        registeredAt: { type: string, format: date-time }
+        correlationId: { type: string }
 
     RecascadeWeight:
       type: object

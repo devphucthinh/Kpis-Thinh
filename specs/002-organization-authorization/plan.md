@@ -23,8 +23,13 @@ that always evaluate capability plus KPI Data Scope; PostgreSQL adapters persist
 normalized current facts and immutable reviewed snapshots; versioned JSON
 controllers and server-rendered Razor pages exercise the complete journey. A
 baseline change creates an immutable impact fact and deterministic re-cascade
-preview. This feature behaviorally proves the baseline eligibility gate,
-gapless applicability chain, impact, preview, and Effective Segment contract.
+preview. A separate immutable Baseline Impact Resolution is registered only by
+the later governed Planning approval command through a published in-process
+Application contract; derived status, idempotency, Organization/baseline
+validation, audit, and shared-unit-of-work rollback participation are
+behaviorally tested here. This feature proves the baseline eligibility gate,
+gapless applicability chain,
+impact/resolution seam, preview, and Effective Segment contract.
 Later Planning and Evaluation features consume those interfaces to apply plan
 amendments and calculate official segment results; this feature does not claim
 those downstream behaviors complete. The approved Organization KPI Workspace
@@ -64,7 +69,7 @@ Evaluation features supply real KPI and result facts.
 | Discoverable repository context | PASS | `AGENTS.md`, `README.md`, `CONTEXT.md`, architecture, quality, ADR 0002, the reference-first delivery plan, spec, and constitution were read before design. |
 | One deterministic verification path | PASS | All setup, migration, lint, test, and completion commands remain behind `harness.cmd`; no alternate verification path is introduced. |
 | Behavior-first vertical slices | PASS | The design is partitioned by independently testable P1/P2/P3 user journeys and exposes Domain/Application seams before adapters and UI. |
-| Explicit boundaries and decisions | PASS | Dependencies stay `Web -> Application -> Domain`; PostgreSQL remains an adapter; authorization/baseline governance is captured in ADR 0003 and Phase 0 records independent route review, activation-slot serialization, Approval Group membership, and the workspace boundary. |
+| Explicit boundaries and decisions | PASS | Dependencies stay `Web -> Application -> Domain`; PostgreSQL remains an adapter; ADR 0003 and Phase 0 record independent route review, activation-slot serialization, Approval Group membership, immutable impact resolution registration, and the workspace boundary. |
 | Minimal, safe, reviewable change | PASS | The feature extends the existing four production projects and four test projects, adds no framework, and keeps production repositories read-only. |
 | PostgreSQL migration/runtime isolation | PASS | Only `Kpi.Migrator` writes schema with `KpiMigration`; Web uses `KpiRuntime` under the explicit `Postgres` profile. |
 
@@ -75,16 +80,17 @@ No pre-design gate violation requires a complexity exception.
 | Constitution rule | Result | Design evidence |
 |---|---|---|
 | Discoverability | PASS | Decisions are in `research.md`, entities and transitions in `data-model.md`, interfaces in `contracts/`, and runnable evidence in `quickstart.md`. |
-| Deterministic verification | PASS | `quickstart.md` uses only `harness.cmd`, the `Thinh-KPI-TEST` launch profile, and declared opt-in PostgreSQL settings. |
-| Behavior-first slices | PASS | Contract and quickstart scenarios map directly to User Stories 1-5 plus the approved foundation-only Organization KPI Workspace journey and keep each slice independently testable. |
+| Deterministic verification | PASS | `quickstart.md` uses only `harness.cmd`, the `Thinh-KPI-TEST` launch profile, and declared opt-in PostgreSQL settings; it fixes the SC-002/SC-008 cohorts, first-attempt boundary, assistance/exclusion rules, numerator/denominator, `>= 0.90` calculation, and evidence fields without substituting automation. |
+| Behavior-first slices | PASS | Contract and quickstart scenarios map directly to User Stories 1-5 plus the approved foundation-only Organization KPI Workspace journey; FR-043 includes executable approved/missing/cross-Organization/idempotent/conflict/rollback resolution cases rather than a document-only owner. |
 | Dependency direction | PASS | Domain has no ASP.NET/EF references; authorization enforcement is an Application module; controllers and Razor pages are adapters. |
 | Reviewability and safety | PASS | Effective and approved facts are append-only/revisioned, route versions require independent review, artifact-type activation is serialized without a routing gap, stale writes use optimistic concurrency, audit is transactional, and UI visibility is explicitly non-authoritative. |
 
 The post-design gate passes. Full cross-segment KPI calculation remains owned by
 the later Planning/Evaluation feature. This foundation must nevertheless prove
 the executable eligibility gate, contiguous baseline-chain transaction,
-immutable impact, deterministic allocation preview, and segment contract that
-those modules consume; document-only declarations do not satisfy those tests.
+immutable impact plus approved-amendment resolution registration, deterministic
+allocation preview, and segment contract that those modules consume;
+document-only declarations do not satisfy those tests.
 
 ## Project Structure
 
@@ -99,6 +105,7 @@ specs/002-organization-authorization/
 |-- contracts/
 |   |-- openapi.yaml
 |   |-- authorization-decision.md
+|   |-- baseline-impact-resolution.md
 |   |-- organization-kpi-workspace.md
 |   `-- ui-journeys.md
 |-- checklists/
@@ -111,12 +118,12 @@ specs/002-organization-authorization/
 ```text
 src/
 |-- Kpi.Domain/
-|   |-- Organizations/               # effective structure, revisions, baseline, impact
+|   |-- Organizations/               # structure, baselines, impact and resolution facts
 |   |-- Authorization/               # capability, scope, custom role, assignment, policy
 |   |-- Approvals/                    # group membership, route review/activation, snapshots
 |   `-- Auditing/                     # immutable governed-action evidence
 |-- Kpi.Application/
-|   |-- Organizations/               # structure/baseline commands and authorized tree query
+|   |-- Organizations/               # structure/baseline commands, impact registrar, tree query
 |   |-- Authorization/               # one deep authorization-decision interface
 |   |-- Approvals/                    # route resolution and decision commands
 |   `-- Persistence/                  # organization/authorization ports and unit of work
@@ -172,9 +179,13 @@ pass-through layer is introduced.
    resolution from explicit unit-head Employee, artifact Position context, or
    frozen group membership; immutable route snapshots; non-expanding
    delegation; scoped audit visibility; and responsive Razor evidence.
-4. **Mid-period contract slice**: unique effective baseline, structural impact
-   fact, deterministic largest-remainder re-cascade preview, and executable
-   effective-segment contract tests for later Planning/Evaluation integration.
+4. **Mid-period contract slice**: unique effective baseline; immutable
+   structural impact plus one-per-impact resolution fact; in-process Planning
+   evidence-reader/registration contract; exact-retry idempotency, conflicting-
+   reference and cross-Organization rejection, atomic resolution/audit and
+   consumer-transaction rollback participation; deterministic largest-remainder
+   re-cascade preview; and executable effective-segment contract tests for later
+   Planning/Evaluation integration.
 5. **Organization KPI Workspace foundation slice**: approved-baseline and
    scope-filtered lazy Organization tree, Unit expand-only and Position-select
    semantics, restorable Position/baseline/effective-time URL state, baseline-
@@ -188,6 +199,7 @@ pass-through layer is introduced.
 |---|---|---|
 | Baseline dependency | Execute the allow/deny decision matrix through one Application gate before/after the first baseline. | Every Planning/Evaluation command consumes the gate. |
 | Mid-period structure change | Commit a gapless successor boundary, immutable impact, changed responsibility inputs, and unresolved downstream state. | Planning registers an approved amendment reference and applies KPI responsibility/weight changes. |
+| Impact resolution registration | Own the in-process registrar, immutable one-per-impact resolution fact, derived `Detected/Resolved` projection, Organization/baseline validation, idempotency/conflict rules, audit, PostgreSQL/restart proof, and shared-unit-of-work participation contract tests. | Planning implements the approved-amendment evidence reader, calls the registrar from its governed approval command, and proves actual amendment approval + resolution + audit atomicity. |
 | Weight redistribution | Execute and verify the deterministic allocation preview, including rounding and exact 100 percent total. | Planning persists the approved preview in an immutable plan/assignment revision. |
 | Effective segments | Produce and validate the exact baseline/plan/weight/policy integration key without an official result. | Evaluation calculates each segment and aggregates the official whole-period result. |
 | Workspace organization navigator | Query the approved baseline, filter Unit/Position nodes and allowed actions by capability plus KPI Data Scope, preserve Position/effective context in the URL, and prove responsive Razor behavior. | Later UI slices reuse the navigator rather than querying editable structure or rebuilding authorization. |

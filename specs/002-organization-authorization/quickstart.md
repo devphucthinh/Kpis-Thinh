@@ -48,6 +48,8 @@ Expected migration evidence:
   Group/effective membership, independently reviewed route,
   artifact-type activation slot, delegation, impact, and extended audit tables
   exist.
+- `baseline_change_impacts` and `baseline_impact_resolutions` are append-only;
+  a named unique constraint permits at most one resolution per impact.
 - The named baseline effective-range exclusion constraint rejects overlap; the
   unique open tail plus serialized atomic predecessor-close/successor-insert
   path rejects gaps and concurrent branches.
@@ -92,9 +94,15 @@ Expected focused behavior:
 - Workspace tests prove approved-baseline lazy tree reads, Unit expand-only and
   Position-select semantics, scope-filtered direct URLs, restorable URL state,
   and an honest no-KPI-provider state.
+- Baseline-impact contract tests prove missing/unapproved/cross-Organization/
+  baseline-mismatched amendment evidence cannot resolve an impact; exact
+  approved evidence creates one resolution and Audit Record, exact retry is
+  idempotent, conflicting/concurrent evidence cannot replace it, and simulated
+  failure rolls back the consumer transaction marker, resolution, and Audit
+  Record atomically. Later Planning must prove its real approval in that slot.
 - PostgreSQL tests prove approved baselines, role versions, assignments, route
-  snapshots, delegations, impacts, and Audit Records survive a fresh DbContext
-  and Web restart.
+  snapshots, delegations, impacts/resolutions, and Audit Records survive a fresh
+  DbContext and Web restart.
 - Playwright tests cover keyboard and 390-pixel journeys.
 
 Clear only the process-scoped opt-in after the run if needed:
@@ -202,14 +210,26 @@ identities.
 
 1. Approve a replacement baseline effective inside an open KPI period.
 2. Confirm the prior baseline applies before the boundary, the new baseline
-   applies after it, and the impact is unresolved/requires re-cascade.
+   applies after it, and the immutable impact reads as `Detected`/requires
+   re-cascade without an acknowledgement or resolve field to mutate.
 3. Request the proportional preview with old weights `50`, `20`, `30`, one new
    fixed weight `20`, and precision `0`.
 4. Confirm ordered final weights `40`, `16`, `24`, `20`, exact total `100`, and
    deterministic repeat output.
 5. Run a case with fractional remainders. Confirm residual recipients follow
    largest remainder, then prior order, then stable assignment ID.
-6. Inspect the Effective Segment contract and confirm it identifies baseline,
+6. Through the automated Planning-consumer contract fixture, try to register
+   missing, unapproved, cross-Organization, and wrong-baseline amendment
+   evidence. Confirm every case is rejected without resolution or Audit Record.
+7. Register exact independently approved amendment evidence. Confirm one
+   immutable `BaselineImpactResolution`, derived `Resolved` status, and one
+   Audit Record. Retry the exact reference and confirm the existing result is
+   returned without another write; try a different/concurrent reference and
+   confirm `baseline_impact.already_resolved`.
+8. Simulate a failure before the shared unit-of-work commit. Confirm the test
+   consumer marker, resolution, and Audit Record all roll back. Record that the
+   later Planning feature must repeat this with its real amendment approval.
+9. Inspect the Effective Segment contract and confirm it identifies baseline,
    downstream plan revision, weight snapshot, and Aggregation Policy version
    without claiming an official KPI result. Record the later Planning/Evaluation
    acceptance obligations separately.
@@ -237,7 +257,8 @@ identities.
 
 1. Record IDs/hashes for the approved baseline and applicability chain, role
    versions, Approval Group/memberships, route reviews/activation slot/versions/
-   snapshot, assignment, delegation, impact, and representative Audit Records.
+   snapshot, assignment, delegation, impact/resolution, and representative
+   Audit Records.
 2. Stop the Web process normally.
 3. Start the same `Thinh-KPI-TEST` profile again.
 4. Query the records through UI/API and compare IDs, revision/hash, effective
@@ -247,6 +268,50 @@ Expected: all governed history is unchanged and current authorization reflects
 the requested effective instant, not the restart time alone.
 
 ## 7. Human acceptance gate
+
+### Quantitative first-attempt evidence protocol
+
+Use one versioned task script, the same seeded Organization, and the same short
+orientation for every participant. A **first attempt** starts when the task is
+revealed after orientation and ends on success, an unrecoverable error, direct
+task-specific help, developer intervention, or data repair. Facilitators may
+observe and time the attempt but cannot tell the participant what control or
+step to use. Playwright, facilitator rehearsal, repeat attempts, and attempts by
+the implementer do not enter the human numerator or denominator.
+
+An attempt is valid when the participant matches the assigned persona, the
+approved seed/checklist passes before task reveal, and no external outage makes
+the environment unavailable. Task-specific help, developer intervention, data
+repair, product/API failure, navigation failure, and unrecoverable validation
+count as failed valid attempts; they are never exclusions. Exclusion is limited
+to a duplicate participant, failed pre-task seed check, or independently
+verified external infrastructure outage and requires a recorded reason plus
+product-owner disposition.
+
+For **SC-002**:
+
+- recruit at least 10 representative authorized Organization Administrators;
+- ask each participant to complete the same organization-to-approved-baseline
+  journey from the approved starting state;
+- pass only when `successful first attempts / valid first attempts >= 0.90`
+  (minimum passing observation: `9/10`).
+
+For **SC-008**:
+
+- recruit at least 20 representative participants: at least five Organization
+  Administrators, five Security Administrators, five approvers, and five
+  auditors;
+- assign each participant the primary journey for that persona under the same
+  orientation/assistance rule;
+- report results per persona and overall; pass only when the overall ratio is
+  at least `0.90` (minimum passing observation: `18/20`).
+
+Record in `.scratch/bsc-kpi-reference/evidence.md`: build/commit, script
+version, anonymized participant ID, persona, journey, attempt number, start/end,
+success/failure, assistance/data-repair flags, failure reason, numerator,
+denominator, ratio, observer, and product-owner disposition. Excluded attempts
+remain listed with the exclusion reason and do not silently change the
+denominator.
 
 The product owner must review:
 
@@ -259,6 +324,9 @@ The product owner must review:
 - Organization KPI Workspace tree/Position navigation, URL restoration, honest
   provider boundary, and 390-pixel drawer;
 - mid-period impact and deterministic weight preview;
+- immutable approved-amendment impact resolution evidence and its negative,
+  idempotent, conflict, rollback, and restart cases;
+- SC-002 and SC-008 evidence ledgers meeting the declared cohorts and ratios;
 - keyboard operation, focus, warnings, and non-color error evidence;
 - PostgreSQL restart proof.
 

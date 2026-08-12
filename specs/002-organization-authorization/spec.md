@@ -25,6 +25,11 @@
 - Q: Where must a Named Group selector obtain its group and membership? → A: Use an Organization-scoped internal Approval Group whose Employee memberships are effective-dated; at submission, resolve eligible members and preserve that immutable member set in the Approval Route Snapshot so later membership changes do not rewrite the submitted route.
 - Q: What must happen when an administrator retires the only active Approval Route for a governed artifact type? → A: Block retirement until an independently approved replacement version is ready, then atomically activate the replacement and retire the prior route without an unroutable gap; already-submitted artifacts continue using their immutable prior route snapshots.
 
+### Session 2026-08-12
+
+- Q: How does the foundation prove that a Baseline Change Impact was resolved by later KPI Planning? → A: Keep the impact immutable and derive `Resolved` only from a separate immutable Baseline Impact Resolution created as a consequence of the governed KPI Plan Amendment approval; validate the exact Organization, baseline, amendment revision, approval decision, and content hash, commit both outcomes atomically, treat the same retry as idempotent, and reject missing, unapproved, cross-Organization, or conflicting evidence.
+- Q: How are the 90-percent first-attempt outcomes in SC-002 and SC-008 measured? → A: Record a standardized human evidence protocol: SC-002 uses at least 10 representative Organization Administrators and passes at 9/10 or better; SC-008 uses at least 20 participants with at least five in each named persona group and passes at 18/20 or better. A first attempt begins after the same orientation but before task-specific assistance, and Playwright evidence cannot substitute for a human attempt.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Approve an Organization Structure Baseline (Priority: P1)
@@ -71,6 +76,13 @@ is immutable, traceable, and recognized as the effective planning baseline.
    submitted with a start that would leave a gap, overlap, or insert before the
    last approved successor, **Then** approval is blocked and the required
    contiguous boundary is explained.
+8. **Given** an immutable Baseline Change Impact, **When** downstream Planning
+   supplies missing, unapproved, cross-Organization, wrong-baseline, or
+   conflicting amendment evidence, **Then** no resolution is created; **When**
+   the exact independently approved KPI Plan Amendment revision is registered,
+   **Then** one immutable Baseline Impact Resolution is created atomically with
+   audit evidence, and retrying that exact evidence returns the same resolution
+   without another write.
 
 ---
 
@@ -505,6 +517,11 @@ identity, decision reason, and scoped timeline visibility.
   baseline; after the first segment starts, segments form a gapless,
   non-overlapping chain and successor approval closes only predecessor
   applicability, never its reviewed content.
+- **Baseline Change Impact**: Immutable explanation of the responsibility inputs
+  changed by a successor baseline; it contains no mutable resolution status.
+- **Baseline Impact Resolution**: Immutable one-per-impact link to one exact
+  independently approved KPI Plan Amendment revision and its decision evidence;
+  its existence is the only resolved-state proof.
 - **KPI Capability**: Atomic fixed business-task authority used for
   authorization, carrying governance metadata that explains its business area,
   risk classification, and applicable scope impact.
@@ -534,8 +551,9 @@ cascade amendment persistence, Actual Submissions, official segment evaluation
 and aggregation, scoring, dashboards, Pilot operation, exports, production
 porting, and reward calculation are outside this feature. This feature still
 owns and behaviorally tests the approved-baseline eligibility gate, immutable
-baseline-change impact, deterministic re-cascade preview, and Effective Segment
-contract that those later features MUST consume.
+baseline-change impact, immutable approved-amendment resolution seam,
+deterministic re-cascade preview, and Effective Segment contract that those
+later features MUST consume.
 
 ## Success Criteria *(mandatory)*
 
@@ -585,10 +603,11 @@ contract that those later features MUST consume.
   assignee order, and total exactly 100 percent.
 - **SC-012**: For every mid-period baseline change in this feature's acceptance
   testing, users can reproduce the gapless before/after effective boundary,
-  immutable impact, allocation preview, and Effective Segment contract without
-  retroactively changing earlier facts; official segment evaluation and
-  whole-period aggregation are explicit acceptance obligations of the later
-  Evaluation feature.
+  immutable impact, either its exact approved-amendment resolution evidence or
+  its derived unresolved state, allocation preview, and Effective Segment
+  contract without retroactively changing earlier facts; official segment
+  evaluation and whole-period aggregation are explicit acceptance obligations
+  of the later Evaluation feature.
 - **SC-013**: For 100% of accepted proportional re-cascade cases, including
   cases requiring rounding, repeated calculation produces the same assignment
   weights, preserves the prior assignee order, and totals exactly 100 percent at
@@ -612,10 +631,11 @@ contract that those later features MUST consume.
   BSC/KPI planning, assignment, routing, cascade, and operation remain gated.
 - The Organization and Authorization Foundation behaviorally enforces the
   approved-baseline gate, gapless applicability chain, baseline-change impact,
-  deterministic allocation preview, and Effective Segment contract. Detailed
-  KPI plan amendment/re-cascade persistence and official cross-segment result
-  aggregation belong to later KPI Planning and Evaluation features and cannot
-  be claimed complete by this feature.
+  approved-amendment resolution-registration contract, deterministic allocation
+  preview, and Effective Segment contract. Detailed KPI plan amendment/
+  re-cascade persistence and official cross-segment result aggregation belong
+  to later KPI Planning and Evaluation features and cannot be claimed complete
+  by this feature.
 - Bulk organization or workforce import is not required for this feature's
   primary acceptance journey; future import adapters must obey the same
   validation, approval, revision, and audit rules.

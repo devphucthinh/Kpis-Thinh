@@ -82,6 +82,15 @@ Audit these high-risk decisions explicitly:
 12. `TARGET LOCK` remains active: both production repositories are read-only
     until the reference UI/UX, backend, API, database, restart, and audit gate
     is explicitly approved.
+13. FR-043 has one deterministic in-process Planning/Foundation contract: the
+    impact remains immutable, resolution is a separate one-per-impact fact,
+    status is derived, exact retry is idempotent, conflicting/cross-Organization
+    evidence is rejected, and Planning approval + resolution + audit share one
+    unit of work. OpenAPI exposes read evidence but no bypassing resolve write.
+14. SC-002 and SC-008 define human first-attempt cohorts, standardized
+    orientation/assistance rules, numerator, denominator, minimum sample sizes,
+    evidence fields, and the exact `>= 0.90` pass calculation. Automated tests
+    cannot substitute for human outcomes.
 
 Check for stale alternatives, ambiguous state transitions, missing aggregate
 owners, fake feature-002 acceptance claims, cross-Organization leakage,
@@ -116,11 +125,13 @@ Return one Markdown document with exactly these sections:
    1-7 above across Spec, Plan, Data Model, OpenAPI, UI/Quickstart, and Tests.
 5. `Organization KPI Workspace Boundary` — one row for decisions 8-10 with
    current owner, published contract, later owner, and status.
-6. `Constitution and Architecture Check` — pass/fail with evidence for every
+6. `Impact Resolution and Quantitative Evidence` — trace decisions 13-14
+   through Spec, Plan, Data Model, contracts, Quickstart, and Tests.
+7. `Constitution and Architecture Check` — pass/fail with evidence for every
    relevant rule.
-7. `Open Questions` — only decisions impossible to derive from repository
+8. `Open Questions` — only decisions impossible to derive from repository
    evidence; otherwise `None`.
-8. `Recommended Next Step` — choose exactly one: correct the listed planning
+9. `Recommended Next Step` — choose exactly one: correct the listed planning
    artifacts and rerun this review; return to `$speckit-clarify`; or proceed to
    `$speckit-tasks`.
 

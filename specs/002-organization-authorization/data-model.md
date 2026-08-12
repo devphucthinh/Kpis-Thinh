@@ -9,7 +9,7 @@
   entry and display.
 - Mutable heads carry both a business `Revision` and PostgreSQL `xmin`.
 - Submitted revisions, approved baselines, role versions, route snapshots,
-  decisions, impact facts, and Audit Records are immutable.
+  decisions, impact/resolution facts, and Audit Records are immutable.
 - Status strings and capability identifiers are stable machine codes; localized
   labels belong to Web resources.
 - Deletion of governed history is not part of any persistence interface.
@@ -28,6 +28,7 @@ erDiagram
     EMPLOYEE ||--o{ POSITION_ASSIGNMENT : holds
     POSITION ||--o{ REPORTING_RELATIONSHIP : reports_through
     STRUCTURE_BASELINE ||--o{ BASELINE_CHANGE_IMPACT : supersedes
+    BASELINE_CHANGE_IMPACT ||--o| BASELINE_IMPACT_RESOLUTION : resolved_by
 
     ORGANIZATION ||--o{ CUSTOM_KPI_ROLE : defines
     CUSTOM_KPI_ROLE ||--o{ CUSTOM_KPI_ROLE_VERSION : versions
@@ -234,7 +235,8 @@ derived and never rewrite historical baseline content.
 
 ### BaselineChangeImpact
 
-Immutable bridge to later KPI Planning/Evaluation features.
+Immutable causal bridge to later KPI Planning/Evaluation features. The row has
+no mutable lifecycle or resolution columns.
 
 | Field | Type | Rule |
 |---|---|---|
@@ -243,8 +245,36 @@ Immutable bridge to later KPI Planning/Evaluation features.
 | `EffectiveAt` | instant | Equals new baseline start. |
 | `ChangedUnitIds`, `ChangedPositionIds`, `ChangedEmployeeIds`, `ChangedAssignmentIds` | ordered ID sets | Server-derived diff. |
 | `RequiresRecascade` | `bool` | True when responsibility/routing inputs changed during an open period. |
-| `ImpactStatus` | `Detected/Acknowledged/Resolved` | Later Planning owns resolution reference; foundation never silently marks resolved. |
-| `ResolvedByArtifactType/Id/Revision` | optional reference | Filled only by a governed downstream amendment. |
+| `ContentHash`, `CreatedAt` | evidence | Required and immutable. |
+
+Query status is derived: `Detected` when no resolution exists and `Resolved`
+when the one valid `BaselineImpactResolution` exists. There is no
+`Acknowledged` state because no approved requirement gives acknowledgement an
+independent business effect.
+
+### BaselineImpactResolution
+
+Immutable proof that Planning completed the governed response to one impact.
+
+| Field | Type | Rule |
+|---|---|---|
+| `Id`, `OrganizationId`, `BaselineChangeImpactId` | `Guid` | Organization-scoped identity; exactly zero or one resolution per impact. |
+| `PlanAmendmentId` | `Guid` | Exact governed KPI Plan Amendment aggregate. |
+| `PlanAmendmentRevision` | `long` | Exact immutable approved revision; greater than zero. |
+| `AppliedBaselineId` | `Guid` | Must equal the impact's `NewBaselineId`. |
+| `ApprovalDecisionId` | `Guid` | Exact independent approval decision. |
+| `AmendmentContentHash` | string | Must match authoritative Planning evidence. |
+| `ApprovedByEmployeeId`, `ApprovedAt` | evidence | Copied from the verified decision. |
+| `RegisteredByEmployeeId`, `RegisteredAt`, `CorrelationId` | evidence | Actor/correlation of the Planning approval command. |
+
+Planning owns the KPI Plan Amendment and authoritative evidence reader;
+foundation owns registration, the resolution fact, idempotency, and audit. The
+registrar never trusts caller-supplied approval status: it reloads the exact
+Organization/amendment/revision through the Planning-owned reader inside the
+same unit of work. An exact retry returns the existing resolution. A different
+reference for the same impact returns `baseline_impact.already_resolved`; an
+unapproved or mismatched baseline returns domain validation; a cross-
+Organization reference is safely denied/not found.
 
 ## Authorization
 
@@ -664,7 +694,7 @@ authorization commands must populate them.
 | Approval Group | `approval_groups`, `approval_group_memberships` | `xmin` on group head; GiST exclusion for same group/Employee membership overlap |
 | Approval | `approval_route_definitions`, `approval_route_versions`, `approval_route_version_reviews`, `approval_route_activation_slots`, `approval_route_snapshots`, `approval_stage_snapshots`, `approval_decisions` | `xmin` on route head/activation slot; immutable submitted version/review/snapshot/decision |
 | Delegation | `approval_delegations`, `approval_delegation_decisions` | effective range indexes; non-expansion checked Domain/Application |
-| Mid-period impact | `baseline_change_impacts` | immutable baseline pair + effective time |
+| Mid-period impact | `baseline_change_impacts`, `baseline_impact_resolutions` | both append-only; unique resolution per impact; exact approved amendment evidence |
 | Audit | extended `audit_records` | update/delete rejected by database trigger |
 
 Every foreign key that crosses an Organization-owned table includes or is
@@ -687,6 +717,9 @@ Organization mismatch as not-found/denied rather than loading cross-scope data.
   references must match the same Organization and artifact type.
 - Effective Approval Group membership lookup by Organization + group + range;
   GiST exclusion prevents overlap for the same group and Employee.
+- Unique resolution by `(OrganizationId, BaselineChangeImpactId)`; indexed
+  amendment lookup by Organization + Plan Amendment ID/revision. The same
+  amendment may resolve multiple impacts, but each impact resolves once.
 - Audit timeline lookup by Organization + resource + occurred time and by actor.
 - Unique `(RoleId, VersionNumber)` and `(OrganizationId, normalized RoleName)`.
 
@@ -704,5 +737,9 @@ activates the independently approved target, advances the slot, and writes audit
 evidence. Approval Group membership commands advance the group head and preserve
 effective history. Role Assignment approval commits its decision and scheduled/
 effective grant. Approval decisions commit the decision plus route status. A
-concurrency or database-constraint failure writes no partial state and maps to
-stable HTTP 409 Problem Details.
+Planning's governed amendment approval command calls the in-process impact
+registrar before commit; authoritative amendment approval, immutable
+`BaselineImpactResolution`, and its Audit Record share one unit of work. The
+unique impact-resolution constraint makes concurrent conflicting registration
+race-safe; exact retries are idempotent. A concurrency or database-constraint
+failure writes no partial state and maps to the contract's stable conflict.

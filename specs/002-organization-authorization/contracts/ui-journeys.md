@@ -118,14 +118,19 @@ role creation grants the role to its creator.
    Positions, changed Employees/assignments, and affected downstream references.
 2. The approval page warns when the effective instant is inside an open KPI
    period and marks **Yêu cầu tái phân rã**.
-3. The impact page displays prior/new baseline, effective boundary, unresolved
-   downstream amendment state, and a proportional weight preview.
+3. The impact page displays prior/new baseline, effective boundary, derived
+   **Detected** state, and a proportional weight preview. It has no manual
+   acknowledge/resolve control.
 4. For old weights 50/20/30 and a fixed new 20, the preview shows
    40/16/24/20, residual allocation details, unchanged relative order, and an
    exact 100% proof total.
-5. The UI does not claim that KPI results were recalculated. It links the impact
-   fact that later Planning/Evaluation journeys must resolve.
-6. The baseline timeline proves predecessor applicability ends exactly when the
+5. After later Planning independently approves the exact KPI Plan Amendment and
+   registers the immutable resolution through the Application contract, the
+   read projection shows **Resolved** with amendment revision, approval actor/
+   time, and correlation evidence. A direct status toggle is never presented.
+6. The UI does not claim that KPI results were recalculated. It links impact and
+   resolution facts that later Planning/Evaluation journeys consume.
+7. The baseline timeline proves predecessor applicability ends exactly when the
    successor begins; after the first baseline start there is no ordinary empty
    baseline state.
 

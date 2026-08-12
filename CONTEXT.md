@@ -160,6 +160,10 @@ _Avoid_: Live organization tree, mutable baseline, database row version
 An immutable explanation of the Organization Units, Positions, Employees, assignments, and downstream responsibilities affected when one approved Organization Structure Baseline supersedes another from a defined effective instant.
 _Avoid_: KPI Plan Amendment, recalculated KPI result, mutable diff
 
+**Baseline Impact Resolution**:
+An immutable link proving that one Baseline Change Impact was addressed by one exact independently approved KPI Plan Amendment revision; its presence, rather than a mutable status flag, makes the impact resolved.
+_Avoid_: Acknowledgement checkbox, editable impact status, unapproved amendment reference
+
 **Effective Segment**:
 A non-overlapping portion of a KPI Period that preserves the exact Organization Structure Baseline, plan revision, responsibility weights, and aggregation-policy version applicable to facts in that portion.
 _Avoid_: Recalculated whole period, dashboard date filter, latest organization view

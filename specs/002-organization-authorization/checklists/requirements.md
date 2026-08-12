@@ -36,3 +36,6 @@
   input-package gate for this invocation.
 - KPI Dictionary authoring remains available before baseline approval; all
   baseline-dependent planning and operational journeys remain gated.
+- Validation iteration 2 encoded immutable Baseline Impact Resolution semantics
+  and quantitative first-attempt evidence protocols without introducing an
+  unresolved clarification or product implementation detail.

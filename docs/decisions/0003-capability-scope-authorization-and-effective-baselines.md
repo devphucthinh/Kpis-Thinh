@@ -2,6 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-08-11
+- Updated: 2026-08-12
 
 ## Context
 
@@ -66,7 +67,13 @@ the percentage remaining after fixed new weights, then rounded by largest
 remainder with prior order and stable assignment identity as tie breakers. The
 foundation does not mutate a KPI Plan or calculate official segment results;
 later Planning/Evaluation modules consume the frozen impact and effective
-segment contract.
+segment contract. The impact itself has no mutable lifecycle field. A later KPI
+Planning approval command resolves it only by registering a separate immutable
+Baseline Impact Resolution containing the exact approved Plan Amendment
+revision and decision evidence. The Planning command and resolution fact commit
+in one unit of work; duplicate registration of the same evidence is idempotent,
+while a different reference, unapproved evidence, or cross-Organization
+reference is rejected.
 
 PostgreSQL remains the race-safe guard: row locking plus atomic predecessor
 close/successor insert protects continuity, range/exclusion constraints protect
@@ -89,6 +96,8 @@ remains the only schema writer.
   maker, and replacement cannot leave an artifact type without an active route.
 - Mid-period structure changes preserve before/after causality and provide one
   deterministic weight algorithm for future Planning consumers.
+- A Baseline Change Impact is resolved only by durable, independently approved
+  KPI Plan Amendment evidence; no UI/API status toggle can bypass that link.
 - The model requires additional immutable/versioned tables, effective-range
   indexes, and explicit route/scope queries; this complexity is accepted because
   mutable role checks cannot satisfy the governance requirements.
