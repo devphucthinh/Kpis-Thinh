@@ -19,6 +19,11 @@
 - Q: How must rounding residuals be allocated when proportional weight rescaling exceeds the allowed precision? → A: Use the largest-remainder method at the configured precision, distribute residual units by descending fractional remainder, break ties by prior relative order and stable assignment identity, and never reverse the prior assignee weight order.
 - Q: Does this foundation feature itself apply KPI Plan amendments and calculate official cross-segment KPI results? → A: No; this feature owns the enforceable approved-baseline gate, immutable change impact, deterministic allocation preview, and effective-segment integration contract, while later KPI Planning and Evaluation features apply governed plan amendments and calculate official results against those contracts.
 - Q: Does “exactly one effective baseline at each instant” require continuity? → A: Yes; before the first baseline starts, baseline-dependent operations remain blocked, and from that first effective instant onward approved baselines form a gapless, non-overlapping chain in which successor approval atomically ends predecessor applicability at the successor start.
+- Q: How must a new or changed Approval Route version be activated? → A: Every Approval Route version requires independent approval by an eligible actor with the route-approval capability and applicable scope; its creator or editor cannot approve or activate that version, and the system preserves the decision, reason, capability, scope, and timeline evidence.
+- Q: How must the Organization Unit Head selector identify the approver? → A: Each Approval Route explicitly selects an Employee as the Organization Unit Head for the relevant unit instead of deriving the head from a Position or reporting-tree rank; route resolution must still verify that the configured Employee is active, belongs to the applicable unit context, and is eligible within the required scope under the applicable approved baseline.
+- Q: Which Position must a Direct Manager selector use when an Employee holds multiple Positions? → A: Resolve from the Position attached to the governed artifact's business responsibility or subject; only when the artifact has no Position context may the selector fall back to the Employee's applicable primary Position, and the chosen Position plus any fallback must be preserved in the route snapshot.
+- Q: Where must a Named Group selector obtain its group and membership? → A: Use an Organization-scoped internal Approval Group whose Employee memberships are effective-dated; at submission, resolve eligible members and preserve that immutable member set in the Approval Route Snapshot so later membership changes do not rewrite the submitted route.
+- Q: What must happen when an administrator retires the only active Approval Route for a governed artifact type? → A: Block retirement until an independently approved replacement version is ready, then atomically activate the replacement and retire the prior route without an unroutable gap; already-submitted artifacts continue using their immutable prior route snapshots.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -183,10 +188,11 @@ act inside the subtree but is denied outside it.
 ### User Story 5 - Resolve Approvers, Delegation, and Audit Visibility (Priority: P3)
 
 A process owner configures approval selectors based on the approved organization
-structure. At submission, the system resolves and snapshots the eligible route.
-An effective delegate may act within the original authority's capability,
-scope, and period, while authorized participants and auditors can understand
-the complete decision timeline.
+structure. A different eligible actor independently approves each route version
+before activation. At submission, the system resolves and snapshots the
+eligible route. An effective delegate may act within the original authority's
+capability, scope, and period, while authorized participants and auditors can
+understand the complete decision timeline.
 
 **Why this priority**: Governed KPI operations require explainable approval
 routes that survive later organization changes without enabling silent skips or
@@ -214,6 +220,37 @@ identity, decision reason, and scoped timeline visibility.
 5. **Given** an actor outside the involved organization scope and without
    applicable audit authority, **When** the actor requests the timeline,
    **Then** protected decision details are not visible.
+6. **Given** a process owner creates or changes an Approval Route version,
+   **When** that creator or editor attempts to approve or activate the same
+   version, **Then** the action is rejected; **When** a different actor with the
+   route-approval capability and applicable scope approves it with a reason,
+   **Then** the version may be activated and the complete decision evidence is
+   preserved in the timeline.
+7. **Given** an Organization Unit Head stage configured with a specific
+   Employee for the relevant unit, **When** a governed artifact is submitted,
+   **Then** the system resolves that Employee without inferring the head from a
+   Position or reporting-tree rank and verifies active employment, applicable
+   unit context, and required scope against the approved baseline; an
+   ineligible configured Employee causes primary or fallback resolution to fail
+   explicitly.
+8. **Given** an Employee holds multiple Positions and the submitted artifact
+   identifies the Position responsible for that business context, **When** a
+   Direct Manager stage is resolved, **Then** the system follows the Direct
+   reporting relationship from that Position; **Given** no Position context is
+   present, **Then** it may fall back to the Employee's applicable primary
+   Position, and the selected Position and fallback evidence are preserved in
+   the immutable route snapshot.
+9. **Given** a Named Group stage references an internal Approval Group, **When**
+   an artifact is submitted, **Then** the system resolves the effective and
+   eligible Employee memberships for that Organization and preserves them in
+   the immutable route snapshot; later group membership changes affect only
+   later submissions.
+10. **Given** an Approval Route is the only active route for a governed artifact
+    type, **When** an administrator attempts to retire it without an
+    independently approved replacement ready for activation, **Then** the
+    action is blocked; **When** a replacement is ready, **Then** activation and
+    retirement occur atomically with no unroutable interval, while previously
+    submitted artifacts keep their original route snapshots.
 
 ### Edge Cases
 
@@ -349,14 +386,34 @@ identity, decision reason, and scoped timeline visibility.
   missing capability, out-of-scope data, expired authority, separation of duty,
   and missing eligible approver without exposing protected data.
 - **FR-028**: Authorized process owners MUST be able to create, read, validate,
-  activate, version, and retire Approval Route Definitions through the
-  versioned transport interface; route stages MUST support direct manager,
-  Organization Unit head, Position holder, named user or group, and required
-  capability plus KPI Data Scope selectors. Used route versions MUST remain
-  immutable and stale route-head changes MUST return a stable conflict.
+  propose, version, and retire Approval Route Definitions through the versioned
+  transport interface; route stages MUST support direct manager, Organization
+  Unit head, Position holder, named user or group, and required capability plus
+  KPI Data Scope selectors. An Organization Unit head selector MUST explicitly
+  reference an Employee for the relevant unit and MUST NOT infer the head from
+  a Position or reporting-tree rank; resolution MUST verify that Employee's
+  active employment, applicable unit context, and required scope against the
+  applicable approved baseline. A named group selector MUST reference an
+  Organization-scoped internal Approval Group with effective-dated Employee
+  memberships. Every new or changed route version MUST require
+  approval by a different eligible actor with the route-approval capability and
+  applicable scope before activation; the creator or editor MUST NOT approve or
+  activate that version. The approval decision, reason, evaluated capability,
+  scope, and timeline MUST be preserved. Used route versions MUST remain
+  immutable and stale route-head changes MUST return a stable conflict. The
+  only active route for a governed artifact type MUST NOT be retired until an
+  independently approved replacement version is ready; replacement activation
+  and prior-route retirement MUST occur atomically without an unroutable gap,
+  and existing submission snapshots MUST remain unchanged.
 - **FR-029**: Approver resolution MUST use the applicable approved Organization
   Structure Baseline and MUST preserve the resolved selector, actors, scope,
-  fallback, and route as an immutable submission snapshot.
+  fallback, Position context, and route as an immutable submission snapshot. A
+  Direct Manager selector MUST use the Position attached to the governed
+  artifact's business responsibility or subject when present and MAY fall back
+  to the Employee's applicable primary Position only when the artifact has no
+  Position context. Named Group resolution MUST snapshot the effective eligible
+  Employee member set so later membership changes do not alter a submitted
+  route.
 - **FR-030**: A configured approval stage MUST NOT be silently skipped; failure
   to resolve an eligible primary or fallback approver MUST block progression and
   explain the failed resolution.
@@ -456,10 +513,13 @@ identity, decision reason, and scoped timeline visibility.
   which a capability may be exercised.
 - **Role Assignment**: Effective and approved relationship granting one exact
   role version to an Employee within a KPI Data Scope.
+- **Approval Group**: Organization-scoped internal group with effective-dated
+  Employee memberships used by Named Group approval selectors.
 - **Approval Route Definition**: Organization-scoped route identity with
   optimistic head and immutable versions of ordered selector/fallback stages.
 - **Approval Route Snapshot**: Resolved ordered approver route and fallback
-  evidence preserved when a governed artifact is submitted.
+  evidence, including any resolved Approval Group member set, preserved when a
+  governed artifact is submitted.
 - **Approval Delegation**: Effective and scope-limited authority to perform
   specified approval duties on behalf of another actor.
 - **Audit Record**: Immutable explanation of a governed action and its context.
@@ -492,16 +552,18 @@ contract that those later features MUST consume.
   100% of allowed cases succeed and 100% of missing-capability, out-of-scope,
   expired-authority, and disabled-account cases are denied.
 - **SC-004**: 100% of tested self-approval and self-elevation attempts are
-  rejected, including attempts by actors whose Custom KPI Roles contain both
-  maker and approver capabilities.
+  rejected, including Approval Route version activation and attempts by actors
+  whose Custom KPI Roles contain both maker and approver capabilities.
 - **SC-005**: 100% of risky capability combinations used in acceptance tests
   display a warning before role creation while remaining creatable after explicit
   acknowledgement.
 - **SC-006**: Every required selector kind can be configured and versioned
-  through the transport interface, and for every submitted approval case
-  reviewers can identify the selector, resolved approver, fallback, delegation,
-  decision, reason, scope, route version, and affected revision from the
-  timeline without technical assistance.
+  through the transport interface; 100% of tested only-active-route retirement
+  attempts are blocked until an independently approved replacement can be
+  switched atomically; and for every submitted approval case reviewers can
+  identify the selector, resolved approver, fallback, Position context, resolved
+  group membership, delegation, decision, reason, scope, route version, and
+  affected revision from the timeline without technical assistance.
 - **SC-007**: After an application interruption and recovery, 100% of approved
   baselines, historical revisions, effective assignments, role versions,
   approval snapshots, delegations, and Audit Records used in acceptance testing
