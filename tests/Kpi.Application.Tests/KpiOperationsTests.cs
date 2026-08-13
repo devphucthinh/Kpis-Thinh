@@ -1,6 +1,7 @@
 using Kpi.Application;
 using Kpi.Application.Common;
 using Kpi.Application.Persistence;
+using Kpi.Application.Authorization;
 using Kpi.Domain.Auditing;
 using Kpi.Domain.Evaluations;
 using Kpi.Domain.Formula;
@@ -12,6 +13,25 @@ namespace Kpi.Application.Tests;
 
 public sealed class KpiOperationsTests
 {
+    [Fact(DisplayName = "FR-049 every governed KPI command calls the shared authorization decision seam per action")]
+    public void Governed_command_reloads_the_shared_authorization_seam_between_actions()
+    {
+        var authorization = new RecordingAuthorizationDecision();
+        var store = new InMemoryKpiStore();
+        var operations = new KpiOperations(store, new FixedClock(), authorization: authorization);
+        var actor = ActorContext.Demo("creator");
+
+        var first = operations.CreateDefinition(actor, "AUTH_SEAM", "Authorization seam", "Test");
+        authorization.Allow = false;
+        var second = operations.CreateDefinition(actor, "AUTH_SEAM_2", "Authorization seam", "Test");
+
+        Assert.True(first.IsSuccess);
+        Assert.Equal("AUTHORIZATION_DENIED", second.Error!.Code);
+        Assert.Equal(2, authorization.CallCount);
+        Assert.Equal("kpi.definition.create", authorization.Capabilities[0]);
+        Assert.Equal("kpi.definition.create", authorization.Capabilities[1]);
+    }
+
     [Fact]
     public void Creator_cannot_self_approve_and_audit_is_written_for_create()
     {
@@ -42,6 +62,22 @@ public sealed class KpiOperationsTests
     }
 
     private sealed class FixedClock : IClock { public DateTimeOffset UtcNow => new(2026, 8, 9, 0, 0, 0, TimeSpan.Zero); }
+
+    private sealed class RecordingAuthorizationDecision : IAuthorizationDecision
+    {
+        public bool Allow { get; set; } = true;
+        public int CallCount { get; private set; }
+        public List<string> Capabilities { get; } = [];
+
+        public Task<AuthorizationDecision> DecideAsync(ActorIdentity actor, KpiCapabilityId capability, AuthorizationResource resource, DateTimeOffset effectiveAt, RepresentedAuthority? representedAuthority, CancellationToken cancellationToken)
+        {
+            CallCount++;
+            Capabilities.Add(capability.Value);
+            return Task.FromResult(Allow
+                ? AuthorizationDecision.Allow(actor.OrganizationId, capability, resource, effectiveAt)
+                : AuthorizationDecision.Deny(AuthorizationDecisionReason.MissingCapability, actor.OrganizationId, capability, resource, effectiveAt));
+        }
+    }
 
     private sealed class RecordingDefinitionPersistence : IKpiDefinitionPersistence
     {

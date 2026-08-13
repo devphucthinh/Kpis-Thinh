@@ -29,10 +29,11 @@ public sealed class PostgresAuthorizationFactsReader(KpiDbContext context) : IAu
         cancellationToken.ThrowIfCancellationRequested();
         var actorEmployee = actor.EmployeeId is null
             ? null
-            : await context.OrganizationEmployees.SingleOrDefaultAsync(
+            : await context.OrganizationEmployees.AsNoTracking().SingleOrDefaultAsync(
                 row => row.OrganizationId == actor.OrganizationId && row.Id == actor.EmployeeId.Value,
                 cancellationToken);
         var instant = effectiveAt.ToUniversalTime();
+        var resourceRevisionCurrent = await IsResourceRevisionCurrentAsync(resource, actor.OrganizationId, cancellationToken);
         var employmentActive = actorEmployee is not null && actorEmployee.EmploymentFrom <= instant &&
             (actorEmployee.EmploymentTo is null || instant < actorEmployee.EmploymentTo.Value);
         var accountEnabled = actorEmployee is not null && string.Equals(actorEmployee.AccountStatus, "active", StringComparison.OrdinalIgnoreCase);
@@ -72,6 +73,16 @@ public sealed class PostgresAuthorizationFactsReader(KpiDbContext context) : IAu
             .Select(id => new KpiCapabilityId(id))
             .Where(id => CapabilityCatalog.Default.TryGet(id, out _))
             .ToHashSet();
+        var capabilityRoleVersionIds = capability is null
+            ? activeRoleVersionIds
+            : await context.CustomKpiRoleCapabilities.AsNoTracking()
+                .Where(row => row.OrganizationId == actor.OrganizationId && activeRoleVersionIds.Contains(row.RoleVersionId) && row.CapabilityId == capability.Value.Value)
+                .Select(row => row.RoleVersionId)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+        var authorizedAssignments = assignments
+            .Where(row => capabilityRoleVersionIds.Contains(row.RoleVersionId))
+            .ToArray();
         var baselineApplicable = true;
         if (resource.BaselineId is not null)
         {
@@ -82,7 +93,7 @@ public sealed class PostgresAuthorizationFactsReader(KpiDbContext context) : IAu
                 (row.EffectiveTo == null || instant < row.EffectiveTo), cancellationToken);
             baselineApplicable = approvedBaseline && applicableSegment;
         }
-        var scopeMatches = assignments.Any(row => ScopeMatches(row.ScopeKind, row.ScopeTargetId, row.BaselineId, authorityEmployeeId, resource, baselineApplicable));
+        var scopeMatches = authorizedAssignments.Any(row => ScopeMatches(row.ScopeKind, row.ScopeTargetId, row.BaselineId, authorityEmployeeId, resource, baselineApplicable));
         var delegationValid = false;
         var delegationScopeMatches = false;
         if (representedAuthority is not null && actor.EmployeeId is not null)
@@ -92,7 +103,9 @@ public sealed class PostgresAuthorizationFactsReader(KpiDbContext context) : IAu
                 row.OriginalActorId == representedAuthority.ActorId && row.DelegateActorId == actor.EmployeeId.Value &&
                 row.Status == "Active" && row.EffectiveFrom <= instant && (row.EffectiveTo == null || instant < row.EffectiveTo), cancellationToken);
             delegationValid = delegation is not null && (capability is null || string.Equals(delegation.CapabilityId, capability.Value.Value, StringComparison.Ordinal));
-            delegationScopeMatches = delegation is not null && ScopeMatches(delegation.ScopeKind, delegation.ScopeTargetId, delegation.BaselineId, authorityEmployeeId, resource, baselineApplicable);
+            delegationScopeMatches = delegation is not null &&
+                authorizedAssignments.Any(row => ScopeMatches(row.ScopeKind, row.ScopeTargetId, row.BaselineId, authorityEmployeeId, resource, baselineApplicable)) &&
+                ScopeMatches(delegation.ScopeKind, delegation.ScopeTargetId, delegation.BaselineId, authorityEmployeeId, resource, baselineApplicable);
         }
 
         return new AuthorizationFacts(
@@ -100,8 +113,8 @@ public sealed class PostgresAuthorizationFactsReader(KpiDbContext context) : IAu
             accountEnabled,
             employmentActive,
             capabilities,
-            assignments.Select(row => row.Id).ToArray(),
-            assignments.Where(row => ScopeMatches(row.ScopeKind, row.ScopeTargetId, row.BaselineId, authorityEmployeeId, resource, baselineApplicable)).Select(row => $"{row.ScopeKind}:{row.ScopeTargetId}").ToArray(),
+            authorizedAssignments.Select(row => row.Id).ToArray(),
+            authorizedAssignments.Where(row => ScopeMatches(row.ScopeKind, row.ScopeTargetId, row.BaselineId, authorityEmployeeId, resource, baselineApplicable)).Select(row => $"{row.ScopeKind}:{row.ScopeTargetId}").ToArray(),
             ScopeMatches: scopeMatches,
             BaselineApplicable: baselineApplicable,
             SeparationOfDutySatisfied: true,
@@ -110,7 +123,86 @@ public sealed class PostgresAuthorizationFactsReader(KpiDbContext context) : IAu
             DelegationScopeMatches: delegationScopeMatches,
             RepresentedAuthorityActorId: representedAuthority?.ActorId,
             DelegationId: representedAuthority?.DelegationId,
-            ResourceRevisionCurrent: true);
+            ResourceRevisionCurrent: resourceRevisionCurrent);
+    }
+
+    private async Task<bool> IsResourceRevisionCurrentAsync(
+        AuthorizationResource resource,
+        Guid organizationId,
+        CancellationToken cancellationToken)
+    {
+        var kind = resource.ResourceType
+            .Replace("_", string.Empty, StringComparison.Ordinal)
+            .Replace("-", string.Empty, StringComparison.Ordinal)
+            .ToLowerInvariant();
+        long? currentRevision;
+        switch (kind)
+        {
+            case "organization":
+                currentRevision = await context.Organizations.AsNoTracking()
+                    .Where(row => row.Id == resource.ResourceId && row.Id == organizationId)
+                    .Select(row => (long?)row.Revision)
+                    .SingleOrDefaultAsync(cancellationToken);
+                break;
+            case "organizationunit":
+                currentRevision = await context.OrganizationUnits.AsNoTracking()
+                    .Where(row => row.OrganizationId == organizationId && row.Id == resource.ResourceId)
+                    .Select(row => (long?)row.Revision)
+                    .SingleOrDefaultAsync(cancellationToken);
+                break;
+            case "organizationposition":
+                currentRevision = await context.OrganizationPositions.AsNoTracking()
+                    .Where(row => row.OrganizationId == organizationId && row.Id == resource.ResourceId)
+                    .Select(row => (long?)row.Revision)
+                    .SingleOrDefaultAsync(cancellationToken);
+                break;
+            case "organizationemployee":
+                currentRevision = await context.OrganizationEmployees.AsNoTracking()
+                    .Where(row => row.OrganizationId == organizationId && row.Id == resource.ResourceId)
+                    .Select(row => (long?)row.Revision)
+                    .SingleOrDefaultAsync(cancellationToken);
+                break;
+            case "organizationbaseline":
+                currentRevision = await context.OrganizationBaselines.AsNoTracking()
+                    .Where(row => row.OrganizationId == organizationId && row.Id == resource.ResourceId)
+                    .Select(row => (long?)row.StructureRevision)
+                    .SingleOrDefaultAsync(cancellationToken);
+                break;
+            case "kpidefinition":
+                currentRevision = await context.Definitions.AsNoTracking()
+                    .Where(row => row.OrganizationId == organizationId && row.Id == resource.ResourceId)
+                    .Select(row => (long?)row.Revision)
+                    .SingleOrDefaultAsync(cancellationToken);
+                break;
+            case "kpiversion":
+                currentRevision = await (from version in context.Versions.AsNoTracking()
+                                         join definition in context.Definitions.AsNoTracking() on version.DefinitionId equals definition.Id
+                                         where definition.OrganizationId == organizationId && version.Id == resource.ResourceId
+                                         select (long?)version.Revision).SingleOrDefaultAsync(cancellationToken);
+                break;
+            case "kpiperiod":
+                currentRevision = await context.Periods.AsNoTracking()
+                    .Where(row => row.OrganizationId == organizationId && row.Id == resource.ResourceId)
+                    .Select(row => (long?)row.Revision)
+                    .SingleOrDefaultAsync(cancellationToken);
+                break;
+            case "customkpirole":
+                currentRevision = await context.CustomKpiRoles.AsNoTracking()
+                    .Where(row => row.OrganizationId == organizationId && row.Id == resource.ResourceId)
+                    .Select(row => (long?)row.Revision)
+                    .SingleOrDefaultAsync(cancellationToken);
+                break;
+            case "roleassignment":
+                currentRevision = await context.RoleAssignments.AsNoTracking()
+                    .Where(row => row.OrganizationId == organizationId && row.Id == resource.ResourceId)
+                    .Select(row => (long?)row.Revision)
+                    .SingleOrDefaultAsync(cancellationToken);
+                break;
+            default:
+                return false;
+        }
+
+        return currentRevision is not null && currentRevision.Value == resource.ResourceRevision;
     }
 
     private static bool ScopeMatches(string kind, Guid? targetId, Guid? baselineId, Guid? authorityEmployeeId, AuthorizationResource resource, bool baselineApplicable) => kind switch

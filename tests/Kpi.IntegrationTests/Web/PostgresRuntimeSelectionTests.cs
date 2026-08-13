@@ -12,7 +12,7 @@ namespace Kpi.IntegrationTests.Web;
 
 public sealed class PostgresRuntimeSelectionTests
 {
-    [Fact]
+    [Fact(DisplayName = "FR-049 Postgres runtime profile registers the shared authorization seam and no InMemory source of truth")]
     public void Configured_runtime_profile_does_not_register_inmemory_source_of_truth()
     {
         var configuration = new ConfigurationBuilder()
@@ -33,6 +33,7 @@ public sealed class PostgresRuntimeSelectionTests
         var context = scope.ServiceProvider.GetRequiredService<KpiDbContext>();
         Assert.Equal("Host=runtime;Database=kpi_lab;Username=runtime", context.Database.GetDbConnection().ConnectionString);
         Assert.NotNull(scope.ServiceProvider.GetService<IAuthorizationDecision>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<KpiOperations>());
         Assert.NotNull(scope.ServiceProvider.GetService<IAuditWriter>());
         Assert.NotNull(scope.ServiceProvider.GetService<IOrganizationTransaction>());
     }

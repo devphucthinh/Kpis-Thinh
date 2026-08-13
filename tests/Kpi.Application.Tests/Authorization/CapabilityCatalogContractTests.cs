@@ -32,7 +32,9 @@ public sealed class CapabilityCatalogContractTests
             "security.custom-role.view", "security.custom-role.manage", "security.role-assignment.request", "security.role-assignment.approve",
             "approval.group.manage", "approval.route.manage", "approval.route.submit", "approval.route.approve", "approval.route.activate",
             "approval.delegation.request", "approval.delegation.approve", "approval.decision.make",
-            "audit.timeline.view", "audit.organization.view"
+            "audit.timeline.view", "audit.organization.view",
+            "kpi.definition.create", "kpi.definition.edit", "kpi.definition.admin",
+            "kpi.version.submit", "kpi.version.review", "kpi.version.activate"
         };
 
         Assert.Equal(expectedCapabilityIds, CapabilityCatalog.Default.All.Select(item => item.Id.Value));

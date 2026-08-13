@@ -43,7 +43,8 @@ public static class PostgresRuntimeConfiguration
             sp.GetRequiredService<KpiRuntimeState>().Store,
             sp.GetRequiredService<Kpi.Application.Common.IClock>(),
             sp.GetService<Kpi.Application.Persistence.IKpiDefinitionPersistence>(),
-            sp.GetService<Kpi.Application.Persistence.IKpiGovernedPersistence>()));
+            sp.GetService<Kpi.Application.Persistence.IKpiGovernedPersistence>(),
+            sp.GetRequiredService<Kpi.Application.Authorization.IAuthorizationDecision>()));
         services.AddScoped<Kpi.Application.PeriodOperations>(sp => new Kpi.Application.PeriodOperations(
             sp.GetRequiredService<KpiRuntimeState>().Store,
             sp.GetRequiredService<Kpi.Application.Common.IClock>(),

@@ -51,6 +51,12 @@ public sealed class CapabilityCatalog
         yield return Definition("approval", "approval.decision.make", "Make approval decision", true, "Organization", "UnitSubtree");
         yield return Definition("audit", "audit.timeline.view", "View audit timeline", false, "Organization", "UnitSubtree", "Self");
         yield return Definition("audit", "audit.organization.view", "View organization audit", false, "Organization");
+        yield return Definition("kpi", "kpi.definition.create", "Create KPI definitions", true, "Organization");
+        yield return Definition("kpi", "kpi.definition.edit", "Edit KPI definitions and drafts", true, "Organization", "Self");
+        yield return Definition("kpi", "kpi.definition.admin", "Administer KPI definitions", true, "Organization");
+        yield return Definition("kpi", "kpi.version.submit", "Submit KPI versions", true, "Organization", "Self");
+        yield return Definition("kpi", "kpi.version.review", "Review KPI versions", true, "Organization");
+        yield return Definition("kpi", "kpi.version.activate", "Activate KPI versions", true, "Organization");
     }
 
     private static CapabilityDefinition Definition(string area, string id, string displayName, bool approval, params string[] scopes) =>
