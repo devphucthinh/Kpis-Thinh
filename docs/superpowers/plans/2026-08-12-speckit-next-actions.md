@@ -46,6 +46,6 @@
 **Files:** `specs/002-organization-authorization/tasks.md`, `.scratch/bsc-kpi-reference/evidence.md`
 
 - [x] Run focused model/composition tests.
-- [ ] Run the opt-in PostgreSQL migration/authorization suite after the latest EF mapping refactor when credentials are present in the caller environment.
-- [ ] Mark T016 complete only after the mapping and PostgreSQL suite are green; do not mark T024 until all foundational tasks and evidence are complete.
+- [x] Run the opt-in PostgreSQL migration/authorization suite after the latest EF mapping refactor when credentials are present in the caller environment.
+- [x] Mark T016 complete after the mapping and PostgreSQL suite were green; do not mark T024 until all foundational tasks and evidence are complete.
 - [x] Record only redacted command/results and never credentials.

@@ -10,7 +10,7 @@
 - Result: 8 passed, 0 failed, 0 skipped.
 - Covered behavior: migration ledger/checksum/idempotency, local target allow-list, composite Organization FK isolation, append-only approved baseline/segment facts, and PostgreSQL `xmin` optimistic concurrency.
 - Composition boundary: `OrganizationAuthorizationSchemaTests` plus `PostgresCompositionTests`/`PostgresRuntimeSelectionTests` verify that runtime persistence uses only `ConnectionStrings:KpiRuntime` and migration-only configuration does not register the runtime `KpiDbContext`.
-- Post-refactor note: the 8/8 PostgreSQL run predates the `OrganizationAuthorizationConfiguration` extraction; rerun the same opt-in suite after that refactor before marking T016 complete.
+- Post-refactor verification (2026-08-13, supplied terminal output): `./harness.cmd migrate` targeted `kpi_lab_test` with all declared migrations already applied, then the focused suite completed with 8 passed, 0 failed, and 0 skipped. This satisfies the T016 mapping/refactor verification gate.
 - 2026-08-13 local verification: solution Release build passed with 0 warnings and 0 errors; integration tests passed 48 with 8 PostgreSQL tests skipped because opt-in variables were not set in this session.
 - 2026-08-13 `harness.cmd check`: repository contract, bootstrap, lint, build, Application/Domain/Integration tests passed; 3 existing Playwright tests failed before browser launch with environment-level `spawn EPERM`, so the full harness is not green.
 - Credentials: not recorded.
