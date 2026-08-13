@@ -510,6 +510,15 @@
           "Kpi.Infrastructure.Postgres": "[1.0.0, )"
         }
       },
+      "kpi.migrator": {
+        "type": "Project",
+        "dependencies": {
+          "Kpi.Infrastructure.Postgres": "[1.0.0, )",
+          "Microsoft.Extensions.Configuration": "[9.0.16, )",
+          "Microsoft.Extensions.Configuration.EnvironmentVariables": "[9.0.16, )",
+          "Microsoft.Extensions.Configuration.Json": "[9.0.16, )"
+        }
+      },
       "Microsoft.EntityFrameworkCore": {
         "type": "CentralTransitive",
         "requested": "[9.0.16, )",

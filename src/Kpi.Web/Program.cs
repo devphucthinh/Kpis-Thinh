@@ -9,6 +9,8 @@ builder.Services.AddSingleton<Kpi.Application.Formula.FormulaService>();
 builder.Services.AddScoped<Kpi.Web.Queries.KpiWebReadModelService>();
 builder.Services.AddScoped<Kpi.Web.Development.CurrentActorAccessor>();
 builder.Services.AddScoped<Kpi.Application.Common.ICurrentActor>(sp => sp.GetRequiredService<Kpi.Web.Development.CurrentActorAccessor>());
+if (builder.Environment.IsDevelopment())
+    builder.Services.AddScoped<Kpi.Application.Persistence.IPlatformIdentityReader, Kpi.Application.Persistence.DevelopmentPlatformIdentityAdapter>();
 PostgresRuntimeConfiguration.AddPersistence(builder.Services, builder.Configuration);
 
 builder.Services.AddHostedService<Kpi.Web.HostedServices.KpiTimeReconciliationWorker>();

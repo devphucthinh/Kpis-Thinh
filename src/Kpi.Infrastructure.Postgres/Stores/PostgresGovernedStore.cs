@@ -60,7 +60,27 @@ public sealed class PostgresGovernedStore(KpiDbContext context) : IKpiGovernedPe
     public void SaveAudit(AuditRecord record)
     {
         if (context.AuditRecords.Find(record.Id) is not null) return;
-        context.AuditRecords.Add(new AuditRecordRow { Id = record.Id, OrganizationId = record.OrganizationId, ActorId = record.ActorId, EntityType = record.EntityType, EntityId = record.EntityId, EventType = record.EventType.ToString(), OccurredAt = record.OccurredAt, CorrelationId = record.CorrelationId, Reason = record.Reason, SummaryJson = JsonSerializer.Serialize(new { record.Summary }) });
+        context.AuditRecords.Add(new AuditRecordRow
+        {
+            Id = record.Id,
+            OrganizationId = record.OrganizationId,
+            ActorId = record.ActorId,
+            EntityType = record.EntityType,
+            EntityId = record.EntityId,
+            EventType = record.EventType.ToString(),
+            OccurredAt = record.OccurredAt,
+            CorrelationId = record.CorrelationId,
+            Reason = record.Reason,
+            SummaryJson = JsonSerializer.Serialize(new { record.Summary }),
+            ResourceRevision = record.ResourceRevision,
+            CapabilityId = record.CapabilityId,
+            Decision = record.Decision,
+            AssignmentIdsJson = JsonSerializer.Serialize(record.AssignmentIds),
+            ScopeEvidenceJson = JsonSerializer.Serialize(record.ScopeEvidence),
+            AuthorizationEvidenceJson = JsonSerializer.Serialize(new { record.RepresentedAuthorityActorId, record.DelegationId }),
+            RepresentedAuthorityActorId = record.RepresentedAuthorityActorId,
+            DelegationId = record.DelegationId
+        });
         context.SaveChanges();
     }
 
@@ -132,7 +152,24 @@ public sealed class PostgresGovernedStore(KpiDbContext context) : IKpiGovernedPe
         if (query.EventType is not null) rows = rows.Where(x => x.EventType == query.EventType.Value.ToString());
         if (query.From is not null) rows = rows.Where(x => x.OccurredAt >= query.From.Value);
         if (query.To is not null) rows = rows.Where(x => x.OccurredAt <= query.To.Value);
-        return rows.OrderByDescending(x => x.OccurredAt).ToList().Select(row => new AuditRecord(row.Id, row.OrganizationId, row.ActorId, row.EntityType, row.EntityId, Enum.Parse<AuditEventType>(row.EventType), row.OccurredAt, row.CorrelationId, row.Reason, ReadSummary(row.SummaryJson))).ToArray();
+        return rows.OrderByDescending(x => x.OccurredAt).ToList().Select(row => new AuditRecord(
+            row.Id,
+            row.OrganizationId,
+            row.ActorId,
+            row.EntityType,
+            row.EntityId,
+            Enum.Parse<AuditEventType>(row.EventType),
+            row.OccurredAt,
+            row.CorrelationId,
+            row.Reason,
+            ReadSummary(row.SummaryJson),
+            row.ResourceRevision,
+            row.CapabilityId,
+            row.Decision,
+            ReadGuidList(row.AssignmentIdsJson),
+            ReadStringList(row.ScopeEvidenceJson),
+            row.RepresentedAuthorityActorId,
+            row.DelegationId)).ToArray();
     }
 
     private static FormulaDocument? ReadFormula(string json) => string.IsNullOrWhiteSpace(json) || json == "{}" ? null : FormulaDocumentSerializer.Deserialize(json);
@@ -160,6 +197,18 @@ public sealed class PostgresGovernedStore(KpiDbContext context) : IKpiGovernedPe
     {
         try { return JsonDocument.Parse(json).RootElement.TryGetProperty("Summary", out var summary) ? summary.GetString() : null; }
         catch (JsonException) { return null; }
+    }
+
+    private static IReadOnlyList<Guid> ReadGuidList(string json)
+    {
+        try { return JsonSerializer.Deserialize<Guid[]>(json) ?? []; }
+        catch (JsonException) { return []; }
+    }
+
+    private static IReadOnlyList<string> ReadStringList(string json)
+    {
+        try { return JsonSerializer.Deserialize<string[]>(json) ?? []; }
+        catch (JsonException) { return []; }
     }
 
     private static string SerializeOutcome(EvaluationOutcome outcome) => outcome switch

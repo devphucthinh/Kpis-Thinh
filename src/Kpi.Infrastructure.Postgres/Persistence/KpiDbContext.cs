@@ -148,6 +148,14 @@ public sealed class KpiDbContext(DbContextOptions<KpiDbContext> options) : DbCon
             b.Property(x => x.CorrelationId).HasColumnName("correlation_id");
             b.Property(x => x.Reason).HasColumnName("reason");
             b.Property(x => x.SummaryJson).HasColumnName("summary_json").HasColumnType("jsonb");
+            b.Property(x => x.ResourceRevision).HasColumnName("resource_revision");
+            b.Property(x => x.CapabilityId).HasColumnName("capability_id");
+            b.Property(x => x.Decision).HasColumnName("decision");
+            b.Property(x => x.AssignmentIdsJson).HasColumnName("assignment_ids_json").HasColumnType("jsonb");
+            b.Property(x => x.ScopeEvidenceJson).HasColumnName("scope_evidence_json").HasColumnType("jsonb");
+            b.Property(x => x.AuthorizationEvidenceJson).HasColumnName("authorization_evidence_json").HasColumnType("jsonb");
+            b.Property(x => x.RepresentedAuthorityActorId).HasColumnName("represented_authority_actor_id");
+            b.Property(x => x.DelegationId).HasColumnName("delegation_id");
             b.HasIndex(x => new { x.OrganizationId, x.OccurredAt });
         });
         OrganizationAuthorizationConfiguration.Apply(modelBuilder);
@@ -160,7 +168,27 @@ public sealed class KpiPeriodRow { public Guid Id { get; set; } public Guid Orga
 public sealed class KpiPeriodActivationRow { public Guid Id { get; set; } public Guid PeriodId { get; set; } public Guid DefinitionId { get; set; } public Guid VersionId { get; set; } public int EffectiveRevisionNumber { get; set; } public DateTimeOffset ActivatedAt { get; set; } public DateTimeOffset? ClosedAt { get; set; } }
 public sealed class KpiPeriodAmendmentRow { public Guid Id { get; set; } public Guid PeriodId { get; set; } public int RevisionNumber { get; set; } public int BaseRevisionNumber { get; set; } public DateTimeOffset ProposedStartsAt { get; set; } public DateTimeOffset ProposedEndsAt { get; set; } public string ProposedSelectionsJson { get; set; } = "{}"; public string Reason { get; set; } = string.Empty; public Guid ProposedBy { get; set; } public DateTimeOffset ProposedAt { get; set; } public string Status { get; set; } = string.Empty; public Guid? ReviewedBy { get; set; } public DateTimeOffset? ReviewedAt { get; set; } public string? ReviewComment { get; set; } }
 public sealed class KpiEvaluationRow { public Guid Id { get; set; } public Guid ActivationId { get; set; } public Guid VersionId { get; set; } public string FormulaJson { get; set; } = "{}"; public string InputsJson { get; set; } = "{}"; public string OutcomeJson { get; set; } = "{}"; public Guid EvaluatorActorId { get; set; } public bool IsCurrent { get; set; } public Guid? SupersedesId { get; set; } public string? CorrectionReason { get; set; } public string? CorrectionDiffJson { get; set; } public DateTimeOffset EvaluatedAt { get; set; } }
-public sealed class AuditRecordRow { public Guid Id { get; set; } public Guid OrganizationId { get; set; } public Guid ActorId { get; set; } public string EntityType { get; set; } = string.Empty; public Guid EntityId { get; set; } public string EventType { get; set; } = string.Empty; public DateTimeOffset OccurredAt { get; set; } public string CorrelationId { get; set; } = string.Empty; public string? Reason { get; set; } public string SummaryJson { get; set; } = "{}"; }
+public sealed class AuditRecordRow
+{
+    public Guid Id { get; set; }
+    public Guid OrganizationId { get; set; }
+    public Guid ActorId { get; set; }
+    public string EntityType { get; set; } = string.Empty;
+    public Guid EntityId { get; set; }
+    public string EventType { get; set; } = string.Empty;
+    public DateTimeOffset OccurredAt { get; set; }
+    public string CorrelationId { get; set; } = string.Empty;
+    public string? Reason { get; set; }
+    public string SummaryJson { get; set; } = "{}";
+    public long? ResourceRevision { get; set; }
+    public string? CapabilityId { get; set; }
+    public string? Decision { get; set; }
+    public string AssignmentIdsJson { get; set; } = "[]";
+    public string ScopeEvidenceJson { get; set; } = "[]";
+    public string AuthorizationEvidenceJson { get; set; } = "{}";
+    public Guid? RepresentedAuthorityActorId { get; set; }
+    public Guid? DelegationId { get; set; }
+}
 public abstract class OrganizationScopedHeadRow { public Guid Id { get; set; } public Guid OrganizationId { get; set; } public long Revision { get; set; } public uint RowVersion { get; set; } public string Code { get; set; } = string.Empty; }
 public abstract class OrganizationScopedFactRow { public Guid Id { get; set; } public Guid OrganizationId { get; set; } }
 public sealed class OrganizationRow { public Guid Id { get; set; } public string Code { get; set; } = string.Empty; public string Name { get; set; } = string.Empty; public string TimeZoneId { get; set; } = "UTC"; public string Status { get; set; } = "active"; public bool OperationallyExposed { get; set; } public long Revision { get; set; } public uint RowVersion { get; set; } }

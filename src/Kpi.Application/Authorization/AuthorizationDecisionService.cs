@@ -14,10 +14,29 @@ public sealed class AuthorizationDecisionService(IAuthorizationFactsReader facts
             return AuthorizationDecision.Deny(AuthorizationDecisionReason.OrganizationMismatch, actor.OrganizationId, capability, resource, effectiveAt);
 
         var facts = await factsReader.LoadAsync(actor, resource, effectiveAt, cancellationToken);
-        if (!facts.AccountEnabled)
-            return AuthorizationDecision.Deny(AuthorizationDecisionReason.AccountDisabled, actor.OrganizationId, capability, resource, effectiveAt);
-        if (!facts.EmploymentActive)
-            return AuthorizationDecision.Deny(AuthorizationDecisionReason.EmploymentInactive, actor.OrganizationId, capability, resource, effectiveAt);
+        if (!facts.ResourceRevisionCurrent)
+            return AuthorizationDecision.Deny(AuthorizationDecisionReason.ResourceRevisionStale, actor.OrganizationId, capability, resource, effectiveAt);
+
+        if (facts.IsBootstrapPrincipal)
+        {
+            if (facts.BootstrapExpired)
+                return AuthorizationDecision.Deny(AuthorizationDecisionReason.BootstrapExpired, actor.OrganizationId, capability, resource, effectiveAt);
+            if (representedAuthority is not null)
+                return AuthorizationDecision.Deny(AuthorizationDecisionReason.BootstrapDelegationForbidden, actor.OrganizationId, capability, resource, effectiveAt);
+            if (!facts.BootstrapCapabilityGranted)
+                return AuthorizationDecision.Deny(AuthorizationDecisionReason.BootstrapCapabilityNotGranted, actor.OrganizationId, capability, resource, effectiveAt);
+        }
+        else
+        {
+            if (actor.EmployeeId is null)
+                return AuthorizationDecision.Deny(AuthorizationDecisionReason.AccountUnlinked, actor.OrganizationId, capability, resource, effectiveAt);
+            if (!facts.AccountEnabled)
+                return AuthorizationDecision.Deny(AuthorizationDecisionReason.AccountDisabled, actor.OrganizationId, capability, resource, effectiveAt);
+            if (!facts.EmploymentActive)
+                return AuthorizationDecision.Deny(AuthorizationDecisionReason.EmploymentInactive, actor.OrganizationId, capability, resource, effectiveAt);
+            if (!facts.AuthorityEffective)
+                return AuthorizationDecision.Deny(AuthorizationDecisionReason.AuthorityNotEffective, actor.OrganizationId, capability, resource, effectiveAt);
+        }
         if (!facts.Capabilities.Contains(capability))
             return AuthorizationDecision.Deny(AuthorizationDecisionReason.MissingCapability, actor.OrganizationId, capability, resource, effectiveAt);
         if (!facts.ScopeMatches)
@@ -26,9 +45,17 @@ public sealed class AuthorizationDecisionService(IAuthorizationFactsReader facts
             return AuthorizationDecision.Deny(AuthorizationDecisionReason.BaselineMissing, actor.OrganizationId, capability, resource, effectiveAt);
         if (!facts.SeparationOfDutySatisfied)
             return AuthorizationDecision.Deny(AuthorizationDecisionReason.SeparationOfDuty, actor.OrganizationId, capability, resource, effectiveAt);
-        if (representedAuthority is not null && (!facts.DelegationValid || facts.Actor.EmployeeId is null))
-            return AuthorizationDecision.Deny(AuthorizationDecisionReason.DelegationNotEffective, actor.OrganizationId, capability, resource, effectiveAt);
+        if (representedAuthority is not null)
+        {
+            if (!facts.DelegationValid || facts.Actor.EmployeeId is null ||
+                facts.RepresentedAuthorityActorId != representedAuthority.ActorId ||
+                facts.DelegationId != representedAuthority.DelegationId)
+                return AuthorizationDecision.Deny(AuthorizationDecisionReason.DelegationNotEffective, actor.OrganizationId, capability, resource, effectiveAt);
+            if (!facts.DelegationScopeMatches)
+                return AuthorizationDecision.Deny(AuthorizationDecisionReason.DelegationScopeMismatch, actor.OrganizationId, capability, resource, effectiveAt);
+        }
 
-        return AuthorizationDecision.Allow(actor.OrganizationId, capability, resource, effectiveAt, facts.AssignmentIds, facts.ScopeEvidence);
+        return AuthorizationDecision.Allow(actor.OrganizationId, capability, resource, effectiveAt, facts.AssignmentIds, facts.ScopeEvidence,
+            facts.BootstrapPrincipalId, representedAuthority?.ActorId, representedAuthority?.DelegationId);
     }
 }

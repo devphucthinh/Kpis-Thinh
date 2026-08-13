@@ -21,4 +21,24 @@ public sealed class CapabilityCatalogContractTests
     {
         Assert.False(CapabilityCatalog.Default.TryGet(new KpiCapabilityId("custom.capability"), out _));
     }
+
+    [Fact(DisplayName = "FR-017 FR-018 fixed catalog and stable denial codes are complete")]
+    public void Initial_catalog_and_denial_code_inventory_are_complete()
+    {
+        var expectedCapabilityIds = new[]
+        {
+            "organization.structure.view", "organization.structure.edit", "organization.baseline.submit", "organization.baseline.approve",
+            "workforce.employee.view", "workforce.employee.manage", "workforce.position.manage",
+            "security.custom-role.view", "security.custom-role.manage", "security.role-assignment.request", "security.role-assignment.approve",
+            "approval.group.manage", "approval.route.manage", "approval.route.submit", "approval.route.approve", "approval.route.activate",
+            "approval.delegation.request", "approval.delegation.approve", "approval.decision.make",
+            "audit.timeline.view", "audit.organization.view"
+        };
+
+        Assert.Equal(expectedCapabilityIds, CapabilityCatalog.Default.All.Select(item => item.Id.Value));
+        Assert.DoesNotContain(CapabilityCatalog.Default.All, item => item.Id.Value == "security.policy.weakens-system-floor");
+        Assert.Contains("missing_capability", AuthorizationDecisionReason.All);
+        Assert.Contains("delegation_scope_mismatch", AuthorizationDecisionReason.All);
+        Assert.Contains("resource_revision_stale", AuthorizationDecisionReason.All);
+    }
 }

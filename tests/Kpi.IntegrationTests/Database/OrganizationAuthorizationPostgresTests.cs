@@ -9,7 +9,7 @@ namespace Kpi.IntegrationTests.Migrations;
 [Collection("PostgreSQL migration contract")]
 public sealed class OrganizationAuthorizationPostgresTests(MigrationDatabaseFixture fixture)
 {
-    [Fact]
+    [Fact(DisplayName = "FR-001 FR-002 cross-organization assignments are rejected by composite foreign keys")]
     public async Task Cross_organization_assignment_is_rejected_by_composite_foreign_keys()
     {
         await PrepareAsync();
@@ -33,7 +33,7 @@ public sealed class OrganizationAuthorizationPostgresTests(MigrationDatabaseFixt
         Assert.Equal("23503", error.SqlState);
     }
 
-    [Fact]
+    [Fact(DisplayName = "FR-013 FR-037 approved baseline and applicability facts are append-only")]
     public async Task Approved_baseline_and_applicability_segment_are_append_only()
     {
         await PrepareAsync();
@@ -52,7 +52,7 @@ public sealed class OrganizationAuthorizationPostgresTests(MigrationDatabaseFixt
         Assert.Contains("append-only", deleteError.MessageText, StringComparison.OrdinalIgnoreCase);
     }
 
-    [Fact]
+    [Fact(DisplayName = "FR-036 organization xmin rejects stale concurrent updates")]
     public async Task Organization_xmin_is_used_as_an_optimistic_concurrency_token()
     {
         await PrepareAsync();

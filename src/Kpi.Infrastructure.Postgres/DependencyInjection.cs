@@ -1,4 +1,7 @@
 using Kpi.Infrastructure.Postgres.Configuration;
+using Kpi.Application.Authorization;
+using Kpi.Application.Persistence;
+using Kpi.Infrastructure.Postgres.Authorization;
 using Kpi.Infrastructure.Postgres.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -19,6 +22,11 @@ public static class DependencyInjection
             services.AddScoped<Stores.PostgresGovernedStore>();
             services.AddScoped<Kpi.Application.Persistence.IKpiDefinitionPersistence>(sp => sp.GetRequiredService<Stores.PostgresKpiDefinitionStore>());
             services.AddScoped<Kpi.Application.Persistence.IKpiGovernedPersistence>(sp => sp.GetRequiredService<Stores.PostgresGovernedStore>());
+            services.AddSingleton(CapabilityCatalogRegistration.Create());
+            services.AddScoped<IAuthorizationFactsReader, PostgresAuthorizationFactsReader>();
+            services.AddScoped<IAuthorizationDecision, AuthorizationDecisionService>();
+            services.AddScoped<IAuditWriter, PostgresAuditWriter>();
+            services.AddScoped<IOrganizationTransaction, PostgresOrganizationTransaction>();
         }
         return services;
     }

@@ -13,7 +13,8 @@ public static class KpiMigrationManifest
         new("202608090006_Evaluations", EvaluationsSql),
         new("202608100001_RuntimePrivileges", RuntimePrivilegesSql),
         new("202608100002_PeriodPersistenceColumns", PeriodPersistenceColumnsSql),
-        new("202608120001_OrganizationAuthorization", OrganizationAuthorizationSql)
+        new("202608120001_OrganizationAuthorization", OrganizationAuthorizationSql),
+        new("202608130001_AuthorizationFoundation", AuthorizationFoundationSql)
     ];
 
     public static IReadOnlyList<string> ProductMigrations => Scripts.Select(x => x.Id).ToArray();
@@ -252,6 +253,33 @@ public static class KpiMigrationManifest
             ADD COLUMN IF NOT EXISTS revisions_json jsonb NOT NULL DEFAULT '[]'::jsonb;
         CREATE UNIQUE INDEX IF NOT EXISTS kpi_periods_organization_code_uq
             ON kpi_periods (organization_id, code);
+        """;
+
+    private const string AuthorizationFoundationSql = """
+        ALTER TABLE audit_records
+            ADD COLUMN IF NOT EXISTS resource_revision bigint NULL,
+            ADD COLUMN IF NOT EXISTS capability_id text NULL,
+            ADD COLUMN IF NOT EXISTS decision text NULL,
+            ADD COLUMN IF NOT EXISTS assignment_ids_json jsonb NOT NULL DEFAULT '[]'::jsonb,
+            ADD COLUMN IF NOT EXISTS scope_evidence_json jsonb NOT NULL DEFAULT '[]'::jsonb,
+            ADD COLUMN IF NOT EXISTS authorization_evidence_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+            ADD COLUMN IF NOT EXISTS represented_authority_actor_id uuid NULL,
+            ADD COLUMN IF NOT EXISTS delegation_id uuid NULL;
+        CREATE INDEX IF NOT EXISTS audit_records_authorization_idx
+            ON audit_records (organization_id, capability_id, occurred_at);
+        CREATE INDEX IF NOT EXISTS organization_assignments_effective_gist_idx
+            ON organization_position_assignments USING gist (
+                organization_id,
+                tstzrange(effective_from, COALESCE(effective_to, 'infinity'::timestamptz), '[)')
+            );
+        CREATE INDEX IF NOT EXISTS organization_reporting_effective_gist_idx
+            ON organization_reporting_relationships USING gist (
+                organization_id,
+                tstzrange(effective_from, COALESCE(effective_to, 'infinity'::timestamptz), '[)')
+            );
+        CREATE UNIQUE INDEX IF NOT EXISTS baseline_segments_one_open_tail_uq
+            ON organization_baseline_applicability_segments (organization_id)
+            WHERE effective_to IS NULL;
         """;
 }
 

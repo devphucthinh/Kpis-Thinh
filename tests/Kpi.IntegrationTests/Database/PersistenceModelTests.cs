@@ -36,7 +36,7 @@ public sealed class PersistenceModelTests
     [Fact]
     public void Product_migration_manifest_is_forward_only_and_has_sql_for_every_slice()
     {
-        Assert.Equal(9, KpiMigrationManifest.ProductMigrations.Count);
+        Assert.Equal(10, KpiMigrationManifest.ProductMigrations.Count);
         Assert.Equal(KpiMigrationManifest.ProductMigrations.Count, KpiMigrationManifest.Scripts.Count);
         Assert.All(KpiMigrationManifest.Scripts, migration =>
         {
@@ -52,6 +52,7 @@ public sealed class PersistenceModelTests
         Assert.Contains("kpi_period_activations", KpiMigrationManifest.Scripts[3].Sql, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("kpi_evaluations", KpiMigrationManifest.Scripts[5].Sql, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("organization_baselines", KpiMigrationManifest.Scripts[8].Sql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("authorization_evidence_json", KpiMigrationManifest.Scripts[9].Sql, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

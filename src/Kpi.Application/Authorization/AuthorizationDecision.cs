@@ -39,6 +39,28 @@ public static class AuthorizationDecisionReason
     public const string SeparationOfDuty = "separation_of_duty";
     public const string BaselineMissing = "baseline_missing";
     public const string ApproverUnresolved = "approver_unresolved";
+    public const string ResourceRevisionStale = "resource_revision_stale";
+
+    public static IReadOnlySet<string> All { get; } = new HashSet<string>(StringComparer.Ordinal)
+    {
+        Allowed,
+        OrganizationMismatch,
+        AccountDisabled,
+        AccountUnlinked,
+        EmploymentInactive,
+        MissingCapability,
+        ScopeMismatch,
+        AuthorityNotEffective,
+        BootstrapCapabilityNotGranted,
+        BootstrapExpired,
+        BootstrapDelegationForbidden,
+        DelegationNotEffective,
+        DelegationScopeMismatch,
+        SeparationOfDuty,
+        BaselineMissing,
+        ApproverUnresolved,
+        ResourceRevisionStale
+    };
 }
 
 public sealed record ActorIdentity(string SubjectId, Guid? EmployeeId, Guid OrganizationId);
@@ -87,10 +109,14 @@ public sealed record AuthorizationDecision(
         AuthorizationResource resource,
         DateTimeOffset effectiveAt,
         IReadOnlyList<Guid>? assignmentIds = null,
-        IReadOnlyList<string>? scopeEvidence = null) =>
+        IReadOnlyList<string>? scopeEvidence = null,
+        Guid? bootstrapPrincipalId = null,
+        Guid? representedAuthorityActorId = null,
+        Guid? delegationId = null) =>
         new(AuthorizationOutcome.Allow, AuthorizationDecisionReason.Allowed, organizationId, capabilityId,
             resource.ResourceType, resource.ResourceId, resource.ResourceRevision, effectiveAt,
-            assignmentIds ?? Array.Empty<Guid>(), scopeEvidence ?? Array.Empty<string>());
+            assignmentIds ?? Array.Empty<Guid>(), scopeEvidence ?? Array.Empty<string>(), bootstrapPrincipalId,
+            representedAuthorityActorId, delegationId);
 }
 
 public sealed record AuthorizationFacts(
@@ -103,7 +129,16 @@ public sealed record AuthorizationFacts(
     bool ScopeMatches = false,
     bool BaselineApplicable = false,
     bool SeparationOfDutySatisfied = false,
-    bool DelegationValid = false);
+    bool DelegationValid = false,
+    bool AuthorityEffective = true,
+    bool IsBootstrapPrincipal = false,
+    Guid? BootstrapPrincipalId = null,
+    bool BootstrapCapabilityGranted = false,
+    bool BootstrapExpired = false,
+    bool DelegationScopeMatches = true,
+    Guid? RepresentedAuthorityActorId = null,
+    Guid? DelegationId = null,
+    bool ResourceRevisionCurrent = true);
 
 public interface IAuthorizationFactsReader
 {

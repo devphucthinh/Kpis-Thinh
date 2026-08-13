@@ -1,4 +1,6 @@
 using Kpi.Application;
+using Kpi.Application.Authorization;
+using Kpi.Application.Persistence;
 using Kpi.Infrastructure.Postgres.Persistence;
 using Kpi.Web.Configuration;
 using Microsoft.EntityFrameworkCore;
@@ -30,5 +32,8 @@ public sealed class PostgresRuntimeSelectionTests
         Assert.Null(scope.ServiceProvider.GetService<InMemoryKpiStore>());
         var context = scope.ServiceProvider.GetRequiredService<KpiDbContext>();
         Assert.Equal("Host=runtime;Database=kpi_lab;Username=runtime", context.Database.GetDbConnection().ConnectionString);
+        Assert.NotNull(scope.ServiceProvider.GetService<IAuthorizationDecision>());
+        Assert.NotNull(scope.ServiceProvider.GetService<IAuditWriter>());
+        Assert.NotNull(scope.ServiceProvider.GetService<IOrganizationTransaction>());
     }
 }

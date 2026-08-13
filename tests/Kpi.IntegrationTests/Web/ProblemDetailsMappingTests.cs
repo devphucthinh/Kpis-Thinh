@@ -1,4 +1,5 @@
 using Kpi.Application.Common;
+using Kpi.Web.Api.V1;
 using Kpi.Web.Errors;
 using Xunit;
 
@@ -13,5 +14,24 @@ public sealed class ProblemDetailsMappingTests
         var details = Assert.IsType<Microsoft.AspNetCore.Mvc.ProblemDetails>(result.Value);
         Assert.Equal("VALIDATION", details.Extensions["code"]);
         Assert.Equal("corr-1", details.Extensions["correlationId"]);
+    }
+
+    [Fact(DisplayName = "FR-027 FR-036 stable Problem Details preserve concurrency and baseline context")]
+    public void Stable_problem_details_expose_safe_concurrency_context()
+    {
+        var result = ProblemDetailsFactory.Create(
+            new ApplicationError("STALE_REVISION", "The submitted revision is stale.", 409),
+            "corr-2",
+            currentConcurrencyToken: "xmin-7",
+            currentBaselineId: Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            currentSegmentId: Guid.Parse("22222222-2222-2222-2222-222222222222"));
+
+        var details = Assert.IsType<Microsoft.AspNetCore.Mvc.ProblemDetails>(result.Value);
+        Assert.Equal(409, result.StatusCode);
+        Assert.Equal("STALE_REVISION", details.Extensions["code"]);
+        Assert.Equal("corr-2", details.Extensions["correlationId"]);
+        Assert.Equal("xmin-7", details.Extensions["currentConcurrencyToken"]);
+        Assert.Equal("11111111-1111-1111-1111-111111111111", details.Extensions["currentBaselineId"]);
+        Assert.Equal("22222222-2222-2222-2222-222222222222", details.Extensions["currentSegmentId"]);
     }
 }

@@ -12,7 +12,7 @@ namespace Kpi.IntegrationTests.Database;
 
 public sealed class OrganizationAuthorizationSchemaTests
 {
-    [Fact]
+    [Fact(DisplayName = "FR-001 FR-002 FR-013 FR-036 organization authorization model preserves scoped facts")]
     public void Organization_authorization_model_has_organization_scoped_heads_and_xmin_tokens()
     {
         var options = new DbContextOptionsBuilder<KpiDbContext>()
@@ -42,7 +42,7 @@ public sealed class OrganizationAuthorizationSchemaTests
             foreignKey.Properties.Select(property => property.Name).SequenceEqual([nameof(OrganizationPositionAssignmentRow.OrganizationId), nameof(OrganizationPositionAssignmentRow.EmployeeId)]));
     }
 
-    [Fact]
+    [Fact(DisplayName = "FR-001 FR-002 FR-013 FR-036 migration declares isolation and append-only protections")]
     public void Organization_authorization_migrations_declare_fk_isolation_and_append_only_protections()
     {
         var sql = string.Join("\n", KpiMigrationManifest.Scripts.Select(script => script.Sql));
@@ -60,7 +60,21 @@ public sealed class OrganizationAuthorizationSchemaTests
         Assert.Contains("REVOKE UPDATE, DELETE, TRUNCATE ON audit_records", sql, StringComparison.OrdinalIgnoreCase);
     }
 
-    [Fact]
+    [Fact(DisplayName = "FR-013 FR-033 FR-036 migration protects audit evidence and effective history")]
+    public void Organization_authorization_migrations_declare_audit_evidence_and_effective_range_indexes()
+    {
+        var sql = string.Join("\n", KpiMigrationManifest.Scripts.Select(script => script.Sql));
+
+        Assert.Contains("resource_revision", sql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("capability_id", sql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("authorization_evidence_json", sql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("organization_assignments_effective_gist_idx", sql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("organization_reporting_effective_gist_idx", sql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("baseline_segments_one_open_tail_uq", sql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("REVOKE UPDATE, DELETE, TRUNCATE ON organization_baselines", sql, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact(DisplayName = "FR-001 runtime composition isolates KpiRuntime from KpiMigration")]
     public void Runtime_composition_uses_runtime_connection_and_ignores_migration_connection()
     {
         var configuration = new ConfigurationBuilder()
@@ -80,7 +94,7 @@ public sealed class OrganizationAuthorizationSchemaTests
         Assert.DoesNotContain("migration", context.Database.GetDbConnection().ConnectionString, StringComparison.OrdinalIgnoreCase);
     }
 
-    [Fact]
+    [Fact(DisplayName = "FR-001 migration-only composition does not register runtime context")]
     public void Migration_only_configuration_does_not_register_runtime_context()
     {
         var configuration = new ConfigurationBuilder()
@@ -95,7 +109,7 @@ public sealed class OrganizationAuthorizationSchemaTests
         Assert.DoesNotContain(services, descriptor => descriptor.ServiceType == typeof(KpiDbContext));
     }
 
-    [Fact]
+    [Fact(DisplayName = "FR-036 migration ledger remains forward-only and ordered")]
     public void Organization_authorization_migration_is_appended_in_ledger_order()
     {
         var ids = KpiMigrationManifest.ProductMigrations;

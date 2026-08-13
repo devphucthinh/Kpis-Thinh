@@ -39,27 +39,28 @@ documentation structure without changing target repositories.
 identity seams required by every story. No story implementation may start until
 this phase is complete.
 
-**Gate status**: T011 and T016 are individually verified, but Phase 2 remains
-open until T009-T010 and T012-T024 are complete with evidence. Do not start a
-User Story implementation or treat the reference gate as open while T024 is
-unchecked.
+**Gate status**: T009-T024 are complete with RED/GREEN tests, implementation
+evidence, and the canonical verification record in
+`.scratch/bsc-kpi-reference/evidence.md`. No User Story implementation is
+included in this checkpoint; the reference gate remains closed until a later
+explicit release decision.
 
-- [ ] T009 Write RED unit tests for Organization-scoped identity, half-open UTC effective intervals, revision tokens, and stable status/capability codes in `tests/Kpi.Domain.Tests/Organizations/SharedValueObjectTests.cs`
-- [ ] T010 Write RED Application tests proving every governed action calls the same authorization seam and does not reuse a decision across actions in `tests/Kpi.Application.Tests/Authorization/AuthorizationFreshnessTests.cs`
+- [X] T009 Write RED unit tests for Organization-scoped identity, half-open UTC effective intervals, revision tokens, and stable status/capability codes in `tests/Kpi.Domain.Tests/Organizations/SharedValueObjectTests.cs`
+- [X] T010 Write RED Application tests proving every governed action calls the same authorization seam and does not reuse a decision across actions in `tests/Kpi.Application.Tests/Authorization/AuthorizationFreshnessTests.cs`
 - [X] T011 Write RED database tests for Organization foreign-key isolation, append-only facts, `xmin` concurrency, and migration/runtime connection separation in `tests/Kpi.IntegrationTests/Database/OrganizationAuthorizationSchemaTests.cs` and `tests/Kpi.IntegrationTests/Database/OrganizationAuthorizationPostgresTests.cs`; use `tests/Kpi.IntegrationTests/Composition/PostgresCompositionTests.cs` and `tests/Kpi.IntegrationTests/Web/PostgresRuntimeSelectionTests.cs` for the runtime/migration composition boundary.
-- [ ] T012 [P] Define the immutable audit event/value objects and append-only writer port in `src/Kpi.Domain/Auditing/AuditRecord.cs` and `src/Kpi.Application/Persistence/IAuditWriter.cs`
-- [ ] T013 [P] Define the Organization aggregate identity, time-zone, unit-of-work, and concurrency ports in `src/Kpi.Domain/Organizations/Organization.cs` and `src/Kpi.Application/Persistence/IOrganizationUnitOfWork.cs`
-- [ ] T014 [P] Define `IAuthorizationDecision`, current-fact loading ports, and stable decision codes in `src/Kpi.Application/Authorization/IAuthorizationDecision.cs` and `src/Kpi.Application/Authorization/AuthorizationDecision.cs`
-- [ ] T015 [P] Define platform actor and explicit Development identity-adapter ports in `src/Kpi.Application/Organizations/PlatformIdentity.cs` and `src/Kpi.Application/Persistence/IPlatformIdentityReader.cs`
+- [X] T012 [P] Define the immutable audit event/value objects and append-only writer port in `src/Kpi.Domain/Auditing/AuditRecord.cs` and `src/Kpi.Application/Persistence/IAuditWriter.cs`
+- [X] T013 [P] Define the Organization aggregate identity, time-zone, unit-of-work, and concurrency ports in `src/Kpi.Domain/Organizations/Organization.cs` and `src/Kpi.Application/Persistence/IOrganizationUnitOfWork.cs`
+- [X] T014 [P] Define `IAuthorizationDecision`, current-fact loading ports, and stable decision codes in `src/Kpi.Application/Authorization/IAuthorizationDecision.cs` and `src/Kpi.Application/Authorization/AuthorizationDecision.cs`
+- [X] T015 [P] Define platform actor and explicit Development identity-adapter ports in `src/Kpi.Application/Organizations/PlatformIdentity.cs` and `src/Kpi.Application/Persistence/IPlatformIdentityReader.cs`
 - [X] T016 Configure EF Core mappings for Organization-scoped keys, effective intervals, JSONB immutable evidence, and concurrency tokens in `src/Kpi.Infrastructure.Postgres/Persistence/Configurations/OrganizationAuthorizationConfiguration.cs`
-- [ ] T017 Add forward-only migrator scripts for shared audit, Organization heads, effective-range indexes, and append-only database protections in `src/Kpi.Infrastructure.Postgres/Migrations/`
-- [ ] T018 Implement the shared Application transaction/pipeline that commits one command and its Audit Record atomically in `src/Kpi.Application/Persistence/OrganizationUnitOfWork.cs`
-- [ ] T019 Implement authoritative current-fact authorization evaluation, including account/employment/role/scope/baseline/delegation loading and action-local-only memoization, in `src/Kpi.Application/Authorization/AuthorizationDecisionService.cs`
-- [ ] T020 Add MVC/API Problem Details mapping for stable 400/403/404/409/422 codes, correlation IDs, and current concurrency/baseline context in `src/Kpi.Web/Api/V1/ProblemDetailsFactory.cs`
-- [ ] T021 Add the versioned `/api/v1` composition registrations for Domain, Application, PostgreSQL, platform identity, audit, and the explicit `Postgres` persistence profile in `src/Kpi.Web/Program.cs`
-- [ ] T022 Add the migrator composition registrations using only `ConnectionStrings:KpiMigration` in `src/Kpi.Migrator/Program.cs`
-- [ ] T023 Implement the fixed capability catalog loader and complete initial catalog contract in `src/Kpi.Application/Authorization/CapabilityCatalog.cs` and `src/Kpi.Application/Authorization/CapabilityCatalogRegistration.cs`
-- [ ] T024 Run the completed foundational transaction, authorization freshness, isolation, Problem Details, and migration contract tests; record the result in `.scratch/bsc-kpi-reference/evidence.md` before proceeding to User Stories.
+- [X] T017 Add forward-only migrator scripts for shared audit, Organization heads, effective-range indexes, and append-only database protections in `src/Kpi.Infrastructure.Postgres/Migrations/`
+- [X] T018 Implement the shared Application transaction/pipeline that commits one command and its Audit Record atomically in `src/Kpi.Application/Persistence/OrganizationUnitOfWork.cs`
+- [X] T019 Implement authoritative current-fact authorization evaluation, including account/employment/role/scope/baseline/delegation loading and action-local-only memoization, in `src/Kpi.Application/Authorization/AuthorizationDecisionService.cs`
+- [X] T020 Add MVC/API Problem Details mapping for stable 400/403/404/409/422 codes, correlation IDs, and current concurrency/baseline context in `src/Kpi.Web/Api/V1/ProblemDetailsFactory.cs`
+- [X] T021 Add the versioned `/api/v1` composition registrations for Domain, Application, PostgreSQL, platform identity, audit, and the explicit `Postgres` persistence profile in `src/Kpi.Web/Program.cs`
+- [X] T022 Add the migrator composition registrations using only `ConnectionStrings:KpiMigration` in `src/Kpi.Migrator/Program.cs`
+- [X] T023 Implement the fixed capability catalog loader and complete initial catalog contract in `src/Kpi.Application/Authorization/CapabilityCatalog.cs` and `src/Kpi.Application/Authorization/CapabilityCatalogRegistration.cs`
+- [X] T024 Run the completed foundational transaction, authorization freshness, isolation, Problem Details, and migration contract tests; record the result in `.scratch/bsc-kpi-reference/evidence.md` before proceeding to User Stories.
 
 ## Phase 3: User Story 1 - Approve an Organization Structure Baseline (Priority: P1) -- MVP
 
