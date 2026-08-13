@@ -272,6 +272,56 @@ identity, decision reason, and scoped timeline visibility.
     retirement occur atomically with no unroutable interval, while previously
     submitted artifacts keep their original route snapshots.
 
+---
+
+### User Story 6 - Navigate the Authorized Organization KPI Workspace (Priority: P1)
+
+An authorized participant opens a server-rendered Organization KPI Workspace
+against an approved baseline and effective instant. The workspace displays only
+organization-tree nodes and actions allowed by the participant's current
+capability and KPI Data Scope. Units expand without becoming KPI selections;
+Positions are selectable and restore their context through the URL. The
+foundation shell may publish a future one-edge KPI-neighborhood contract, but it
+does not fabricate KPI, Target, Actual, Variance, or Score facts owned by later
+features.
+
+**Why this priority**: The organization tree is the shared navigation and scope
+boundary for later KPI Planning, Cascade, Actual, and Evaluation experiences.
+
+**Independent Test**: With an approved baseline and two actors having different
+data scopes, query the same tree at one effective instant, verify that each actor
+receives only authorized nodes, expand a Unit, select an in-scope Position,
+refresh and use back/forward/copy URL to restore the selection, and verify that
+an out-of-scope direct URL returns a safe denial without protected facts. Repeat
+the journey by keyboard at a 390-pixel viewport and verify the KPI region is an
+explicitly unavailable future contract rather than synthetic data.
+
+**Acceptance Scenarios**:
+
+1. **Given** an approved applicable baseline and an authorized actor, **When**
+   the workspace tree is queried at an effective instant, **Then** the response
+   includes the exact Baseline Applicability Segment context and only nodes and
+   actions allowed by current capability plus KPI Data Scope.
+2. **Given** a visible Unit node, **When** the participant expands it, **Then**
+   the Unit only reveals authorized descendants; selecting a Position, not a
+   Unit, establishes the selected KPI workspace context.
+3. **Given** an in-scope Position selection, **When** the page is refreshed or
+   the browser navigates back, forward, or to a copied URL, **Then** the
+   Position, approved baseline, and effective-time context are restored without
+   client-side authorization traversal.
+4. **Given** a direct URL naming an out-of-scope Position or an inapplicable
+   baseline context, **When** the participant requests it, **Then** the server
+   returns a safe forbidden/not-found or conflict response without leaking
+   protected node, Employee, or KPI facts.
+5. **Given** a keyboard-only participant at a 390-pixel viewport, **When** the
+   tree, selection, drawer, and unavailable KPI region are used, **Then** focus,
+   labels, validation states, and required actions remain operable without
+   relying on color or client-side authorization.
+6. **Given** the later KPI-neighborhood contract is published, **When** this
+   foundation shell renders before its owning Planning/Cascade/Actual/Evaluation
+   features exist, **Then** it shows an explicit unavailable state and creates
+   no synthetic Target, Actual, Variance, or Score records.
+
 ### Cross-feature acceptance: Mid-period baseline impact and weight allocation
 
 These scenarios are deliberately outside the User Story 1 MVP and run only
@@ -578,6 +628,32 @@ publish official KPI results.
   replacement identity equal to the remaining principal, change no authority
   until both decisions exist, and preserve the request, decisions, replacement,
   resulting grant, and expiry as immutable audit evidence.
+- **FR-051**: The Organization KPI Workspace MUST query an approved applicable
+  baseline at an explicit effective instant and MUST server-filter returned
+  Organization Unit, Position, and allowed-action nodes by the actor's current
+  capability and KPI Data Scope.
+- **FR-052**: Workspace navigation MUST treat Organization Units as
+  expand-only nodes and Positions as selectable nodes; selecting a Unit MUST NOT
+  imply a KPI responsibility or expose a Position outside the authorized scope.
+- **FR-053**: A selected Position workspace URL MUST preserve the Organization,
+  Position, approved baseline or applicability-segment identity, and effective
+  instant sufficiently to restore the same context after refresh, back, forward,
+  or copied-link navigation.
+- **FR-054**: Direct requests for an out-of-scope Position, unavailable node, or
+  baseline/effective-time conflict MUST be reauthorized server-side and return a
+  safe stable response without protected Organization, Employee, or KPI facts.
+- **FR-055**: The foundation workspace MUST use server-rendered MVC/Razor for
+  authorization-sensitive tree and Position selection; progressive client code
+  MAY manage focus, drawer behavior, and branch expansion but MUST NOT decide
+  authorization or calculate KPI results.
+- **FR-056**: The foundation MUST publish a versioned future one-edge
+  KPI-neighborhood/read contract with explicit ownership boundaries, but MUST
+  NOT create operational Target, Actual, Variance, Score, or synthetic KPI
+  fixture facts before the later Planning, Cascade, Actual, and Evaluation
+  features provide them.
+- **FR-057**: Workspace responses MUST expose the exact applicable
+  Baseline Applicability Segment context and MUST reject or safely resolve
+  requests that mix an effective instant with a different baseline boundary.
 
 ### Key Entities
 
@@ -645,6 +721,10 @@ owns and behaviorally tests the approved-baseline eligibility gate, immutable
 baseline-change impact, immutable approved-amendment resolution seam,
 deterministic re-cascade preview, and Effective Segment contract that those
 later features MUST consume.
+ The foundation-only Organization KPI Workspace navigator is inside this
+ feature: it reads the authorized approved-baseline tree, restores Position and
+ effective-time context, and publishes the future KPI-neighborhood contract;
+ later features own the real KPI, Target, Actual, Variance, and Score facts.
 
 ## Success Criteria *(mandatory)*
 
@@ -719,6 +799,15 @@ later features MUST consume.
   paged administration and authorized Organization-tree reads returning at
   most 200 nodes complete within 500 milliseconds p95. These measurements and
   the SC-014 authorization threshold are release-blocking automated evidence.
+- **SC-017**: For every workspace acceptance case, 100% of returned tree nodes
+  and actions are authorized against the applicable baseline and KPI Data Scope;
+  Unit expansion, Position selection, URL restoration, and out-of-scope direct
+  URL denial produce the expected server-side result without protected-fact
+  leakage.
+- **SC-018**: The workspace foundation remains keyboard-operable at a 390-pixel
+  viewport, restores Position/baseline/effective-time context through refresh
+  and browser navigation, and displays an honest unavailable KPI region without
+  creating synthetic Target, Actual, Variance, or Score facts.
 
 ## Assumptions
 

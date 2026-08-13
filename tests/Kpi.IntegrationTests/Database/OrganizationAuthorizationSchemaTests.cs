@@ -1,7 +1,11 @@
 using Kpi.Infrastructure.Postgres.Migrations;
+using Kpi.Infrastructure.Postgres;
 using Kpi.Infrastructure.Postgres.Persistence;
+using Kpi.Web.Configuration;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace Kpi.IntegrationTests.Database;
@@ -57,14 +61,38 @@ public sealed class OrganizationAuthorizationSchemaTests
     }
 
     [Fact]
-    public void Migration_and_runtime_connections_are_distinct_contracts()
+    public void Runtime_composition_uses_runtime_connection_and_ignores_migration_connection()
     {
-        var migration = "ConnectionStrings:KpiMigration";
-        var runtime = "ConnectionStrings:KpiRuntime";
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:KpiRuntime"] = "Host=runtime;Database=kpi_lab;Username=runtime",
+                ["ConnectionStrings:KpiMigration"] = "Host=migration;Database=kpi_lab;Username=migration"
+            })
+            .Build();
+        var services = new ServiceCollection();
+        services.AddKpiPostgres(configuration);
 
-        Assert.NotEqual(migration, runtime);
-        Assert.Contains("Migration", migration, StringComparison.Ordinal);
-        Assert.Contains("Runtime", runtime, StringComparison.Ordinal);
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<KpiDbContext>();
+        Assert.Equal("Host=runtime;Database=kpi_lab;Username=runtime", context.Database.GetDbConnection().ConnectionString);
+        Assert.DoesNotContain("migration", context.Database.GetDbConnection().ConnectionString, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Migration_only_configuration_does_not_register_runtime_context()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:KpiMigration"] = "Host=migration;Database=kpi_lab;Username=migration"
+            })
+            .Build();
+        var services = new ServiceCollection();
+        services.AddKpiPostgres(configuration);
+
+        Assert.DoesNotContain(services, descriptor => descriptor.ServiceType == typeof(KpiDbContext));
     }
 
     [Fact]

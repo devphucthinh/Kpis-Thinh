@@ -90,7 +90,7 @@ No pre-design gate violation requires a complexity exception.
 |---|---|---|
 | Discoverability | PASS | Decisions are in `research.md`, entities and transitions in `data-model.md`, interfaces in `contracts/`, and runnable evidence in `quickstart.md`. |
 | Deterministic verification | PASS | `quickstart.md` uses only `harness.cmd`, the `Thinh-KPI-TEST` launch profile, and declared opt-in PostgreSQL settings; it fixes the SC-002/SC-008 cohorts, first-attempt boundary, assistance/exclusion rules, numerator/denominator, `>= 0.90` calculation, and evidence fields without substituting automation. |
-| Behavior-first slices | PASS | Contract and quickstart scenarios map directly to User Stories 1-5 plus provisioning/recovery and the approved foundation-only Organization KPI Workspace journey; each delivery slice requires RED behavior tests before Domain/Application/adapters/UI implementation. FR-043 includes executable approved/missing/cross-Organization/idempotent/conflict/rollback resolution cases rather than a document-only owner. |
+| Behavior-first slices | PASS | Contract and quickstart scenarios map directly to User Stories 1-6 plus provisioning/recovery and the approved foundation-only Organization KPI Workspace journey; each delivery slice requires RED behavior tests before Domain/Application/adapters/UI implementation. FR-043 and FR-051-FR-057 include executable approved/missing/cross-Organization/idempotent/conflict/rollback and workspace authorization cases rather than document-only ownership. |
 | Dependency direction | PASS | Domain has no ASP.NET/EF references; authorization enforcement is an Application module; controllers and Razor pages are adapters. |
 | Reviewability and safety | PASS | Bootstrap duties are separated and temporary, the first baseline contains no authorization grants, recovery needs two independent platform decisions, every governed action reads current committed authorization facts, effective and approved facts are append-only/revisioned, route versions require independent review, artifact-type activation is serialized without a routing gap, stale writes use optimistic concurrency, audit is transactional, and UI visibility is explicitly non-authoritative. |
 
@@ -196,6 +196,9 @@ pass-through layer is introduced.
    Segment resolution are explicitly excluded from US1 and delivered only in
    the separate Mid-period contract slice after P3.
    Tests for the complete baseline/recovery journey precede its implementation.
+   The current checklist combines P0 bootstrap/recovery and P1
+   structure/baseline in US1: T025-T030 are the RED gate and T031-T043 are
+   the implementation, API, Razor, restart, and evidence checkpoint.
 3. **P2 capability authorization and handoff**: fixed catalog, custom role
    versioning, security floor, post-baseline scoped Role Assignment approval,
    runtime decision reasons, denied-action audit, and an atomic immutable
