@@ -39,6 +39,11 @@ documentation structure without changing target repositories.
 identity seams required by every story. No story implementation may start until
 this phase is complete.
 
+**Gate status**: T011 and T016 are individually verified, but Phase 2 remains
+open until T009-T010 and T012-T024 are complete with evidence. Do not start a
+User Story implementation or treat the reference gate as open while T024 is
+unchecked.
+
 - [ ] T009 Write RED unit tests for Organization-scoped identity, half-open UTC effective intervals, revision tokens, and stable status/capability codes in `tests/Kpi.Domain.Tests/Organizations/SharedValueObjectTests.cs`
 - [ ] T010 Write RED Application tests proving every governed action calls the same authorization seam and does not reuse a decision across actions in `tests/Kpi.Application.Tests/Authorization/AuthorizationFreshnessTests.cs`
 - [X] T011 Write RED database tests for Organization foreign-key isolation, append-only facts, `xmin` concurrency, and migration/runtime connection separation in `tests/Kpi.IntegrationTests/Database/OrganizationAuthorizationSchemaTests.cs` and `tests/Kpi.IntegrationTests/Database/OrganizationAuthorizationPostgresTests.cs`; use `tests/Kpi.IntegrationTests/Composition/PostgresCompositionTests.cs` and `tests/Kpi.IntegrationTests/Web/PostgresRuntimeSelectionTests.cs` for the runtime/migration composition boundary.
@@ -296,6 +301,72 @@ must still assert the exact FR/SC identifier in their test name or evidence.
 | FR-051-FR-057 | T113-T115 | T116-T121 |
 | SC-017 | T113-T115 | T116-T121 |
 | SC-018 | T115 | T118-T121 |
+
+### Per-requirement FR ownership expansion
+
+The compact rows above are expanded here so each Functional Requirement has an
+explicit RED-test and implementation/evidence owner. Test names and evidence
+entries must retain the exact FR identifier rather than relying only on a range.
+
+| Requirement | RED tests | Implementation/evidence tasks |
+|---|---|---|
+| FR-001 | T009-T011, T025-T030, T044-T055 | T012-T024, T031-T042, T048-T054 |
+| FR-002 | T009-T011, T025-T030, T044-T055 | T012-T024, T031-T042, T048-T054 |
+| FR-003 | T009-T011, T025-T030, T044-T055 | T012-T024, T031-T042, T048-T054 |
+| FR-004 | T009-T011, T025-T030, T044-T055 | T012-T024, T031-T042, T048-T054 |
+| FR-005 | T009-T011, T025-T030, T044-T055 | T012-T024, T031-T042, T048-T054 |
+| FR-006 | T009-T011, T025-T030, T044-T055 | T012-T024, T031-T042, T048-T054 |
+| FR-007 | T009-T011, T025-T030, T044-T055 | T012-T024, T031-T042, T048-T054 |
+| FR-008 | T009-T011, T025-T030, T044-T055 | T012-T024, T031-T042, T048-T054 |
+| FR-009 | T009-T011, T025-T030, T044-T055 | T012-T024, T031-T042, T048-T054 |
+| FR-010 | T009-T011, T025-T030, T044-T055 | T012-T024, T031-T042, T048-T054 |
+| FR-011 | T009-T011, T025-T030, T044-T055 | T012-T024, T031-T042, T048-T054 |
+| FR-012 | T009-T011, T025-T030, T044-T055 | T012-T024, T031-T042, T048-T054 |
+| FR-013 | T009-T011, T025-T030, T044-T055 | T012-T024, T031-T042, T048-T054 |
+| FR-014 | T009-T011, T025-T030, T044-T055 | T012-T024, T031-T042, T048-T054 |
+| FR-015 | T009-T011, T025-T030, T044-T055 | T012-T024, T031-T042, T048-T054 |
+| FR-016 | T009-T011, T025-T030, T044-T055 | T012-T024, T031-T042, T048-T054 |
+| FR-017 | T056-T059 | T005, T023, T060-T068 |
+| FR-018 | T056-T059 | T005, T023, T060-T068 |
+| FR-019 | T056-T059 | T005, T023, T060-T068 |
+| FR-020 | T056-T059 | T005, T023, T060-T068 |
+| FR-021 | T056-T059 | T005, T023, T060-T068 |
+| FR-022 | T069-T073 | T074-T085 |
+| FR-023 | T069-T073 | T074-T085 |
+| FR-024 | T069-T073 | T074-T085 |
+| FR-025 | T069-T073 | T074-T085 |
+| FR-026 | T069-T073 | T074-T085 |
+| FR-027 | T069-T073 | T074-T085 |
+| FR-028 | T086-T090 | T091-T103 |
+| FR-029 | T086-T090 | T091-T103 |
+| FR-030 | T086-T090 | T091-T103 |
+| FR-031 | T086-T090 | T091-T103 |
+| FR-032 | T086-T090 | T091-T103 |
+| FR-033 | T086-T090 | T091-T103 |
+| FR-034 | T086-T090 | T091-T103 |
+| FR-035 | T086-T090 | T091-T103 |
+| FR-036 | T009-T011, T028-T030, T044-T055, T070-T073, T086-T103 | T012-T024, T031-T042, T048-T054, T074-T103 |
+| FR-037 | T009-T011, T028-T030, T044-T055, T070-T073, T086-T103 | T012-T024, T031-T042, T048-T054, T074-T103 |
+| FR-038 | T009-T011, T028-T030, T044-T055, T070-T073, T086-T103 | T012-T024, T031-T042, T048-T054, T074-T103 |
+| FR-039 | T009-T011, T028-T030, T044-T055, T070-T073, T086-T103 | T012-T024, T031-T042, T048-T054, T074-T103 |
+| FR-040 | T009-T011, T028-T030, T044-T055, T070-T073, T086-T103 | T012-T024, T031-T042, T048-T054, T074-T103 |
+| FR-041 | T009-T011, T028-T030, T044-T055, T070-T073, T086-T103 | T012-T024, T031-T042, T048-T054, T074-T103 |
+| FR-042 | T028-T030, T104 | T033, T038, T107, T108, T112 |
+| FR-043 | T104-T105 | T106-T110, T111-T112 |
+| FR-044 | T105 | T106-T110, T111-T112 |
+| FR-045 | T104 | T106-T109, T112 |
+| FR-046 | T105 | T106, T109-T110, T112 |
+| FR-047 | T105 | T106, T109, T112 |
+| FR-048 | T025-T030 | T031, T035-T043 |
+| FR-049 | T010, T019, T070, T077, T083, T113-T115, T124-T126 | T019, T077, T116-T119, T124-T126 |
+| FR-050 | T027 | T036, T040 |
+| FR-051 | T113-T115 | T116-T121 |
+| FR-052 | T113-T115 | T116-T121 |
+| FR-053 | T113-T115 | T116-T121 |
+| FR-054 | T113-T115 | T116-T121 |
+| FR-055 | T113-T115 | T116-T121 |
+| FR-056 | T113-T115 | T116-T121 |
+| FR-057 | T113-T115 | T116-T121 |
 
 Setup, quality, and approval-gate tasks are intentionally cross-cutting rather
 than FR-owned; their labels make that status explicit and prevent them from

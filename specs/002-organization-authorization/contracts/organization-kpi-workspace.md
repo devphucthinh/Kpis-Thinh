@@ -17,7 +17,11 @@ Authorization foundation.
 Feature 002 acceptance must not claim the future fields are implemented from
 fixtures, frontend calculations, or in-memory-only projections.
 
-## Implemented foundation endpoint
+## Foundation endpoint contract (implementation tracked by T117-T121)
+
+The transport contract is published for implementation and review. Runtime
+behavior is not considered complete until the RED tests and implementation
+tasks T113-T121 pass with PostgreSQL/restart and Razor evidence.
 
 `GET /api/v1/organizations/{organizationId}/organization-tree`
 
@@ -150,7 +154,7 @@ is authorized again through the Application decision interface.
 
 ## Acceptance split
 
-Feature 002 proves:
+Feature 002 acceptance scope (proved only after T113-T121 completes):
 
 1. approved-baseline tree data survives PostgreSQL/Web restart;
 2. Units expand only and Positions select context;

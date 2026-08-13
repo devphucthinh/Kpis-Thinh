@@ -170,11 +170,13 @@ tests/
     `-- OrganizationAuthorizationJourneyTests.cs
 ```
 
-**Structure Decision**: Extend the existing four-project modular monolith. The
-deep authorization module presents one decision interface to every command;
-in-memory and PostgreSQL adapters sit behind the same Application persistence
-seams. Web exposes presentation/transport only. No new project or horizontal
-pass-through layer is introduced.
+**Structure Decision**: Extend the existing four runtime projects
+(`Kpi.Web`, `Kpi.Application`, `Kpi.Domain`, and
+`Kpi.Infrastructure.Postgres`) plus the separate `Kpi.Migrator` schema-writing
+composition root. The deep authorization module presents one decision
+interface to every command; in-memory and PostgreSQL adapters sit behind the
+same Application persistence seams. Web exposes presentation/transport only.
+No new project or horizontal pass-through layer is introduced.
 
 ## Delivery Slices
 
