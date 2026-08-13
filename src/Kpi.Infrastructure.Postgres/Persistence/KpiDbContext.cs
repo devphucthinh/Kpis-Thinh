@@ -21,6 +21,11 @@ public sealed class KpiDbContext(DbContextOptions<KpiDbContext> options) : DbCon
     public DbSet<OrganizationReportingRelationshipRow> OrganizationReportingRelationships => Set<OrganizationReportingRelationshipRow>();
     public DbSet<OrganizationBaselineRow> OrganizationBaselines => Set<OrganizationBaselineRow>();
     public DbSet<BaselineApplicabilitySegmentRow> BaselineApplicabilitySegments => Set<BaselineApplicabilitySegmentRow>();
+    public DbSet<CustomKpiRoleRow> CustomKpiRoles => Set<CustomKpiRoleRow>();
+    public DbSet<CustomKpiRoleVersionRow> CustomKpiRoleVersions => Set<CustomKpiRoleVersionRow>();
+    public DbSet<CustomKpiRoleCapabilityRow> CustomKpiRoleCapabilities => Set<CustomKpiRoleCapabilityRow>();
+    public DbSet<RoleAssignmentRow> RoleAssignments => Set<RoleAssignmentRow>();
+    public DbSet<ApprovalDelegationRow> ApprovalDelegations => Set<ApprovalDelegationRow>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -199,3 +204,8 @@ public sealed class OrganizationPositionAssignmentRow : OrganizationScopedFactRo
 public sealed class OrganizationReportingRelationshipRow : OrganizationScopedFactRow { public Guid SubordinatePositionId { get; set; } public Guid ManagerPositionId { get; set; } public DateTimeOffset EffectiveFrom { get; set; } public DateTimeOffset? EffectiveTo { get; set; } public string RelationshipType { get; set; } = "line"; }
 public sealed class OrganizationBaselineRow : OrganizationScopedFactRow { public long StructureRevision { get; set; } public DateTimeOffset EffectiveFrom { get; set; } public string Status { get; set; } = string.Empty; public string SnapshotJson { get; set; } = "{}"; public string EvidenceJson { get; set; } = "{}"; public string ContentHash { get; set; } = string.Empty; public Guid? PreviousBaselineId { get; set; } }
 public sealed class BaselineApplicabilitySegmentRow : OrganizationScopedFactRow { public Guid BaselineId { get; set; } public DateTimeOffset EffectiveFrom { get; set; } public DateTimeOffset? EffectiveTo { get; set; } }
+public sealed class CustomKpiRoleRow { public Guid Id { get; set; } public Guid OrganizationId { get; set; } public string Name { get; set; } = string.Empty; public string Status { get; set; } = "Active"; public long Revision { get; set; } public uint RowVersion { get; set; } }
+public sealed class CustomKpiRoleVersionRow { public Guid Id { get; set; } public Guid OrganizationId { get; set; } public Guid RoleId { get; set; } public int VersionNumber { get; set; } public string Status { get; set; } = "Active"; public Guid CreatedBy { get; set; } public DateTimeOffset CreatedAt { get; set; } }
+public sealed class CustomKpiRoleCapabilityRow { public Guid OrganizationId { get; set; } public Guid RoleVersionId { get; set; } public string CapabilityId { get; set; } = string.Empty; }
+public sealed class RoleAssignmentRow { public Guid Id { get; set; } public Guid OrganizationId { get; set; } public Guid EmployeeId { get; set; } public Guid RoleVersionId { get; set; } public string ScopeKind { get; set; } = string.Empty; public Guid? ScopeTargetId { get; set; } public Guid? BaselineId { get; set; } public DateTimeOffset EffectiveFrom { get; set; } public DateTimeOffset? EffectiveTo { get; set; } public string Status { get; set; } = string.Empty; public long Revision { get; set; } public uint RowVersion { get; set; } }
+public sealed class ApprovalDelegationRow { public Guid Id { get; set; } public Guid OrganizationId { get; set; } public Guid OriginalActorId { get; set; } public Guid DelegateActorId { get; set; } public string CapabilityId { get; set; } = string.Empty; public string ScopeKind { get; set; } = string.Empty; public Guid? ScopeTargetId { get; set; } public Guid? BaselineId { get; set; } public DateTimeOffset EffectiveFrom { get; set; } public DateTimeOffset? EffectiveTo { get; set; } public string Status { get; set; } = string.Empty; }

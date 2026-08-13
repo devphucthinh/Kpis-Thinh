@@ -6,7 +6,7 @@ namespace Kpi.Application.Tests.Authorization;
 
 public sealed class AuthorizationDecisionContractTests
 {
-    [Fact]
+    [Fact(DisplayName = "FR-027 denied authorization exposes a stable reason and resource context")]
     public void Decision_denied_for_missing_capability_contains_stable_context()
     {
         var decision = AuthorizationDecision.Deny(
@@ -22,7 +22,7 @@ public sealed class AuthorizationDecisionContractTests
         Assert.Equal(3, decision.ResourceRevision);
     }
 
-    [Fact]
+    [Fact(DisplayName = "FR-017 capability identifiers are normalized and reject empty values")]
     public void Capability_id_is_trimmed_and_rejects_empty_values()
     {
         Assert.Equal("audit.timeline.view", new KpiCapabilityId(" audit.timeline.view ").Value);

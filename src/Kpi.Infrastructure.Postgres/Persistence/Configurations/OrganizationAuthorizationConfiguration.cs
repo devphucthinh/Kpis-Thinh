@@ -72,6 +72,43 @@ public static class OrganizationAuthorizationConfiguration
             b.HasIndex(x => new { x.OrganizationId, x.EffectiveFrom });
             b.HasOne<OrganizationBaselineRow>().WithMany().HasForeignKey(x => new { x.OrganizationId, x.BaselineId }).HasPrincipalKey(x => new { x.OrganizationId, x.Id }).OnDelete(DeleteBehavior.Restrict);
         });
+        modelBuilder.Entity<CustomKpiRoleRow>(b =>
+        {
+            b.ToTable("custom_kpi_roles"); b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id"); b.Property(x => x.OrganizationId).HasColumnName("organization_id");
+            b.Property(x => x.Name).HasColumnName("name"); b.Property(x => x.Status).HasColumnName("status"); b.Property(x => x.Revision).HasColumnName("revision"); b.Property(x => x.RowVersion).HasColumnName("xmin").IsRowVersion();
+            b.HasIndex(x => new { x.OrganizationId, x.Name }).IsUnique();
+            b.HasOne<OrganizationRow>().WithMany().HasForeignKey(x => x.OrganizationId).OnDelete(DeleteBehavior.Restrict);
+        });
+        modelBuilder.Entity<CustomKpiRoleVersionRow>(b =>
+        {
+            b.ToTable("custom_kpi_role_versions"); b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id"); b.Property(x => x.OrganizationId).HasColumnName("organization_id"); b.Property(x => x.RoleId).HasColumnName("role_id"); b.Property(x => x.VersionNumber).HasColumnName("version_number"); b.Property(x => x.Status).HasColumnName("status"); b.Property(x => x.CreatedBy).HasColumnName("created_by"); b.Property(x => x.CreatedAt).HasColumnName("created_at");
+            b.HasIndex(x => new { x.OrganizationId, x.RoleId, x.VersionNumber }).IsUnique();
+            b.HasOne<CustomKpiRoleRow>().WithMany().HasForeignKey(x => new { x.OrganizationId, x.RoleId }).HasPrincipalKey(x => new { x.OrganizationId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        });
+        modelBuilder.Entity<CustomKpiRoleCapabilityRow>(b =>
+        {
+            b.ToTable("custom_kpi_role_capabilities"); b.HasKey(x => new { x.OrganizationId, x.RoleVersionId, x.CapabilityId });
+            b.Property(x => x.OrganizationId).HasColumnName("organization_id"); b.Property(x => x.RoleVersionId).HasColumnName("role_version_id"); b.Property(x => x.CapabilityId).HasColumnName("capability_id");
+            b.HasOne<CustomKpiRoleVersionRow>().WithMany().HasForeignKey(x => new { x.OrganizationId, x.RoleVersionId }).HasPrincipalKey(x => new { x.OrganizationId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        });
+        modelBuilder.Entity<RoleAssignmentRow>(b =>
+        {
+            b.ToTable("role_assignments"); b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id"); b.Property(x => x.OrganizationId).HasColumnName("organization_id"); b.Property(x => x.EmployeeId).HasColumnName("employee_id"); b.Property(x => x.RoleVersionId).HasColumnName("role_version_id"); b.Property(x => x.ScopeKind).HasColumnName("scope_kind"); b.Property(x => x.ScopeTargetId).HasColumnName("scope_target_id"); b.Property(x => x.BaselineId).HasColumnName("baseline_id"); b.Property(x => x.EffectiveFrom).HasColumnName("effective_from"); b.Property(x => x.EffectiveTo).HasColumnName("effective_to"); b.Property(x => x.Status).HasColumnName("status"); b.Property(x => x.Revision).HasColumnName("revision"); b.Property(x => x.RowVersion).HasColumnName("xmin").IsRowVersion();
+            b.HasIndex(x => new { x.OrganizationId, x.EmployeeId, x.EffectiveFrom });
+            b.HasOne<OrganizationEmployeeRow>().WithMany().HasForeignKey(x => new { x.OrganizationId, x.EmployeeId }).HasPrincipalKey(x => new { x.OrganizationId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<CustomKpiRoleVersionRow>().WithMany().HasForeignKey(x => new { x.OrganizationId, x.RoleVersionId }).HasPrincipalKey(x => new { x.OrganizationId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<OrganizationBaselineRow>().WithMany().HasForeignKey(x => new { x.OrganizationId, x.BaselineId }).HasPrincipalKey(x => new { x.OrganizationId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+        });
+        modelBuilder.Entity<ApprovalDelegationRow>(b =>
+        {
+            b.ToTable("approval_delegations"); b.HasKey(x => x.Id);
+            b.Property(x => x.Id).HasColumnName("id"); b.Property(x => x.OrganizationId).HasColumnName("organization_id"); b.Property(x => x.OriginalActorId).HasColumnName("original_actor_id"); b.Property(x => x.DelegateActorId).HasColumnName("delegate_actor_id"); b.Property(x => x.CapabilityId).HasColumnName("capability_id"); b.Property(x => x.ScopeKind).HasColumnName("scope_kind"); b.Property(x => x.ScopeTargetId).HasColumnName("scope_target_id"); b.Property(x => x.BaselineId).HasColumnName("baseline_id"); b.Property(x => x.EffectiveFrom).HasColumnName("effective_from"); b.Property(x => x.EffectiveTo).HasColumnName("effective_to"); b.Property(x => x.Status).HasColumnName("status");
+            b.HasIndex(x => new { x.OrganizationId, x.DelegateActorId, x.EffectiveFrom });
+            b.HasOne<OrganizationRow>().WithMany().HasForeignKey(x => x.OrganizationId).OnDelete(DeleteBehavior.Restrict);
+        });
     }
 
     private static void ConfigureOrganizationScopedHead<TEntity>(EntityTypeBuilder<TEntity> b, string table, string uniqueColumn)

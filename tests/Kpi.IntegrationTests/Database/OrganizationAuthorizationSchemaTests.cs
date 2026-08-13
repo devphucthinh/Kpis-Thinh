@@ -74,6 +74,24 @@ public sealed class OrganizationAuthorizationSchemaTests
         Assert.Contains("REVOKE UPDATE, DELETE, TRUNCATE ON organization_baselines", sql, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact(DisplayName = "FR-023 FR-024 FR-031 FR-049 authorization facts have scoped role delegation schema")]
+    public void Authorization_fact_model_and_migration_expose_current_scope_inputs()
+    {
+        using var context = new KpiDbContext(new DbContextOptionsBuilder<KpiDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+        Assert.NotNull(context.Model.FindEntityType(typeof(CustomKpiRoleRow)));
+        Assert.NotNull(context.Model.FindEntityType(typeof(CustomKpiRoleVersionRow)));
+        Assert.NotNull(context.Model.FindEntityType(typeof(RoleAssignmentRow)));
+        Assert.NotNull(context.Model.FindEntityType(typeof(ApprovalDelegationRow)));
+        AssertColumn<RoleAssignmentRow>(context, "role_assignments", nameof(RoleAssignmentRow.ScopeKind), "scope_kind");
+        AssertColumn<RoleAssignmentRow>(context, "role_assignments", nameof(RoleAssignmentRow.EffectiveFrom), "effective_from");
+        AssertColumn<ApprovalDelegationRow>(context, "approval_delegations", nameof(ApprovalDelegationRow.DelegateActorId), "delegate_actor_id");
+
+        var sql = string.Join("\n", KpiMigrationManifest.Scripts.Select(script => script.Sql));
+        Assert.Contains("custom_kpi_role_capabilities", sql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("FOREIGN KEY (organization_id, role_version_id)", sql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("approval_delegations_delegate_fk", sql, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Fact(DisplayName = "FR-001 runtime composition isolates KpiRuntime from KpiMigration")]
     public void Runtime_composition_uses_runtime_connection_and_ignores_migration_connection()
     {

@@ -5,7 +5,7 @@ namespace Kpi.Domain.Tests.Auditing;
 
 public sealed class AuditRecordTests
 {
-    [Fact]
+    [Fact(DisplayName = "FR-033 audit records retain immutable governed facts")]
     public void Audit_record_is_immutable_and_contains_governed_facts()
     {
         var record = AuditRecord.Create(Guid.NewGuid(), Guid.NewGuid(), "KPI", Guid.NewGuid(), AuditEventType.Created, DateTimeOffset.UtcNow, "corr", reason: "reason");

@@ -35,17 +35,52 @@ public sealed class OrganizationUnitOfWorkTests
         Assert.Throws<InvalidOperationException>(() => unitOfWork.RecordAudit(foreignRecord));
     }
 
+    [Fact(DisplayName = "FR-033 command and audit use one transaction callback")]
+    public async Task Commit_command_overload_forwards_business_mutation_and_audit_together()
+    {
+        var organizationId = Guid.NewGuid();
+        var transaction = new RecordingTransaction();
+        var unitOfWork = new OrganizationUnitOfWork(organizationId, 4, transaction);
+        var record = AuditRecord.Create(organizationId, Guid.NewGuid(), "KpiPlan", Guid.NewGuid(), AuditEventType.Submitted,
+            DateTimeOffset.UtcNow, "corr-3");
+        unitOfWork.RecordAudit(record);
+
+        await unitOfWork.CommitAsync(async cancellationToken =>
+        {
+            await transaction.RecordCommandAsync(cancellationToken);
+        }, TestContext.Current.CancellationToken);
+
+        Assert.True(transaction.CommandRan);
+        Assert.Single(transaction.Records);
+    }
+
     private sealed class RecordingTransaction : IOrganizationTransaction
     {
         public Guid OrganizationId { get; private set; }
         public long ExpectedRevision { get; private set; }
         public IReadOnlyList<AuditRecord> Records { get; private set; } = [];
+        public bool CommandRan { get; private set; }
 
         public Task CommitAsync(Guid organizationId, long expectedRevision, IReadOnlyList<AuditRecord> records, CancellationToken cancellationToken = default)
         {
             OrganizationId = organizationId;
             ExpectedRevision = expectedRevision;
             Records = records;
+            return Task.CompletedTask;
+        }
+
+        public Task CommitAsync(Guid organizationId, long expectedRevision, Func<CancellationToken, Task> command, IReadOnlyList<AuditRecord> records, CancellationToken cancellationToken = default)
+        {
+            OrganizationId = organizationId;
+            ExpectedRevision = expectedRevision;
+            Records = records;
+            return command(cancellationToken);
+        }
+
+        public Task RecordCommandAsync(CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            CommandRan = true;
             return Task.CompletedTask;
         }
     }

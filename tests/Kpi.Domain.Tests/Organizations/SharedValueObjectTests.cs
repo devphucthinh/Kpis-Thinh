@@ -5,7 +5,7 @@ namespace Kpi.Domain.Tests.Organizations;
 
 public sealed class SharedValueObjectTests
 {
-    [Fact]
+    [Fact(DisplayName = "FR-001 FR-002 revision tokens are monotonic and reject invalid values")]
     public void Revision_token_advances_only_for_a_new_revision()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => new RevisionToken(-1));
@@ -17,7 +17,7 @@ public sealed class SharedValueObjectTests
         Assert.NotEqual(first, second);
     }
 
-    [Fact]
+    [Fact(DisplayName = "FR-017 stable status and capability codes are machine-safe")]
     public void Stable_status_and_capability_codes_are_non_empty_and_machine_safe()
     {
         Assert.Equal("active", StableOrganizationStatus.Active);

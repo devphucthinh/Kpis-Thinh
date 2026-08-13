@@ -1,4 +1,5 @@
 using Kpi.Application.Persistence;
+using Kpi.IntegrationTests.Fixtures;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
@@ -13,5 +14,15 @@ public sealed class DevelopmentIdentityCompositionTests(WebApplicationFactory<Pr
     {
         using var scope = factory.Services.CreateScope();
         Assert.NotNull(scope.ServiceProvider.GetService<IPlatformIdentityReader>());
+    }
+
+    [Fact(DisplayName = "FR-048 deterministic development persona fixture contains no credentials")]
+    public void Development_persona_fixture_is_stable_and_non_secret()
+    {
+        var fixture = new DevelopmentIdentityFixture();
+
+        Assert.Equal("employee-reference", fixture.ActorSubject);
+        Assert.NotEqual(Guid.Empty, DevelopmentIdentityFixture.OrganizationId);
+        Assert.DoesNotContain("Password", fixture.DelegateSubject, StringComparison.OrdinalIgnoreCase);
     }
 }

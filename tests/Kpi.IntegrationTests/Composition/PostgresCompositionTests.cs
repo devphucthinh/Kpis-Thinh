@@ -9,7 +9,7 @@ namespace Kpi.IntegrationTests.Composition;
 
 public sealed class PostgresCompositionTests
 {
-    [Fact]
+    [Fact(DisplayName = "FR-001 runtime persistence uses only the KpiRuntime connection")]
     public void Runtime_persistence_uses_KpiRuntime_and_ignores_legacy_or_migration_connections()
     {
         var configuration = new ConfigurationBuilder()
@@ -30,7 +30,7 @@ public sealed class PostgresCompositionTests
         Assert.Equal("Host=runtime;Database=kpi_lab;Username=runtime", context.Database.GetDbConnection().ConnectionString);
     }
 
-    [Fact]
+    [Fact(DisplayName = "FR-001 migration-only composition does not register runtime persistence")]
     public void Migration_only_configuration_does_not_register_runtime_persistence()
     {
         var configuration = new ConfigurationBuilder()

@@ -15,7 +15,7 @@ namespace Kpi.IntegrationTests.Database;
 
 public sealed class PersistenceModelTests
 {
-    [Fact]
+    [Fact(DisplayName = "FR-036 relational model preserves forward migration column names")]
     public void Relational_model_uses_the_forward_migration_column_names()
     {
         var options = new DbContextOptionsBuilder<KpiDbContext>()
@@ -33,10 +33,10 @@ public sealed class PersistenceModelTests
         AssertColumn<AuditRecordRow>(context, "audit_records", nameof(AuditRecordRow.EntityType), "entity_type");
     }
 
-    [Fact]
+    [Fact(DisplayName = "FR-036 product migration manifest is ordered and complete")]
     public void Product_migration_manifest_is_forward_only_and_has_sql_for_every_slice()
     {
-        Assert.Equal(10, KpiMigrationManifest.ProductMigrations.Count);
+        Assert.Equal(11, KpiMigrationManifest.ProductMigrations.Count);
         Assert.Equal(KpiMigrationManifest.ProductMigrations.Count, KpiMigrationManifest.Scripts.Count);
         Assert.All(KpiMigrationManifest.Scripts, migration =>
         {
@@ -53,9 +53,10 @@ public sealed class PersistenceModelTests
         Assert.Contains("kpi_evaluations", KpiMigrationManifest.Scripts[5].Sql, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("organization_baselines", KpiMigrationManifest.Scripts[8].Sql, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("authorization_evidence_json", KpiMigrationManifest.Scripts[9].Sql, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("role_assignments", KpiMigrationManifest.Scripts[10].Sql, StringComparison.OrdinalIgnoreCase);
     }
 
-    [Fact]
+    [Fact(DisplayName = "FR-033 formula and evaluation snapshots reload without data loss")]
     public async Task Formula_and_evaluation_snapshots_are_reloadable()
     {
         var options = new DbContextOptionsBuilder<KpiDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
@@ -64,7 +65,7 @@ public sealed class PersistenceModelTests
         await using (var context = new KpiDbContext(options)) { var loaded = await context.Versions.SingleAsync(TestContext.Current.CancellationToken); Assert.Contains("revenue / target", loaded.FormulaJson, StringComparison.Ordinal); }
     }
 
-    [Fact]
+    [Fact(DisplayName = "FR-033 definition and version snapshots round-trip through persistence")]
     public void Definition_and_version_round_trip_through_persistence_port()
     {
         var options = new DbContextOptionsBuilder<KpiDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
@@ -85,7 +86,7 @@ public sealed class PersistenceModelTests
         }
     }
 
-    [Fact]
+    [Fact(DisplayName = "FR-033 governed snapshots expose period evaluation and audit state")]
     public void Governed_snapshot_model_exposes_period_activation_amendment_evaluation_and_audit_json()
     {
         var options = new DbContextOptionsBuilder<KpiDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
@@ -103,7 +104,7 @@ public sealed class PersistenceModelTests
         Assert.Equal(1, context.AuditRecords.Count());
     }
 
-    [Fact]
+    [Fact(DisplayName = "FR-033 governed store serializes formula input outcome and audit evidence")]
     public void Governed_store_serializes_exact_formula_inputs_outcome_and_audit_snapshots()
     {
         var options = new DbContextOptionsBuilder<KpiDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;

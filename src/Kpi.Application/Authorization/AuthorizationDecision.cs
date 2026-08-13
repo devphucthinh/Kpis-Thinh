@@ -143,4 +143,12 @@ public sealed record AuthorizationFacts(
 public interface IAuthorizationFactsReader
 {
     Task<AuthorizationFacts> LoadAsync(ActorIdentity actor, AuthorizationResource resource, DateTimeOffset effectiveAt, CancellationToken cancellationToken);
+
+    Task<AuthorizationFacts> LoadAsync(
+        ActorIdentity actor,
+        AuthorizationResource resource,
+        DateTimeOffset effectiveAt,
+        RepresentedAuthority? representedAuthority,
+        KpiCapabilityId? capability,
+        CancellationToken cancellationToken) => LoadAsync(actor, resource, effectiveAt, cancellationToken);
 }

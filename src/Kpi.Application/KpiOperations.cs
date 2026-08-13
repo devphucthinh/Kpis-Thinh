@@ -23,9 +23,8 @@ public sealed class KpiOperations
         if (_store.FindByCode(code, actor.OrganizationId) is not null) return ApplicationResult<KpiDefinition>.Failure("KPI_CODE_CONFLICT", "KPI code already exists.", 409);
         var definition = KpiDefinition.Create(actor.OrganizationId, code, name, description, actor.ActorId);
         var audit = AuditRecord.Create(actor.OrganizationId, actor.ActorId, "KPI_DEFINITION", definition.Id, AuditEventType.Created, _clock.UtcNow, actor.CorrelationId, summary: definition.Code.Value);
-        _governedPersistence?.SaveAudit(audit);
+        CommitDefinition(definition, audit, addAuditToStore: false);
         _store.AddDefinition(definition, audit);
-        _persistence?.Save(definition);
         return ApplicationResult<KpiDefinition>.Success(definition);
     }
 
@@ -39,7 +38,7 @@ public sealed class KpiOperations
         var definition = _store.Find(definitionId); if (definition is null) return ApplicationResult<KpiVersion>.Failure("RESOURCE_NOT_FOUND", "KPI was not found.", 404);
         if (definition.OrganizationId != actor.OrganizationId) return ApplicationResult<KpiVersion>.Failure("ORGANIZATION_SCOPE_CONFLICT", "KPI belongs to another company.", 403);
         if (definition.OwnerId != actor.ActorId) return ApplicationResult<KpiVersion>.Failure("AUTHORIZATION_DENIED", "Only the owner can edit this draft.", 403);
-        try { var version = definition.CreateVersion(name, description, source, variables, resultType, changeSummary, cadence); AddAudit(AuditRecord.Create(actor.OrganizationId, actor.ActorId, "KPI_VERSION", version.Id, AuditEventType.Created, _clock.UtcNow, actor.CorrelationId)); _persistence?.Save(definition); return ApplicationResult<KpiVersion>.Success(version); }
+        try { var version = definition.CreateVersion(name, description, source, variables, resultType, changeSummary, cadence); CommitDefinition(definition, AuditRecord.Create(actor.OrganizationId, actor.ActorId, "KPI_VERSION", version.Id, AuditEventType.Created, _clock.UtcNow, actor.CorrelationId)); return ApplicationResult<KpiVersion>.Success(version); }
         catch (Exception ex) when (ex is ArgumentException or KpiDomainException) { return ApplicationResult<KpiVersion>.Failure("VALIDATION", ex.Message); }
     }
 
@@ -53,7 +52,7 @@ public sealed class KpiOperations
         if (definition.OrganizationId != actor.OrganizationId) return ApplicationResult<KpiDefinition>.Failure("ORGANIZATION_SCOPE_CONFLICT", "KPI belongs to another company.", 403);
         if (!actor.Can(KpiCapability.EditDraft) || definition.OwnerId != actor.ActorId) return ApplicationResult<KpiDefinition>.Failure("AUTHORIZATION_DENIED", "Only the owner can edit KPI metadata.", 403);
         if (!string.Equals(token.Value, definition.Revision.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal)) return ApplicationResult<KpiDefinition>.Failure("CONCURRENCY_CONFLICT", "The KPI changed; reload before editing.", 409);
-        try { definition.UpdateMetadata(name, description); AddAudit(AuditRecord.Create(actor.OrganizationId, actor.ActorId, "KPI_DEFINITION", definition.Id, AuditEventType.DraftUpdated, _clock.UtcNow, actor.CorrelationId)); _persistence?.Save(definition); return ApplicationResult<KpiDefinition>.Success(definition); }
+        try { definition.UpdateMetadata(name, description); CommitDefinition(definition, AuditRecord.Create(actor.OrganizationId, actor.ActorId, "KPI_DEFINITION", definition.Id, AuditEventType.DraftUpdated, _clock.UtcNow, actor.CorrelationId)); return ApplicationResult<KpiDefinition>.Success(definition); }
         catch (Exception ex) when (ex is ArgumentException or KpiDomainException) { return ApplicationResult<KpiDefinition>.Failure("VALIDATION", ex.Message); }
     }
 
@@ -78,7 +77,7 @@ public sealed class KpiOperations
         var found = FindVersion(definitionId, versionId); if (found is null) return ApplicationResult<KpiVersion>.Failure("RESOURCE_NOT_FOUND", "KPI Version was not found.", 404);
         if (found.Value.definition.OrganizationId != actor.OrganizationId) return ApplicationResult<KpiVersion>.Failure("ORGANIZATION_SCOPE_CONFLICT", "KPI belongs to another company.", 403);
         if (found.Value.definition.OwnerId != actor.ActorId) return ApplicationResult<KpiVersion>.Failure("AUTHORIZATION_DENIED", "Only the Creator can submit this Version.", 403);
-        try { found.Value.version.Submit(); AddAudit(AuditRecord.Create(actor.OrganizationId, actor.ActorId, "KPI_VERSION", versionId, AuditEventType.Submitted, _clock.UtcNow, actor.CorrelationId)); return ApplicationResult<KpiVersion>.Success(found.Value.version); } catch (KpiDomainException ex) { return ApplicationResult<KpiVersion>.Failure("LIFECYCLE_CONFLICT", ex.Message, 409); }
+        try { found.Value.version.Submit(); CommitDefinition(found.Value.definition, AuditRecord.Create(actor.OrganizationId, actor.ActorId, "KPI_VERSION", versionId, AuditEventType.Submitted, _clock.UtcNow, actor.CorrelationId)); return ApplicationResult<KpiVersion>.Success(found.Value.version); } catch (KpiDomainException ex) { return ApplicationResult<KpiVersion>.Failure("LIFECYCLE_CONFLICT", ex.Message, 409); }
     }
     public ApplicationResult<KpiVersion> ReviewVersion(ActorContext actor, Guid definitionId, Guid versionId, bool approve, string comment)
     {
@@ -86,7 +85,7 @@ public sealed class KpiOperations
         var found = FindVersion(definitionId, versionId); if (found is null) return ApplicationResult<KpiVersion>.Failure("RESOURCE_NOT_FOUND", "KPI Version was not found.", 404);
         if (found.Value.definition.OrganizationId != actor.OrganizationId) return ApplicationResult<KpiVersion>.Failure("ORGANIZATION_SCOPE_CONFLICT", "KPI belongs to another company.", 403);
         if (!actor.Can(KpiCapability.ReviewKpi) || actor.ActorId == found.Value.definition.OwnerId) return ApplicationResult<KpiVersion>.Failure("SELF_APPROVAL_FORBIDDEN", "A Creator cannot review their own Version.", 403);
-        try { if (approve) found.Value.version.Approve(comment); else found.Value.version.Reject(comment); AddAudit(AuditRecord.Create(actor.OrganizationId, actor.ActorId, "KPI_VERSION", versionId, approve ? AuditEventType.Approved : AuditEventType.Rejected, _clock.UtcNow, actor.CorrelationId, reason: comment)); return ApplicationResult<KpiVersion>.Success(found.Value.version); } catch (KpiDomainException ex) { return ApplicationResult<KpiVersion>.Failure("LIFECYCLE_CONFLICT", ex.Message, 409); }
+        try { if (approve) found.Value.version.Approve(comment); else found.Value.version.Reject(comment); CommitDefinition(found.Value.definition, AuditRecord.Create(actor.OrganizationId, actor.ActorId, "KPI_VERSION", versionId, approve ? AuditEventType.Approved : AuditEventType.Rejected, _clock.UtcNow, actor.CorrelationId, reason: comment)); return ApplicationResult<KpiVersion>.Success(found.Value.version); } catch (KpiDomainException ex) { return ApplicationResult<KpiVersion>.Failure("LIFECYCLE_CONFLICT", ex.Message, 409); }
     }
     public ApplicationResult<KpiVersion> PublishVersion(ActorContext actor, Guid definitionId, Guid versionId, DateTimeOffset effectiveFrom)
     {
@@ -108,8 +107,7 @@ public sealed class KpiOperations
             var next = existing.FirstOrDefault(x => x.EffectiveFrom > effectiveFrom);
             found.Value.version.Publish(effectiveFrom);
             if (next?.EffectiveFrom is not null) found.Value.version.SetEffectiveTo(next.EffectiveFrom.Value);
-            AddAudit(AuditRecord.Create(actor.OrganizationId, actor.ActorId, "KPI_VERSION", versionId, AuditEventType.Published, _clock.UtcNow, actor.CorrelationId));
-            _persistence?.Save(definition);
+            CommitDefinition(definition, AuditRecord.Create(actor.OrganizationId, actor.ActorId, "KPI_VERSION", versionId, AuditEventType.Published, _clock.UtcNow, actor.CorrelationId));
             return ApplicationResult<KpiVersion>.Success(found.Value.version);
         }
         catch (KpiDomainException ex) { return ApplicationResult<KpiVersion>.Failure("LIFECYCLE_CONFLICT", ex.Message, 409); }
@@ -123,16 +121,34 @@ public sealed class KpiOperations
         if (definitions.Count > 0 || organizationId is null) _store.ReplaceDefinitions(definitions);
     }
     public ApplicationResult<KpiDefinition> Archive(ActorContext actor, Guid definitionId)
-    { RefreshFromPersistence(actor.OrganizationId); var definition = _store.Find(definitionId); if (definition is null) return ApplicationResult<KpiDefinition>.Failure("RESOURCE_NOT_FOUND", "KPI was not found.", 404); if (definition.OrganizationId != actor.OrganizationId) return ApplicationResult<KpiDefinition>.Failure("ORGANIZATION_SCOPE_CONFLICT", "KPI belongs to another company.", 403); if (!actor.Can(KpiCapability.Administrator) && definition.OwnerId != actor.ActorId) return ApplicationResult<KpiDefinition>.Failure("AUTHORIZATION_DENIED", "Actor cannot archive this KPI.", 403); definition.Archive(); AddAudit(AuditRecord.Create(actor.OrganizationId, actor.ActorId, "KPI_DEFINITION", definition.Id, AuditEventType.Archived, _clock.UtcNow, actor.CorrelationId)); _persistence?.Save(definition); return ApplicationResult<KpiDefinition>.Success(definition); }
+    { RefreshFromPersistence(actor.OrganizationId); var definition = _store.Find(definitionId); if (definition is null) return ApplicationResult<KpiDefinition>.Failure("RESOURCE_NOT_FOUND", "KPI was not found.", 404); if (definition.OrganizationId != actor.OrganizationId) return ApplicationResult<KpiDefinition>.Failure("ORGANIZATION_SCOPE_CONFLICT", "KPI belongs to another company.", 403); if (!actor.Can(KpiCapability.Administrator) && definition.OwnerId != actor.ActorId) return ApplicationResult<KpiDefinition>.Failure("AUTHORIZATION_DENIED", "Actor cannot archive this KPI.", 403); definition.Archive(); CommitDefinition(definition, AuditRecord.Create(actor.OrganizationId, actor.ActorId, "KPI_DEFINITION", definition.Id, AuditEventType.Archived, _clock.UtcNow, actor.CorrelationId)); return ApplicationResult<KpiDefinition>.Success(definition); }
     public ApplicationResult<KpiDefinition> Restore(ActorContext actor, Guid definitionId)
-    { RefreshFromPersistence(actor.OrganizationId); var definition = _store.Find(definitionId); if (definition is null) return ApplicationResult<KpiDefinition>.Failure("RESOURCE_NOT_FOUND", "KPI was not found.", 404); if (definition.OrganizationId != actor.OrganizationId) return ApplicationResult<KpiDefinition>.Failure("ORGANIZATION_SCOPE_CONFLICT", "KPI belongs to another company.", 403); if (!actor.Can(KpiCapability.Administrator)) return ApplicationResult<KpiDefinition>.Failure("AUTHORIZATION_DENIED", "Only an administrator can restore a KPI.", 403); definition.Restore(); AddAudit(AuditRecord.Create(actor.OrganizationId, actor.ActorId, "KPI_DEFINITION", definition.Id, AuditEventType.Restored, _clock.UtcNow, actor.CorrelationId)); _persistence?.Save(definition); return ApplicationResult<KpiDefinition>.Success(definition); }
+    { RefreshFromPersistence(actor.OrganizationId); var definition = _store.Find(definitionId); if (definition is null) return ApplicationResult<KpiDefinition>.Failure("RESOURCE_NOT_FOUND", "KPI was not found.", 404); if (definition.OrganizationId != actor.OrganizationId) return ApplicationResult<KpiDefinition>.Failure("ORGANIZATION_SCOPE_CONFLICT", "KPI belongs to another company.", 403); if (!actor.Can(KpiCapability.Administrator)) return ApplicationResult<KpiDefinition>.Failure("AUTHORIZATION_DENIED", "Only an administrator can restore a KPI.", 403); definition.Restore(); CommitDefinition(definition, AuditRecord.Create(actor.OrganizationId, actor.ActorId, "KPI_DEFINITION", definition.Id, AuditEventType.Restored, _clock.UtcNow, actor.CorrelationId)); return ApplicationResult<KpiDefinition>.Success(definition); }
     public ApplicationResult<KpiDefinition> TransferOwnership(ActorContext actor, Guid definitionId, Guid newOwnerId, string reason)
-    { RefreshFromPersistence(actor.OrganizationId); var definition = _store.Find(definitionId); if (definition is null) return ApplicationResult<KpiDefinition>.Failure("RESOURCE_NOT_FOUND", "KPI was not found.", 404); if (definition.OrganizationId != actor.OrganizationId) return ApplicationResult<KpiDefinition>.Failure("ORGANIZATION_SCOPE_CONFLICT", "KPI belongs to another company.", 403); if (!actor.Can(KpiCapability.ReviewKpi) || string.IsNullOrWhiteSpace(reason)) return ApplicationResult<KpiDefinition>.Failure("AUTHORIZATION_DENIED", "Policy Approver and a reason are required.", 403); definition.TransferOwnership(newOwnerId); AddAudit(AuditRecord.Create(actor.OrganizationId, actor.ActorId, "KPI_DEFINITION", definition.Id, AuditEventType.DraftUpdated, _clock.UtcNow, actor.CorrelationId, reason: reason)); _persistence?.Save(definition); return ApplicationResult<KpiDefinition>.Success(definition); }
+    { RefreshFromPersistence(actor.OrganizationId); var definition = _store.Find(definitionId); if (definition is null) return ApplicationResult<KpiDefinition>.Failure("RESOURCE_NOT_FOUND", "KPI was not found.", 404); if (definition.OrganizationId != actor.OrganizationId) return ApplicationResult<KpiDefinition>.Failure("ORGANIZATION_SCOPE_CONFLICT", "KPI belongs to another company.", 403); if (!actor.Can(KpiCapability.ReviewKpi) || string.IsNullOrWhiteSpace(reason)) return ApplicationResult<KpiDefinition>.Failure("AUTHORIZATION_DENIED", "Policy Approver and a reason are required.", 403); definition.TransferOwnership(newOwnerId); CommitDefinition(definition, AuditRecord.Create(actor.OrganizationId, actor.ActorId, "KPI_DEFINITION", definition.Id, AuditEventType.DraftUpdated, _clock.UtcNow, actor.CorrelationId, reason: reason)); return ApplicationResult<KpiDefinition>.Success(definition); }
 
-    private void AddAudit(AuditRecord audit)
+    private void CommitDefinition(KpiDefinition definition, AuditRecord audit, bool addAuditToStore = true)
     {
-        _store.AddAudit(audit);
-        _governedPersistence?.SaveAudit(audit);
+        if (_persistence is null)
+        {
+            _governedPersistence?.SaveAudit(audit);
+            if (addAuditToStore) _store.AddAudit(audit);
+            return;
+        }
+
+        if (_governedPersistence is null)
+        {
+            _persistence.Save(definition);
+            if (addAuditToStore) _store.AddAudit(audit);
+            return;
+        }
+
+        _governedPersistence.ExecuteInTransaction(() =>
+        {
+            _persistence.Save(definition);
+            _governedPersistence.SaveAudit(audit);
+        });
+        if (addAuditToStore) _store.AddAudit(audit);
     }
 
     public ConcurrencyToken ConcurrencyToken(KpiVersion version) => new(version.Revision.ToString(CultureInfo.InvariantCulture));
@@ -145,7 +161,7 @@ public sealed class KpiOperations
         if (found.Value.definition.OrganizationId != actor.OrganizationId) return ApplicationResult<KpiVersion>.Failure("ORGANIZATION_SCOPE_CONFLICT", "KPI belongs to another company.", 403);
         if (found.Value.definition.OwnerId != actor.ActorId) return ApplicationResult<KpiVersion>.Failure("AUTHORIZATION_DENIED", "Only the owner can edit this draft.", 403);
         if (!Matches(found.Value.version, token)) return ApplicationResult<KpiVersion>.Failure("CONCURRENCY_CONFLICT", "The KPI Version changed; reload before editing.", 409);
-        try { found.Value.version.UpdateDraft(name, description, source, variables); AddAudit(AuditRecord.Create(actor.OrganizationId, actor.ActorId, "KPI_VERSION", versionId, AuditEventType.DraftUpdated, _clock.UtcNow, actor.CorrelationId)); _persistence?.Save(found.Value.definition); return ApplicationResult<KpiVersion>.Success(found.Value.version); }
+        try { found.Value.version.UpdateDraft(name, description, source, variables); CommitDefinition(found.Value.definition, AuditRecord.Create(actor.OrganizationId, actor.ActorId, "KPI_VERSION", versionId, AuditEventType.DraftUpdated, _clock.UtcNow, actor.CorrelationId)); return ApplicationResult<KpiVersion>.Success(found.Value.version); }
         catch (Exception ex) when (ex is ArgumentException or KpiDomainException) { return ApplicationResult<KpiVersion>.Failure("VALIDATION", ex.Message); }
     }
 
@@ -155,7 +171,7 @@ public sealed class KpiOperations
         if (found is null) return ApplicationResult<KpiVersion>.Failure("RESOURCE_NOT_FOUND", "KPI Version was not found.", 404);
         if (found.Value.definition.OrganizationId != actor.OrganizationId) return ApplicationResult<KpiVersion>.Failure("ORGANIZATION_SCOPE_CONFLICT", "KPI belongs to another company.", 403);
         if (!actor.Can(KpiCapability.EditDraft) || found.Value.definition.OwnerId != actor.ActorId) return ApplicationResult<KpiVersion>.Failure("AUTHORIZATION_DENIED", "Only the owner can return a rejected Version to Draft.", 403);
-        try { found.Value.version.ReturnToDraft(); AddAudit(AuditRecord.Create(actor.OrganizationId, actor.ActorId, "KPI_VERSION", versionId, AuditEventType.DraftUpdated, _clock.UtcNow, actor.CorrelationId, summary: "Returned to Draft")); _persistence?.Save(found.Value.definition); return ApplicationResult<KpiVersion>.Success(found.Value.version); }
+        try { found.Value.version.ReturnToDraft(); CommitDefinition(found.Value.definition, AuditRecord.Create(actor.OrganizationId, actor.ActorId, "KPI_VERSION", versionId, AuditEventType.DraftUpdated, _clock.UtcNow, actor.CorrelationId, summary: "Returned to Draft")); return ApplicationResult<KpiVersion>.Success(found.Value.version); }
         catch (KpiDomainException ex) { return ApplicationResult<KpiVersion>.Failure("LIFECYCLE_CONFLICT", ex.Message, 409); }
     }
 
@@ -165,7 +181,7 @@ public sealed class KpiOperations
         if (found is null) return ApplicationResult<KpiVersion>.Failure("RESOURCE_NOT_FOUND", "KPI Version was not found.", 404);
         if (found.Value.definition.OrganizationId != actor.OrganizationId) return ApplicationResult<KpiVersion>.Failure("ORGANIZATION_SCOPE_CONFLICT", "KPI belongs to another company.", 403);
         if (!actor.Can(KpiCapability.EditDraft) || found.Value.definition.OwnerId != actor.ActorId) return ApplicationResult<KpiVersion>.Failure("AUTHORIZATION_DENIED", "Only the owner can clone a Version.", 403);
-        try { var clone = found.Value.definition.CloneVersion(found.Value.version, changeSummary); AddAudit(AuditRecord.Create(actor.OrganizationId, actor.ActorId, "KPI_VERSION", clone.Id, AuditEventType.Created, _clock.UtcNow, actor.CorrelationId, summary: $"Cloned from {versionId}")); _persistence?.Save(found.Value.definition); return ApplicationResult<KpiVersion>.Success(clone); }
+        try { var clone = found.Value.definition.CloneVersion(found.Value.version, changeSummary); CommitDefinition(found.Value.definition, AuditRecord.Create(actor.OrganizationId, actor.ActorId, "KPI_VERSION", clone.Id, AuditEventType.Created, _clock.UtcNow, actor.CorrelationId, summary: $"Cloned from {versionId}")); return ApplicationResult<KpiVersion>.Success(clone); }
         catch (Exception ex) when (ex is ArgumentException or KpiDomainException) { return ApplicationResult<KpiVersion>.Failure("VALIDATION", ex.Message); }
     }
 
@@ -176,7 +192,7 @@ public sealed class KpiOperations
         if (found.Value.definition.OrganizationId != actor.OrganizationId) return ApplicationResult<KpiDefinition>.Failure("ORGANIZATION_SCOPE_CONFLICT", "KPI belongs to another company.", 403);
         if (!actor.Can(KpiCapability.EditDraft) || found.Value.definition.OwnerId != actor.ActorId) return ApplicationResult<KpiDefinition>.Failure("AUTHORIZATION_DENIED", "Only the owner can delete a Draft Version.", 403);
         if (!Matches(found.Value.version, token)) return ApplicationResult<KpiDefinition>.Failure("CONCURRENCY_CONFLICT", "The KPI Version changed; reload before deleting.", 409);
-        try { found.Value.definition.DeleteEligibleDraft(found.Value.version); AddAudit(AuditRecord.Create(actor.OrganizationId, actor.ActorId, "KPI_VERSION", versionId, AuditEventType.Deleted, _clock.UtcNow, actor.CorrelationId, summary: "Draft deletion tombstone")); _persistence?.Save(found.Value.definition); return ApplicationResult<KpiDefinition>.Success(found.Value.definition); }
+        try { found.Value.definition.DeleteEligibleDraft(found.Value.version); CommitDefinition(found.Value.definition, AuditRecord.Create(actor.OrganizationId, actor.ActorId, "KPI_VERSION", versionId, AuditEventType.Deleted, _clock.UtcNow, actor.CorrelationId, summary: "Draft deletion tombstone")); return ApplicationResult<KpiDefinition>.Success(found.Value.definition); }
         catch (KpiDomainException ex) { return ApplicationResult<KpiDefinition>.Failure("LIFECYCLE_CONFLICT", ex.Message, 409); }
     }
 

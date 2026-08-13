@@ -13,7 +13,7 @@ public sealed class AuthorizationDecisionService(IAuthorizationFactsReader facts
         if (actor.OrganizationId != resource.OrganizationId)
             return AuthorizationDecision.Deny(AuthorizationDecisionReason.OrganizationMismatch, actor.OrganizationId, capability, resource, effectiveAt);
 
-        var facts = await factsReader.LoadAsync(actor, resource, effectiveAt, cancellationToken);
+        var facts = await factsReader.LoadAsync(actor, resource, effectiveAt, representedAuthority, capability, cancellationToken);
         if (!facts.ResourceRevisionCurrent)
             return AuthorizationDecision.Deny(AuthorizationDecisionReason.ResourceRevisionStale, actor.OrganizationId, capability, resource, effectiveAt);
 

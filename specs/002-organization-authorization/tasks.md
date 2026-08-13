@@ -24,14 +24,14 @@ its Domain -> Application -> API -> Razor -> PostgreSQL -> restart path passes.
 **Purpose**: Establish the reference implementation seams, test profiles, and
 documentation structure without changing target repositories.
 
-- [ ] T001 Record the approved branch, .NET SDK `9.0.315`, PostgreSQL profile, and target-repository lock in `specs/002-organization-authorization/plan.md`
-- [ ] T002 [P] Create the feature test directory layout under `tests/Kpi.Domain.Tests/Organizations`, `tests/Kpi.Domain.Tests/Authorization`, `tests/Kpi.Domain.Tests/Approvals`, `tests/Kpi.Application.Tests/Organizations`, `tests/Kpi.Application.Tests/Authorization`, `tests/Kpi.Application.Tests/Approvals`, `tests/Kpi.IntegrationTests/Api`, `tests/Kpi.IntegrationTests/Database`, `tests/Kpi.IntegrationTests/Web`, and `tests/Kpi.Web.EndToEndTests`
-- [ ] T003 [P] [Setup] Add deterministic Development platform and Employee/account persona fixtures without credentials in `tests/Kpi.IntegrationTests/Fixtures/DevelopmentIdentityFixture.cs`
-- [ ] T004 [P] [Setup] Add the `Thinh-KPI-TEST` PostgreSQL launch/profile assertions in `tests/Kpi.IntegrationTests/Composition/TestProfileContractTests.cs`
-- [ ] T005 [P] Add the feature capability-code and stable-problem-code inventory test scaffold in `tests/Kpi.Application.Tests/Authorization/CapabilityCatalogContractTests.cs`
-- [ ] T006 [Setup] Add the feature evidence ledger and performance-measurement schema to `.scratch/bsc-kpi-reference/evidence.md`
-- [ ] T007 [P] Add OpenAPI/ref/operationId validation to `tests/Kpi.IntegrationTests/Api/OpenApiContractTests.cs`
-- [ ] T008 [Setup] Run `./harness.cmd bootstrap` and record the clean baseline build/provisioning result in `.scratch/bsc-kpi-reference/evidence.md`
+- [X] T001 Record the approved branch, .NET SDK `9.0.315`, PostgreSQL profile, and target-repository lock in `specs/002-organization-authorization/plan.md`
+- [X] T002 [P] Create the feature test directory layout under `tests/Kpi.Domain.Tests/Organizations`, `tests/Kpi.Domain.Tests/Authorization`, `tests/Kpi.Domain.Tests/Approvals`, `tests/Kpi.Application.Tests/Organizations`, `tests/Kpi.Application.Tests/Authorization`, `tests/Kpi.Application.Tests/Approvals`, `tests/Kpi.IntegrationTests/Api`, `tests/Kpi.IntegrationTests/Database`, `tests/Kpi.IntegrationTests/Web`, and `tests/Kpi.Web.EndToEndTests`
+- [X] T003 [P] [Setup] Add deterministic Development platform and Employee/account persona fixtures without credentials in `tests/Kpi.IntegrationTests/Fixtures/DevelopmentIdentityFixture.cs`
+- [X] T004 [P] [Setup] Add the `Thinh-KPI-TEST` PostgreSQL launch/profile assertions in `tests/Kpi.IntegrationTests/Composition/TestProfileContractTests.cs`
+- [X] T005 [P] Add the feature capability-code and stable-problem-code inventory test scaffold in `tests/Kpi.Application.Tests/Authorization/CapabilityCatalogContractTests.cs`
+- [X] T006 [Setup] Add the feature evidence ledger and performance-measurement schema to `.scratch/bsc-kpi-reference/evidence.md`
+- [X] T007 [P] Add OpenAPI/ref/operationId validation to `tests/Kpi.IntegrationTests/Api/OpenApiContractTests.cs`
+- [X] T008 [Setup] Run `./harness.cmd bootstrap` and record the clean baseline build/provisioning result in `.scratch/bsc-kpi-reference/evidence.md`
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
@@ -39,14 +39,14 @@ documentation structure without changing target repositories.
 identity seams required by every story. No story implementation may start until
 this phase is complete.
 
-**Gate status**: T009-T024 are complete with RED/GREEN tests, implementation
-evidence, and the canonical verification record in
-`.scratch/bsc-kpi-reference/evidence.md`. No User Story implementation is
-included in this checkpoint; the reference gate remains closed until a later
-explicit release decision.
+**Gate status**: T001-T024 are complete only when the checked tasks retain
+their exact FR/SC evidence below and the final bootstrap/check/PostgreSQL
+outputs are recorded in `.scratch/bsc-kpi-reference/evidence.md`. No User
+Story implementation is included in this reference checkpoint; the target
+repositories remain locked until human approval.
 
 - [X] T009 Write RED unit tests for Organization-scoped identity, half-open UTC effective intervals, revision tokens, and stable status/capability codes in `tests/Kpi.Domain.Tests/Organizations/SharedValueObjectTests.cs`
-- [X] T010 Write RED Application tests proving every governed action calls the same authorization seam and does not reuse a decision across actions in `tests/Kpi.Application.Tests/Authorization/AuthorizationFreshnessTests.cs`
+- [X] T010 Write RED Application tests proving `AuthorizationDecisionService` reloads current facts for each decision and does not reuse a decision across actions in `tests/Kpi.Application.Tests/Authorization/AuthorizationFreshnessTests.cs`
 - [X] T011 Write RED database tests for Organization foreign-key isolation, append-only facts, `xmin` concurrency, and migration/runtime connection separation in `tests/Kpi.IntegrationTests/Database/OrganizationAuthorizationSchemaTests.cs` and `tests/Kpi.IntegrationTests/Database/OrganizationAuthorizationPostgresTests.cs`; use `tests/Kpi.IntegrationTests/Composition/PostgresCompositionTests.cs` and `tests/Kpi.IntegrationTests/Web/PostgresRuntimeSelectionTests.cs` for the runtime/migration composition boundary.
 - [X] T012 [P] Define the immutable audit event/value objects and append-only writer port in `src/Kpi.Domain/Auditing/AuditRecord.cs` and `src/Kpi.Application/Persistence/IAuditWriter.cs`
 - [X] T013 [P] Define the Organization aggregate identity, time-zone, unit-of-work, and concurrency ports in `src/Kpi.Domain/Organizations/Organization.cs` and `src/Kpi.Application/Persistence/IOrganizationUnitOfWork.cs`
@@ -56,7 +56,7 @@ explicit release decision.
 - [X] T017 Add forward-only migrator scripts for shared audit, Organization heads, effective-range indexes, and append-only database protections in `src/Kpi.Infrastructure.Postgres/Migrations/`
 - [X] T018 Implement the shared Application transaction/pipeline that commits one command and its Audit Record atomically in `src/Kpi.Application/Persistence/OrganizationUnitOfWork.cs`
 - [X] T019 Implement authoritative current-fact authorization evaluation, including account/employment/role/scope/baseline/delegation loading and action-local-only memoization, in `src/Kpi.Application/Authorization/AuthorizationDecisionService.cs`
-- [X] T020 Add MVC/API Problem Details mapping for stable 400/403/404/409/422 codes, correlation IDs, and current concurrency/baseline context in `src/Kpi.Web/Api/V1/ProblemDetailsFactory.cs`
+- [X] T020 Add MVC/API Problem Details mapping for explicit stable 400/403/404/409/422 codes, correlation IDs, and current concurrency/baseline context in `src/Kpi.Web/Api/V1/ProblemDetailsFactory.cs`
 - [X] T021 Add the versioned `/api/v1` composition registrations for Domain, Application, PostgreSQL, platform identity, audit, and the explicit `Postgres` persistence profile in `src/Kpi.Web/Program.cs`
 - [X] T022 Add the migrator composition registrations using only `ConnectionStrings:KpiMigration` in `src/Kpi.Migrator/Program.cs`
 - [X] T023 Implement the fixed capability catalog loader and complete initial catalog contract in `src/Kpi.Application/Authorization/CapabilityCatalog.cs` and `src/Kpi.Application/Authorization/CapabilityCatalogRegistration.cs`

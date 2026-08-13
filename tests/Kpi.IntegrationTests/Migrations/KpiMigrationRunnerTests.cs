@@ -14,7 +14,7 @@ public sealed class KpiMigrationRunnerTests
 
     public KpiMigrationRunnerTests(MigrationDatabaseFixture fixture) => this.fixture = fixture;
 
-    [Fact]
+    [Fact(DisplayName = "FR-036 empty database applies ordered migrations with checksums")]
     public async Task Empty_test_database_applies_all_scripts_in_manifest_order_with_checksums()
     {
         fixture.RequireEnabled();
@@ -34,7 +34,7 @@ public sealed class KpiMigrationRunnerTests
         Assert.All(rows, row => Assert.False(string.IsNullOrWhiteSpace(row.Checksum)));
     }
 
-    [Fact]
+    [Fact(DisplayName = "FR-036 reapplying the manifest is idempotent")]
     public async Task Reapplying_the_same_manifest_is_a_no_op()
     {
         fixture.RequireEnabled();
@@ -49,7 +49,7 @@ public sealed class KpiMigrationRunnerTests
         Assert.Equal(KpiMigrationManifest.Scripts.Count, (long)(await count.ExecuteScalarAsync(TestContext.Current.CancellationToken) ?? -1L));
     }
 
-    [Fact]
+    [Fact(DisplayName = "FR-036 changed migration checksums are rejected")]
     public async Task A_changed_applied_script_is_rejected_with_a_stable_error()
     {
         fixture.RequireEnabled();
@@ -67,7 +67,7 @@ public sealed class KpiMigrationRunnerTests
         Assert.Equal("MIGRATION_CHECKSUM_MISMATCH", error.Message);
     }
 
-    [Fact]
+    [Fact(DisplayName = "FR-036 failed migration runs roll back ledger changes")]
     public async Task A_failed_migration_run_rolls_back_ledger_changes()
     {
         fixture.RequireEnabled();
@@ -93,7 +93,7 @@ public sealed class KpiMigrationRunnerTests
         Assert.Equal(0L, (long)(await count.ExecuteScalarAsync(TestContext.Current.CancellationToken) ?? -1L));
     }
 
-    [Fact]
+    [Fact(DisplayName = "FR-001 migration targets outside the local test allow-list are rejected")]
     public async Task A_database_outside_the_local_test_allow_list_is_rejected_before_open()
     {
         fixture.RequireEnabled();

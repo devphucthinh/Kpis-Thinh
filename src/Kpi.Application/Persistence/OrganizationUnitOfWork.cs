@@ -28,4 +28,12 @@ public sealed class OrganizationUnitOfWork(
         await transaction.CommitAsync(OrganizationId, ExpectedRevision, snapshot, cancellationToken);
         records.Clear();
     }
+
+    public async Task CommitAsync(Func<CancellationToken, Task> command, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+        var snapshot = records.ToArray();
+        await transaction.CommitAsync(OrganizationId, ExpectedRevision, command, snapshot, cancellationToken);
+        records.Clear();
+    }
 }

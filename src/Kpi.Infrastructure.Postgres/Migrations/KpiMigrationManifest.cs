@@ -14,7 +14,8 @@ public static class KpiMigrationManifest
         new("202608100001_RuntimePrivileges", RuntimePrivilegesSql),
         new("202608100002_PeriodPersistenceColumns", PeriodPersistenceColumnsSql),
         new("202608120001_OrganizationAuthorization", OrganizationAuthorizationSql),
-        new("202608130001_AuthorizationFoundation", AuthorizationFoundationSql)
+        new("202608130001_AuthorizationFoundation", AuthorizationFoundationSql),
+        new("202608130002_AuthorizationFacts", AuthorizationFactsSql)
     ];
 
     public static IReadOnlyList<string> ProductMigrations => Scripts.Select(x => x.Id).ToArray();
@@ -280,6 +281,81 @@ public static class KpiMigrationManifest
         CREATE UNIQUE INDEX IF NOT EXISTS baseline_segments_one_open_tail_uq
             ON organization_baseline_applicability_segments (organization_id)
             WHERE effective_to IS NULL;
+        """;
+
+    private const string AuthorizationFactsSql = """
+        CREATE TABLE IF NOT EXISTS custom_kpi_roles (
+            id uuid PRIMARY KEY,
+            organization_id uuid NOT NULL REFERENCES organizations(id),
+            name text NOT NULL,
+            status text NOT NULL DEFAULT 'Active',
+            revision bigint NOT NULL DEFAULT 0,
+            CONSTRAINT custom_kpi_roles_org_id_uq UNIQUE (organization_id, id),
+            CONSTRAINT custom_kpi_roles_name_uq UNIQUE (organization_id, name)
+        );
+        CREATE TABLE IF NOT EXISTS custom_kpi_role_versions (
+            id uuid PRIMARY KEY,
+            organization_id uuid NOT NULL REFERENCES organizations(id),
+            role_id uuid NOT NULL,
+            version_number integer NOT NULL,
+            status text NOT NULL DEFAULT 'Active',
+            created_by uuid NOT NULL,
+            created_at timestamptz NOT NULL DEFAULT now(),
+            CONSTRAINT custom_kpi_role_versions_org_id_uq UNIQUE (organization_id, id),
+            CONSTRAINT custom_kpi_role_versions_head_uq UNIQUE (organization_id, role_id, version_number),
+            CONSTRAINT custom_kpi_role_versions_role_fk FOREIGN KEY (organization_id, role_id) REFERENCES custom_kpi_roles(organization_id, id)
+        );
+        CREATE TABLE IF NOT EXISTS custom_kpi_role_capabilities (
+            organization_id uuid NOT NULL REFERENCES organizations(id),
+            role_version_id uuid NOT NULL,
+            capability_id text NOT NULL,
+            PRIMARY KEY (organization_id, role_version_id, capability_id),
+            CONSTRAINT custom_kpi_role_capabilities_version_fk FOREIGN KEY (organization_id, role_version_id) REFERENCES custom_kpi_role_versions(organization_id, id)
+        );
+        CREATE TABLE IF NOT EXISTS role_assignments (
+            id uuid PRIMARY KEY,
+            organization_id uuid NOT NULL REFERENCES organizations(id),
+            employee_id uuid NOT NULL,
+            role_version_id uuid NOT NULL,
+            scope_kind text NOT NULL,
+            scope_target_id uuid NULL,
+            baseline_id uuid NULL,
+            effective_from timestamptz NOT NULL,
+            effective_to timestamptz NULL,
+            status text NOT NULL,
+            revision bigint NOT NULL DEFAULT 0,
+            CONSTRAINT role_assignments_org_id_uq UNIQUE (organization_id, id),
+            CONSTRAINT role_assignments_employee_fk FOREIGN KEY (organization_id, employee_id) REFERENCES organization_employees(organization_id, id),
+            CONSTRAINT role_assignments_version_fk FOREIGN KEY (organization_id, role_version_id) REFERENCES custom_kpi_role_versions(organization_id, id),
+            CONSTRAINT role_assignments_baseline_fk FOREIGN KEY (organization_id, baseline_id) REFERENCES organization_baselines(organization_id, id),
+            CONSTRAINT role_assignments_interval_ck CHECK (effective_to IS NULL OR effective_to > effective_from)
+        );
+        CREATE INDEX IF NOT EXISTS role_assignments_effective_idx ON role_assignments (organization_id, employee_id, effective_from);
+        CREATE TABLE IF NOT EXISTS approval_delegations (
+            id uuid PRIMARY KEY,
+            organization_id uuid NOT NULL REFERENCES organizations(id),
+            original_actor_id uuid NOT NULL,
+            delegate_actor_id uuid NOT NULL,
+            capability_id text NOT NULL,
+            scope_kind text NOT NULL,
+            scope_target_id uuid NULL,
+            baseline_id uuid NULL,
+            effective_from timestamptz NOT NULL,
+            effective_to timestamptz NULL,
+            status text NOT NULL,
+            CONSTRAINT approval_delegations_org_id_uq UNIQUE (organization_id, id),
+            CONSTRAINT approval_delegations_original_fk FOREIGN KEY (organization_id, original_actor_id) REFERENCES organization_employees(organization_id, id),
+            CONSTRAINT approval_delegations_delegate_fk FOREIGN KEY (organization_id, delegate_actor_id) REFERENCES organization_employees(organization_id, id),
+            CONSTRAINT approval_delegations_interval_ck CHECK (effective_to IS NULL OR effective_to > effective_from),
+            CONSTRAINT approval_delegations_distinct_ck CHECK (original_actor_id <> delegate_actor_id)
+        );
+        CREATE INDEX IF NOT EXISTS approval_delegations_effective_idx ON approval_delegations (organization_id, delegate_actor_id, effective_from);
+        DO $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'kpi_runtime') THEN
+                GRANT SELECT ON custom_kpi_roles, custom_kpi_role_versions, custom_kpi_role_capabilities, role_assignments, approval_delegations TO kpi_runtime;
+            END IF;
+        END $$;
         """;
 }
 

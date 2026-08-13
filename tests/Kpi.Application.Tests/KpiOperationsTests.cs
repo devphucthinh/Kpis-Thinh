@@ -1,6 +1,11 @@
 using Kpi.Application;
 using Kpi.Application.Common;
+using Kpi.Application.Persistence;
+using Kpi.Domain.Auditing;
+using Kpi.Domain.Evaluations;
 using Kpi.Domain.Formula;
+using Kpi.Domain.Kpis;
+using Kpi.Domain.Periods;
 using Xunit;
 
 namespace Kpi.Application.Tests;
@@ -21,5 +26,52 @@ public sealed class KpiOperationsTests
         Assert.Equal(3, store.Audit.Count);
     }
 
+    [Fact(DisplayName = "FR-033 KPI definition command and audit are committed in one transaction")]
+    public void Definition_create_persists_business_and_audit_inside_same_transaction()
+    {
+        var definitionPersistence = new RecordingDefinitionPersistence();
+        var governedPersistence = new RecordingGovernedPersistence(definitionPersistence);
+        var operations = new KpiOperations(new InMemoryKpiStore(), new FixedClock(), definitionPersistence, governedPersistence);
+
+        var result = operations.CreateDefinition(ActorContext.Demo("creator"), "ATOMIC", "Atomic", "Test");
+
+        Assert.True(result.IsSuccess);
+        Assert.True(governedPersistence.TransactionUsed);
+        Assert.True(definitionPersistence.SavedInsideTransaction);
+        Assert.True(governedPersistence.AuditSavedInsideTransaction);
+    }
+
     private sealed class FixedClock : IClock { public DateTimeOffset UtcNow => new(2026, 8, 9, 0, 0, 0, TimeSpan.Zero); }
+
+    private sealed class RecordingDefinitionPersistence : IKpiDefinitionPersistence
+    {
+        public bool SavedInsideTransaction { get; private set; }
+        public bool InTransaction { get; set; }
+        public void Save(KpiDefinition definition) => SavedInsideTransaction = InTransaction;
+        public IReadOnlyList<KpiDefinition> LoadAll(Guid? organizationId = null) => [];
+    }
+
+    private sealed class RecordingGovernedPersistence : IKpiGovernedPersistence
+    {
+        private readonly RecordingDefinitionPersistence _definitionPersistence;
+        public bool TransactionUsed { get; private set; }
+        public bool AuditSavedInsideTransaction { get; private set; }
+        private bool _inTransaction;
+
+        public RecordingGovernedPersistence(RecordingDefinitionPersistence definitionPersistence) => _definitionPersistence = definitionPersistence;
+
+        public void ExecuteInTransaction(Action mutation)
+        {
+            TransactionUsed = true;
+            _inTransaction = true;
+            _definitionPersistence.InTransaction = true;
+            mutation();
+            _definitionPersistence.InTransaction = false;
+            _inTransaction = false;
+        }
+
+        public void SavePeriod(KpiPeriod period) { }
+        public void SaveEvaluation(Guid organizationId, KpiEvaluation evaluation) { }
+        public void SaveAudit(AuditRecord record) => AuditSavedInsideTransaction = _inTransaction;
+    }
 }

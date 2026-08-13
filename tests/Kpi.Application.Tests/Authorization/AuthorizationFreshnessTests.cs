@@ -5,7 +5,7 @@ namespace Kpi.Application.Tests.Authorization;
 
 public sealed class AuthorizationFreshnessTests
 {
-    [Fact]
+    [Fact(DisplayName = "FR-049 each governed authorization decision reloads current facts")]
     public async Task Each_governed_action_reloads_facts_and_does_not_reuse_a_prior_decision()
     {
         var actor = new ActorIdentity("employee-1", Guid.NewGuid(), Guid.NewGuid());
@@ -23,7 +23,7 @@ public sealed class AuthorizationFreshnessTests
         Assert.Equal(2, reader.LoadCount);
     }
 
-    [Fact]
+    [Fact(DisplayName = "FR-023 scope evidence is denied closed when current scope facts do not match")]
     public async Task Missing_scope_evidence_is_denied_closed()
     {
         var actor = new ActorIdentity("employee-1", Guid.NewGuid(), Guid.NewGuid());
